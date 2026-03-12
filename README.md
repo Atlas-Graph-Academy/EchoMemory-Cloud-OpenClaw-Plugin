@@ -22,11 +22,14 @@ Optional:
 - `batchSize`: default `10`
 - `requestTimeoutMs`: default `300000`
 
-The same values can also be provided through `.env` files under:
+The same values can also be provided through `.env` files. You can copy the provided `.env.example` to `.env` or `.env.local` for your project, or place it under:
 
 - `~/.openclaw/.env`
 - `~/.moltbot/.env`
 - `~/.clawdbot/.env`
+
+*(Note: The plugin does not read from `.env.example` directly. You must rename it to `.env` or `.env.local` and place it correctly for the environment loader to pick it up.)*
+
 
 Supported environment variables:
 

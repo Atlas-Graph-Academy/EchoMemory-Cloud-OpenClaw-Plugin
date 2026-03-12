@@ -10,11 +10,11 @@
     "properties": {
       "baseUrl": {
         "type": "string",
-        "description": "Echo backend base URL, for example https://your-echo-host.com"
+        "description": "Base URL for the Echo Memory Cloud API (e.g. from .env ECHOMEM_BASE_URL)"
       },
       "apiKey": {
         "type": "string",
-        "description": "Echo API key. Falls back to ECHOMEM_API_KEY from ~/.openclaw/.env, ~/.moltbot/.env, ~/.clawdbot/.env, or process env."
+        "description": "Your API Key for Echo Memory Cloud (e.g. from .env ECHOMEM_API_KEY)"
       },
       "autoSync": {
         "type": "boolean",
