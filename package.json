@@ -1,0 +1,34 @@
+{
+  "name": "@echomem/echo-memory-cloud-openclaw-plugin",
+  "version": "0.1.0",
+  "description": "OpenClaw plugin for syncing local markdown memory files to Echo cloud",
+  "type": "module",
+  "license": "MIT",
+  "author": "EchoMem",
+  "keywords": [
+    "echomem",
+    "openclaw",
+    "plugin",
+    "memory",
+    "markdown"
+  ],
+  "scripts": {
+    "sync-version": "node scripts/sync-version.js",
+    "version": "npm run sync-version && git add openclaw.plugin.json moltbot.plugin.json clawdbot.plugin.json"
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.js"
+    ]
+  },
+  "moltbot": {
+    "extensions": [
+      "./index.js"
+    ]
+  },
+  "clawdbot": {
+    "extensions": [
+      "./index.js"
+    ]
+  }
+}

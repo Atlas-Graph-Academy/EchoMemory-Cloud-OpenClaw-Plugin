@@ -52,5 +52,3 @@ tmp/
 temp/
 .cache/
 reports/
-
-docs/**/*.md
