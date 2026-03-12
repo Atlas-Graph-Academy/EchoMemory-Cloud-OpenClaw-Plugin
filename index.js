@@ -131,7 +131,10 @@ export default {
             };
           }
 
-          const payload = await client.searchMemories({ query: actionArgs });
+          const payload = await client.searchMemories({
+            query: actionArgs,
+            similarityThreshold: 0.3,
+          });
           return {
             text: formatSearchResultsText(actionArgs, payload),
           };
