@@ -1,19 +1,26 @@
 # Echo Memory Cloud OpenClaw Plugin
 
-Markdown-only v1 plugin for syncing OpenClaw local memory files into Echo cloud storage.
+Markdown-first plugin for syncing OpenClaw local memory files into Echo cloud storage and retrieving them during chat.
 
 ## What It Does
 
 - validates an Echo API key against Echo backend
 - scans top-level `.md` files in the configured memory directory
 - hashes file content and sends batches to the backend import endpoint
+- registers an agent tool so Slack conversations can search EchoMem during replies
+- exposes a manual search command for quick retrieval checks
 - runs on a schedule
-- exposes manual slash commands for sync, status, and auth checks
+- exposes manual slash commands for sync, status, search, and auth checks
 
 ## Required Config
 
 - `baseUrl`: Echo backend base URL, for example `https://your-echo-host.com`
 - `apiKey`: Echo API key starting with `ec_`
+
+Recommended scopes:
+
+- `ingest:write` for markdown sync
+- `memory:read` for retrieval and `/echo-memory search`
 
 Optional:
 
@@ -66,7 +73,7 @@ Example OpenClaw config override:
       "echo-memory-cloud-openclaw-plugin": {
         enabled: true,
         config: {
-          baseUrl: "http://localhost:3000",
+          baseUrl: "https://your-echo-host.com",
           apiKey: "ec_your_key_here",
           memoryDir: "C:\\Users\\your-user\\.openclaw\\workspace\\memory",
         },
@@ -75,3 +82,17 @@ Example OpenClaw config override:
   },
 }
 ```
+
+## Commands
+
+- `/echo-memory status`
+- `/echo-memory sync`
+- `/echo-memory whoami`
+- `/echo-memory search <query>`
+- `/echo-memory help`
+
+## Natural Retrieval In Chat
+
+When the plugin is loaded, it registers an `echo_memory_search` agent tool and adds prompt guidance for Slack conversations so OpenClaw can naturally pull EchoMem context before answering memory-dependent questions.
+
+If you disable plugin prompt injection in OpenClaw config, the manual `/echo-memory search` command still works, but the agent will be less likely to use memory automatically during normal chat turns.
