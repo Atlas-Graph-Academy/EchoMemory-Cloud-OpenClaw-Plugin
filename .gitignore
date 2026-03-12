@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+coverage/
+.turbo/
+.next/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+!.env.sample
+.npmrc
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Logs and runtime state
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Local packaging / archives
+*.tgz
+*.zip
+package/
+
+# OpenClaw / bot local data
+.openclaw/
+.moltbot/
+.clawdbot/
+workspace/
+memory/
+
+# Test and temp artifacts
+tmp/
+temp/
+.cache/
+reports/
+
+docs/**/*.md
