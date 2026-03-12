@@ -16,6 +16,10 @@
         "type": "string",
         "description": "Your API Key for Echo Memory Cloud (e.g. from .env ECHOMEM_API_KEY)"
       },
+      "memoryDir": {
+        "type": "string",
+        "description": "Absolute path to the markdown memory directory. Falls back to ECHOMEM_MEMORY_DIR, then ~/.openclaw/workspace/memory."
+      },
       "autoSync": {
         "type": "boolean",
         "default": true
