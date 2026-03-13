@@ -2,7 +2,7 @@
 import { buildConfig, getEnvFileStatus } from "./lib/config.js";
 import { createApiClient } from "./lib/api-client.js";
 import { formatSearchResultsText } from "./lib/echo-memory-search.js";
-import { createEchoMemorySearchTool } from "./lib/echo-memory-tool.js";
+import { createEchoMemoryGraphTool, createEchoMemorySearchTool } from "./lib/echo-memory-tool.js";
 import { createSyncRunner, formatStatusText } from "./lib/sync.js";
 import { readLastSyncState } from "./lib/state.js";
 
@@ -42,6 +42,7 @@ export default {
     });
 
     api.registerTool(createEchoMemorySearchTool(client));
+    api.registerTool(createEchoMemoryGraphTool(client, cfg));
     api.on("before_prompt_build", (_event, ctx) => {
       if (ctx.messageProvider && ctx.messageProvider !== "slack") {
         return;
@@ -49,8 +50,12 @@ export default {
       return {
         appendSystemContext: [
           "EchoMem cloud retrieval is available through the `echo_memory_search` tool.",
+          "Echo memory graph links are available through the `echo_memory_graph_link` tool.",
           "Use it when the conversation asks about prior facts, plans, decisions, dates, preferences, people, or when memory context would improve accuracy.",
           "Prefer it before answering memory-dependent questions instead of guessing.",
+          "Use `echo_memory_graph_link` when the user asks to open, see, view, or visit their memory graph or the public memory page.",
+          "Use `visibility: private` for the user's personal memory graph and `visibility: public` for the shared public memories page at iditor.com/memories.",
+          "When providing a graph link, include the returned URL directly in the Slack reply.",
         ].join("\n"),
       };
     });
