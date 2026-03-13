@@ -50,6 +50,7 @@ If OpenClaw prints `plugin not found: echo-memory-cloud-openclaw-plugin`, that i
 Optional config:
 
 - `memoryDir`: absolute path to the markdown memory directory
+- `webBaseUrl`: Echo web app base URL for public graph links, default `https://www.iditor.com`
 - `autoSync`: default `true`
 - `syncIntervalMinutes`: default `15`
 - `batchSize`: default `10`
@@ -70,6 +71,7 @@ Supported runtime `.env` locations:
 Supported environment variables:
 
 - `ECHOMEM_BASE_URL`
+- `ECHOMEM_WEB_BASE_URL`
 - `ECHOMEM_API_KEY`
 - `ECHOMEM_MEMORY_DIR`
 - `ECHOMEM_AUTO_SYNC`
@@ -81,6 +83,7 @@ Example `~/.openclaw/.env`:
 
 ```env
 ECHOMEM_BASE_URL=https://echo-mem-chrome.vercel.app
+ECHOMEM_WEB_BASE_URL=https://www.iditor.com
 ECHOMEM_API_KEY=ec_your_key_here
 ECHOMEM_MEMORY_DIR=C:\Users\your-user\.openclaw\workspace\memory
 ECHOMEM_AUTO_SYNC=false
@@ -110,6 +113,7 @@ Example `openclaw.json` config:
         enabled: true,
         config: {
           baseUrl: "https://echo-mem-chrome.vercel.app",
+          webBaseUrl: "https://www.iditor.com",
           apiKey: "ec_your_key_here",
           memoryDir: "C:\\Users\\your-user\\.openclaw\\workspace\\memory", // tweak it based on Mac or Windows environment
           autoSync: false,
@@ -209,6 +213,8 @@ After changing Slack auth config, restart `openclaw gateway`.
 - `/echo-memory sync`
 - `/echo-memory whoami`
 - `/echo-memory search <query>`
+- `/echo-memory graph`
+- `/echo-memory graph public`
 - `/echo-memory help`
 
 Recommended Slack smoke test order:

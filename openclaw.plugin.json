@@ -12,6 +12,10 @@
         "type": "string",
         "description": "Base URL for the Echo Memory Cloud API (e.g. from .env ECHOMEM_BASE_URL)"
       },
+      "webBaseUrl": {
+        "type": "string",
+        "description": "Base URL for the Echo web app used for public graph links (e.g. from .env ECHOMEM_WEB_BASE_URL)"
+      },
       "apiKey": {
         "type": "string",
         "description": "Your API Key for Echo Memory Cloud (e.g. from .env ECHOMEM_API_KEY)"
