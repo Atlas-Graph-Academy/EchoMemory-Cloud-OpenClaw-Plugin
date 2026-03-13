@@ -217,6 +217,11 @@ After changing Slack auth config, restart `openclaw gateway`.
 - `/echo-memory graph public`
 - `/echo-memory help`
 
+Graph link behavior:
+
+- `/echo-memory graph` opens your private personal memory graph through the secure handoff flow
+- `/echo-memory graph public` opens the shared public memories page at `https://www.iditor.com/memories`
+
 Recommended Slack smoke test order:
 
 1. `/echo-memory whoami`

@@ -26,13 +26,6 @@ function parseCommandArgs(rawArgs) {
   };
 }
 
-function normalizePublicGraphUrl(baseUrl, slug) {
-  const cleanBase = String(baseUrl || "").replace(/\/+$/, "");
-  const cleanSlug = String(slug || "").replace(/^\/+/, "");
-  if (!cleanBase || !cleanSlug) return "";
-  return `${cleanBase}/${cleanSlug}`;
-}
-
 export default {
   id: "echo-memory-cloud-openclaw-plugin",
   name: "Echo Memory Cloud OpenClaw Plugin",
@@ -165,37 +158,12 @@ export default {
           }
 
           if (graphMode === "public") {
-            try {
-              const status = await client.getPublicGraphStatus();
-              if (status?.is_published && status?.slug) {
-                return {
-                  text: [
-                    "Your public memory graph is live:",
-                    normalizePublicGraphUrl(cfg.webBaseUrl, status.slug),
-                  ].join("\n"),
-                };
-              }
-
-              const published = await client.publishPublicGraph();
-              if (published?.slug) {
-                return {
-                  text: [
-                    "Your public memory graph is live:",
-                    normalizePublicGraphUrl(cfg.webBaseUrl, published.slug),
-                  ].join("\n"),
-                };
-              }
-
-              throw new Error("Public graph publish did not return a slug");
-            } catch (error) {
-              const privateGraph = await client.createWebGraphLink().catch(() => null);
-              return {
-                text: [
-                  `Public graph is not ready yet: ${String(error?.message || error)}`,
-                  privateGraph?.url ? `Private graph instead: ${privateGraph.url}` : null,
-                ].filter(Boolean).join("\n"),
-              };
-            }
+            return {
+              text: [
+                "Open the public memory page:",
+                `${cfg.webBaseUrl}/memories`,
+              ].join("\n"),
+            };
           }
 
           return {
