@@ -3,11 +3,14 @@ import { buildConfig, getEnvFileStatus } from "./lib/config.js";
 import { createApiClient } from "./lib/api-client.js";
 import { formatSearchResultsText } from "./lib/echo-memory-search.js";
 import {
+  buildPrivateGraphLoginUrl,
   createEchoMemoryGraphTool,
+  createEchoMemoryOnboardTool,
   createEchoMemorySearchTool,
   createEchoMemoryStatusTool,
   createEchoMemorySyncTool,
 } from "./lib/echo-memory-tool.js";
+import { buildOnboardingText } from "./lib/onboarding.js";
 import { createSyncRunner, formatStatusText } from "./lib/sync.js";
 import { readLastSyncState } from "./lib/state.js";
 
@@ -47,6 +50,7 @@ export default {
     });
 
     api.registerTool(createEchoMemorySearchTool(client));
+    api.registerTool(createEchoMemoryOnboardTool(cfg, resolveCommandLabel("slack")));
     api.registerTool(createEchoMemoryGraphTool(client, cfg));
     api.registerTool(createEchoMemoryStatusTool(client, syncRunner));
     api.registerTool(createEchoMemorySyncTool(client, syncRunner));
@@ -57,13 +61,16 @@ export default {
       return {
         appendSystemContext: [
           "EchoMem cloud retrieval is available through the `echo_memory_search` tool.",
+          "Echo Memory setup and usage guidance is available through the `echo_memory_onboard` tool.",
           "Echo memory graph links are available through the `echo_memory_graph_link` tool.",
           "Echo sync inspection is available through the `echo_memory_status` tool.",
           "Echo markdown-to-cloud sync is available through the `echo_memory_sync` tool.",
           "Use it when the conversation asks about prior facts, plans, decisions, dates, preferences, people, or when memory context would improve accuracy.",
           "Prefer it before answering memory-dependent questions instead of guessing.",
+          "Use `echo_memory_onboard` when the user asks how to install, set up, configure, authenticate, or use the plugin, or asks about signup, API keys, commands, graph access, or troubleshooting.",
           "Use `echo_memory_graph_link` when the user asks to open, see, view, or visit their memory graph or the public memory page.",
-          "Use `visibility: private` for the user's personal memory graph and `visibility: public` for the shared public memories page at iditor.com/memories.",
+          "Use `visibility: private` for the user's personal memory graph login page and `visibility: public` for the shared public memories page at iditor.com/memories.",
+          "Private graph access from OpenClaw intentionally requires a fresh login at iditor.com/login?next=/memory-graph instead of an auto-login bridge link.",
           "When providing a graph link, include the returned URL directly in the Slack reply.",
           "Use `echo_memory_status` when the user asks about sync health, import progress, last sync, recent imports, or whether Echo memory is working.",
           "Use `echo_memory_sync` when the user explicitly asks to sync, refresh, import, upload, or push local markdown memories into Echo cloud.",
@@ -115,6 +122,7 @@ export default {
               `${commandLabel} search <query>`,
               `${commandLabel} graph`,
               `${commandLabel} graph public`,
+              `${commandLabel} onboard`,
               `${commandLabel} sync`,
               `${commandLabel} whoami`,
               `${commandLabel} help`,
@@ -132,6 +140,15 @@ export default {
               `- scopes: ${Array.isArray(whoami.scopes) ? whoami.scopes.join(", ") : "(none)"}`,
             ].join("\n"),
           };
+        }
+
+        if (action === "onboard") {
+          const guide = buildOnboardingText({
+            topic: actionArgs,
+            commandLabel,
+            cfg,
+          });
+          return { text: guide.text };
         }
 
         if (action === "sync") {
@@ -162,13 +179,12 @@ export default {
           const graphMode = String(actionArgs || "").trim().toLowerCase();
 
           if (!graphMode || graphMode === "private") {
-            const payload = await client.createWebGraphLink();
-            const expiresAt = typeof payload.expires_at === "string" ? payload.expires_at : null;
+            const url = buildPrivateGraphLoginUrl(cfg);
             return {
               text: [
-                "Open your private memory graph:",
-                String(payload.url || ""),
-                expiresAt ? `Link expires at: ${expiresAt}` : null,
+                "Log in again to open your private memory graph:",
+                url,
+                "This intentionally requires a fresh web login for security.",
               ].filter(Boolean).join("\n"),
             };
           }

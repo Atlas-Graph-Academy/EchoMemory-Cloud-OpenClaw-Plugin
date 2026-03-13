@@ -21,7 +21,7 @@ The plugin runs inside OpenClaw. The only external service it needs is an EchoMe
 
 You need an EchoMemory account and an API key before this plugin can sync or search anything.
 
-1. Sign up for an EchoMemory account at `https://www.iditor.com/waitlist`
+1. Sign up for an EchoMemory account at `http://iditor.com/signup/openclaw`
 2. Generate an API key at `https://www.iditor.com/api`
 3. Use that API key in the plugin config as `apiKey`
 
@@ -96,30 +96,30 @@ Example `openclaw.json` config:
 
 ```json5
 {
-  channels: {
-    slack: {
-      mode: "socket",
-      enabled: true,
-      groupPolicy: "allowlist",
-      allowFrom: ["U1234567890"], // replace with your slack user id
-      channels: {
-        "C0123456789": { allow: true }, // replace with your slack channel id
+  "channels": {
+    "slack": {
+      "mode": "socket",
+      "enabled": true,
+      "groupPolicy": "allowlist",
+      "allowFrom": ["U1234567890"], // replace with your slack user id
+      "channels": {
+        "C0123456789": { "allow": true }, // replace with your slack channel id
       },
     },
   },
-  plugins: {
-    entries: {
+  "plugins": {
+    "entries": {
       "echo-memory-cloud-openclaw-plugin": {
-        enabled: true,
-        config: {
-          baseUrl: "https://echo-mem-chrome.vercel.app",
-          webBaseUrl: "https://www.iditor.com",
-          apiKey: "ec_your_key_here",
-          memoryDir: "C:\\Users\\your-user\\.openclaw\\workspace\\memory", // tweak it based on Mac or Windows environment
-          autoSync: false,
-          syncIntervalMinutes: 15,
-          batchSize: 10,
-          requestTimeoutMs: 300000,
+        "enabled": true,
+        "config": {
+          "baseUrl": "https://echo-mem-chrome.vercel.app",
+          "webBaseUrl": "https://www.iditor.com",
+          "apiKey": "ec_your_key_here",
+          "memoryDir": "C:\\Users\\your-user\\.openclaw\\workspace\\memory", // tweak it based on Mac or Windows environment
+          "autoSync": false,
+          "syncIntervalMinutes": 15,
+          "batchSize": 10,
+          "requestTimeoutMs": 300000,
         },
       },
     },
@@ -174,13 +174,13 @@ Example:
 
 ```json5
 {
-  channels: {
-    slack: {
-      groupPolicy: "allowlist",
-      allowFrom: ["U1234567890"],
-      channels: {
+  "channels": {
+    "slack": {
+      "groupPolicy": "allowlist",
+      "allowFrom": ["U1234567890"],
+      "channels": {
         "C0123456789": {
-          allow: true,
+          "allow": true,
         },
       },
     },
@@ -192,12 +192,12 @@ For a narrow per-channel allowlist:
 
 ```json5
 {
-  channels: {
-    slack: {
-      channels: {
+  "channels": {
+    "slack": {
+      "channels": {
         "C0123456789": {
-          allow: true,
-          users: ["U1234567890"],
+          "allow": true,
+          "users": ["U1234567890"],
         },
       },
     },
@@ -215,12 +215,20 @@ After changing Slack auth config, restart `openclaw gateway`.
 - `/echo-memory search <query>`
 - `/echo-memory graph`
 - `/echo-memory graph public`
+- `/echo-memory onboard`
+- `/echo-memory onboard <topic>`
 - `/echo-memory help`
 
 Graph link behavior:
 
-- `/echo-memory graph` opens your private personal memory graph through the secure handoff flow
+- `/echo-memory graph` opens `https://www.iditor.com/login?next=/memory-graph` so you log in again before accessing your private personal memory graph
 - `/echo-memory graph public` opens the shared public memories page at `https://www.iditor.com/memories`
+
+Onboarding behavior:
+
+- `/echo-memory onboard` returns the full setup and usage guide
+- `/echo-memory onboard signup|setup|commands|graph|operations|troubleshooting` returns focused help
+- natural-language setup questions can also trigger the onboarding tool during normal chat
 
 Recommended Slack smoke test order:
 
