@@ -7,11 +7,26 @@
   display: flex;
   flex-direction: column;
   padding: 8px 10px;
-  transition: box-shadow 0.12s, transform 0.12s;
+  contain: layout style paint;
+  /* Fade in when entering viewport from placeholder */
+  animation: cardFadeIn 0.5s ease-out both;
+}
+
+@keyframes cardFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 .card:hover {
   box-shadow: 0 4px 16px rgba(0,0,0,0.3);
   z-index: 10;
+}
+
+/* LOD 0: pure rectangle, no interactivity overhead */
+.card-lod0 {
+  position: absolute;
+  border-radius: 3px;
+  contain: strict;
+  pointer-events: none;
 }
 
 /* Header: name + sync stamp on same row */
@@ -47,10 +62,15 @@
 
 /* Session log cards — subdued, de-emphasized */
 .card-session-log {
-  opacity: 0.5;
+  animation: cardFadeInLog 0.5s ease-out both;
 }
 .card-session-log:hover {
   opacity: 0.75;
+}
+
+@keyframes cardFadeInLog {
+  from { opacity: 0; }
+  to   { opacity: 0.5; }
 }
 
 .session-badge {
