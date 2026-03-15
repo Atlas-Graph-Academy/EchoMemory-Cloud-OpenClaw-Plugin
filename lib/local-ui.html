@@ -3,427 +3,835 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Echo Memory — Your OpenClaw Workspace</title>
+  <title>OpenClaw Memory Archive</title>
   <style>
+    :root {
+      /* Card dimensions */
+      --card-w: 320px;
+      --card-pad: 20px;
+      --card-gap: 8px;
+      --card-radius: 3px;
+      /* Typography — uniform across all cards */
+      --font-body: 13px/1.65 'IBM Plex Mono', 'SF Mono', 'Fira Code', ui-monospace, monospace;
+      --font-h1: 600 16px/1.3 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --font-h2: 600 14px/1.3 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --font-h3: 600 12.5px/1.3 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --font-meta: 11px/1.4 -apple-system, BlinkMacSystemFont, sans-serif;
+      /* Tier colors */
+      --tier1-bg: #fefcf3;
+      --tier1-border: #d4a574;
+      --tier1-accent: #8b5e3c;
+      --tier2-bg: #f8f9fc;
+      --tier2-border: #a0b4d4;
+      --tier2-accent: #4a6fa5;
+      --tier3-bg: #f2f2f4;
+      --tier3-border: #c8c8cc;
+      --tier3-accent: #888;
+      /* Canvas */
+      --canvas-bg: #1a1a22;
+      --section-label: rgba(255,255,255,0.06);
+    }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background: #0a0a0f;
+      background: var(--canvas-bg);
       color: #e0e0f0;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       height: 100vh;
+      overflow: hidden;
       display: flex;
       flex-direction: column;
-      overflow: hidden;
-    }
-    header {
-      padding: 12px 20px;
-      border-bottom: 1px solid #1e1e2e;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-shrink: 0;
-    }
-    header h1 { font-size: 18px; font-weight: 600; color: #a78bfa; }
-    .main { display: flex; flex: 1; overflow: hidden; }
-    .sidebar {
-      width: 280px;
-      min-width: 220px;
-      border-right: 1px solid #1e1e2e;
-      overflow-y: auto;
-      padding: 8px 4px;
-      flex-shrink: 0;
-    }
-    .preview { flex: 1; overflow-y: auto; padding: 24px; }
-    .placeholder {
-      color: #444;
-      font-style: italic;
-      margin-top: 60px;
-      text-align: center;
-      font-size: 14px;
-    }
-    .group { margin-bottom: 2px; }
-    .group-header {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 5px 8px;
-      font-size: 13px;
-      font-weight: 600;
-      color: #a78bfa;
-      cursor: pointer;
-      border-radius: 4px;
+      cursor: grab;
       user-select: none;
     }
-    .group-header:hover { background: #13131f; }
-    .group-toggle { font-size: 10px; transition: transform 0.15s; display: inline-block; }
-    .group-toggle.collapsed { transform: rotate(-90deg); }
-    .group-count { color: #666; font-weight: 400; font-size: 12px; }
-    .group-files.hidden { display: none; }
-    .file-item {
+    body.grabbing { cursor: grabbing; }
+
+    /* ── Header bar ─────────────────────────── */
+    .hdr {
+      height: 44px;
+      background: rgba(10,10,15,0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid #2a2a36;
       display: flex;
       align-items: center;
-      gap: 6px;
-      padding: 3px 8px 3px 22px;
-      font-size: 12px;
-      cursor: pointer;
-      border-radius: 4px;
-      color: #b0b0c8;
-      white-space: nowrap;
-    }
-    .file-item:hover { background: #13131f; }
-    .file-item.active { background: #1e1e3f; color: #a78bfa; }
-    .file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; }
-    .file-size { color: #555; font-size: 11px; flex-shrink: 0; }
-    .badge-new { background:#064e3b; color:#4ade80; font-size:10px; padding:1px 5px; border-radius:9px; flex-shrink:0; font-weight:600; }
-    .badge-modified { background:#422006; color:#fbbf24; font-size:10px; padding:1px 5px; border-radius:9px; flex-shrink:0; font-weight:600; }
-    .footer {
-      padding: 8px 20px;
-      border-top: 1px solid #1e1e2e;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      font-size: 12px;
-      color: #555;
+      padding: 0 16px;
+      gap: 12px;
+      z-index: 100;
       flex-shrink: 0;
     }
-    .footer .local-badge { color: #f59e0b; }
-    .footer .stats { color: #444; }
-    /* Markdown */
-    .md h1 {
-      font-size: 22px; font-weight: 700; color: #a78bfa;
-      margin: 0 0 12px; padding-bottom: 8px;
-      border-bottom: 1px solid #1e1e2e;
+    .hdr-title { font-size: 14px; font-weight: 600; color: #a78bfa; letter-spacing: 0.3px; }
+    .hdr-search {
+      background: #16161f;
+      border: 1px solid #2a2a36;
+      border-radius: 6px;
+      color: #c0c0d8;
+      font-size: 12px;
+      padding: 5px 10px;
+      width: 200px;
+      outline: none;
+      transition: border-color 0.2s;
     }
-    .md h2 { font-size: 17px; font-weight: 600; color: #818cf8; margin: 20px 0 8px; }
-    .md h3 { font-size: 14px; font-weight: 600; color: #6366f1; margin: 16px 0 6px; }
-    .md p { margin: 6px 0; line-height: 1.7; font-size: 14px; }
-    .md strong { font-weight: 700; color: #e0e0f0; }
-    .md em { font-style: italic; color: #c084fc; }
-    .md code {
-      background: #1e1e2e; color: #7dd3fc;
-      padding: 1px 5px; border-radius: 3px;
-      font-family: 'SF Mono', 'Fira Code', monospace; font-size: 13px;
+    .hdr-search:focus { border-color: #a78bfa; }
+    .hdr-search::placeholder { color: #555; }
+    .hdr-spacer { flex: 1; }
+    .hdr-meta { font-size: 11px; color: #555; }
+    .hdr-meta b { color: #777; font-weight: 500; }
+    .hdr-conn { font-size: 11px; }
+    .hdr-zoom { font-size: 11px; color: #555; min-width: 48px; text-align: center; }
+
+    /* ── Canvas viewport ────────────────────── */
+    #viewport {
+      flex: 1;
+      overflow: hidden;
+      position: relative;
     }
-    .md pre {
-      background: #0d0d1a; border: 1px solid #1e1e2e;
-      border-radius: 6px; padding: 14px;
-      margin: 10px 0; overflow-x: auto;
+    #canvas {
+      position: absolute;
+      top: 0; left: 0;
+      transform-origin: 0 0;
+      /* transform set by JS */
     }
-    .md pre code { background: none; padding: 0; color: #7dd3fc; font-size: 13px; }
-    .md ul { margin: 6px 0 6px 22px; }
-    .md li { margin: 3px 0; line-height: 1.6; font-size: 14px; }
-    .md hr { border: none; border-top: 1px solid #1e1e2e; margin: 18px 0; }
-    ::-webkit-scrollbar { width: 5px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #2a2a3e; border-radius: 3px; }
+
+    /* ── Section labels on canvas ───────────── */
+    .section-label {
+      position: absolute;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.12);
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    /* ── File card ───────────────────────────── */
+    .card {
+      position: absolute;
+      width: var(--card-w);
+      border-radius: var(--card-radius);
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.08);
+      transition: box-shadow 0.2s, opacity 0.3s, filter 0.3s;
+      cursor: pointer;
+    }
+    .card:hover {
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4), 0 0 0 1px rgba(0,0,0,0.12);
+      z-index: 10;
+    }
+    .card.active {
+      box-shadow: 0 6px 24px rgba(167,139,250,0.3), 0 0 0 2px #a78bfa;
+      z-index: 20;
+    }
+    .card.dimmed { opacity: 0.35; filter: brightness(0.7); }
+
+    /* Card tier styles */
+    .card.tier1 { background: var(--tier1-bg); border-left: 3px solid var(--tier1-border); }
+    .card.tier2 { background: var(--tier2-bg); border-left: 3px solid var(--tier2-border); }
+    .card.tier3 { background: var(--tier3-bg); border-left: 3px solid var(--tier3-border); opacity: 0.65; }
+
+    /* Card header */
+    .card-head {
+      padding: 10px var(--card-pad) 8px;
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+    .card-head .card-name {
+      font: var(--font-h2);
+      color: #2a2a2a;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .card.tier1 .card-name { color: var(--tier1-accent); }
+    .card.tier2 .card-name { color: var(--tier2-accent); }
+    .card.tier3 .card-name { color: var(--tier3-accent); }
+
+    .card-date { font: var(--font-meta); color: #999; white-space: nowrap; }
+
+    /* Status stamps */
+    .stamp {
+      position: absolute;
+      top: 8px;
+      right: 10px;
+      font: 700 9px/1 -apple-system, sans-serif;
+      letter-spacing: 0.5px;
+      padding: 3px 7px;
+      border-radius: 2px;
+      transform: rotate(-3deg);
+      pointer-events: none;
+      border: 1.5px solid;
+      text-transform: uppercase;
+    }
+    .stamp-new { color: #1d6fa3; border-color: #1d6fa3; background: rgba(29,111,163,0.08); }
+    .stamp-mod { color: #b87a1a; border-color: #b87a1a; background: rgba(184,122,26,0.08); }
+    .stamp-synced { color: #2d8a56; border-color: #2d8a56; background: rgba(45,138,86,0.08); }
+
+    /* Bookmark ribbon */
+    .ribbon {
+      position: absolute;
+      top: -2px;
+      right: 18px;
+      width: 16px;
+      height: 28px;
+      pointer-events: none;
+    }
+    .ribbon::after {
+      content: '';
+      display: block;
+      width: 16px;
+      height: 28px;
+      clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 75%, 0 100%);
+    }
+    .ribbon.ribbon-new::after { background: #3b82f6; }
+    .ribbon.ribbon-mod::after { background: #f59e0b; }
+    .ribbon.ribbon-agent::after { background: #8b5cf6; }
+
+    /* Agent badge */
+    .agent-badge {
+      position: absolute;
+      bottom: 8px;
+      right: 10px;
+      font-size: 14px;
+      opacity: 0.7;
+    }
+
+    /* Card body (markdown content) */
+    .card-body {
+      padding: var(--card-pad);
+      color: #333;
+      font: var(--font-body);
+      overflow: hidden;
+    }
+    /* Zoom-level rendering classes */
+    .card-body.lod-0 { display: none; }
+    .card-body.lod-1 { display: none; }
+    .card-body.lod-2 .md-full { display: none; }
+    .card-body.lod-3 .md-headings { display: none; }
+
+    .card-body h1 { font: var(--font-h1); color: #1a1a1a; margin: 0 0 8px; padding-bottom: 6px; border-bottom: 1px solid #e8e4dc; }
+    .card-body h2 { font: var(--font-h2); color: #444; margin: 12px 0 4px; }
+    .card-body h3 { font: var(--font-h3); color: #666; margin: 10px 0 4px; }
+    .card-body p { margin: 4px 0; }
+    .card-body ul { margin: 4px 0 4px 16px; }
+    .card-body li { margin: 2px 0; }
+    .card-body strong { font-weight: 700; color: #1a1a1a; }
+    .card-body em { font-style: italic; color: #6b5b3e; }
+    .card-body code {
+      background: rgba(0,0,0,0.05);
+      padding: 1px 4px;
+      border-radius: 2px;
+      font-size: 12px;
+    }
+    .card-body pre {
+      background: #f5f3ee;
+      border: 1px solid #e0dcd4;
+      border-radius: 3px;
+      padding: 8px;
+      margin: 6px 0;
+      overflow-x: auto;
+      font-size: 11px;
+      line-height: 1.5;
+    }
+    .card-body pre code { background: none; padding: 0; }
+    .card-body hr { border: none; border-top: 1px solid #e0dcd4; margin: 10px 0; }
+
+    /* L0/L1 summary block (shown at low zoom) */
+    .card-summary {
+      padding: 6px var(--card-pad);
+      font: var(--font-meta);
+      color: #888;
+    }
+    .card-summary .h-list { color: #555; margin: 4px 0; }
+    .card-summary.lod-2, .card-summary.lod-3 { display: none; }
+
+    /* Footer bar */
+    .ftr {
+      height: 32px;
+      background: rgba(10,10,15,0.92);
+      backdrop-filter: blur(12px);
+      border-top: 1px solid #2a2a36;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 16px;
+      font-size: 11px;
+      color: #555;
+      z-index: 100;
+      flex-shrink: 0;
+    }
+    .ftr b { color: #777; font-weight: 500; }
+    .ftr .ftr-spacer { flex: 1; }
+    .ftr .sync-btn {
+      background: #2d1b69;
+      color: #a78bfa;
+      border: 1px solid #3b2a7a;
+      border-radius: 4px;
+      padding: 3px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .ftr .sync-btn:hover { background: #3b2a7a; }
+    .ftr .sync-btn:disabled { opacity: 0.4; cursor: default; }
+
+    /* Mini-map */
+    #minimap {
+      position: fixed;
+      bottom: 40px;
+      right: 8px;
+      width: 160px;
+      height: 100px;
+      background: rgba(10,10,15,0.85);
+      border: 1px solid #2a2a36;
+      border-radius: 4px;
+      z-index: 90;
+      overflow: hidden;
+    }
+    #minimap canvas { width: 100%; height: 100%; }
   </style>
 </head>
 <body>
-  <header>
-    <span style="font-size:20px">🔮</span>
-    <h1>Echo Memory — Your OpenClaw Workspace</h1>
-    <span style="flex:1"></span>
-    <span id="auth-status" style="font-size:13px;color:#555;">Checking connection...</span>
-  </header>
-  <div class="main">
-    <div class="sidebar" id="sidebar">
-      <div style="color:#555;font-size:12px;padding:12px;">Loading...</div>
-    </div>
-    <div class="preview" id="preview">
-      <div class="placeholder">← Select a file to preview</div>
-    </div>
+  <!-- Header -->
+  <div class="hdr">
+    <span style="font-size:16px">📂</span>
+    <span class="hdr-title">OpenClaw Memory Archive</span>
+    <input class="hdr-search" id="search" type="text" placeholder="Search files…" />
+    <span class="hdr-spacer"></span>
+    <span class="hdr-meta" id="clock"></span>
+    <span class="hdr-meta">·</span>
+    <span class="hdr-meta" id="last-sync">Never synced</span>
+    <span class="hdr-meta">·</span>
+    <span class="hdr-conn" id="auth-status">…</span>
+    <span class="hdr-meta">·</span>
+    <span class="hdr-zoom" id="zoom-label">100%</span>
   </div>
-  <div class="footer" id="footer">
-    <span class="local-badge">⚠️ All data stays on your machine.</span>
-    <span class="stats" id="stats"></span>
-    <span style="flex:1"></span>
-    <span id="sync-status" style="font-size:12px;color:#555;margin-right:8px;"></span>
-    <button id="sync-btn" disabled style="
-      background:#2d1b69; color:#a78bfa; border:1px solid #3b2a7a; border-radius:6px;
-      padding:6px 18px; font-size:13px; font-weight:600; cursor:pointer;
-      opacity:0.4; transition: opacity 0.2s, background 0.2s;
-    ">Sync to Echo</button>
+
+  <!-- Canvas viewport -->
+  <div id="viewport">
+    <div id="canvas"></div>
   </div>
+
+  <!-- Footer -->
+  <div class="ftr">
+    <span id="stats">Loading…</span>
+    <span class="ftr-spacer"></span>
+    <span id="sync-status"></span>
+    <button class="sync-btn" id="sync-btn" disabled>Sync to Echo</button>
+  </div>
+
   <script>
-    const GROUP_META = {
-      'identity':       { label: '🪪 Identity',        order: 0 },
-      'long-term':      { label: '🧠 Long-term',       order: 1 },
-      'memory':         { label: '📂 Memory',          order: 2 },
-      'config':         { label: '🔧 Config',          order: 3 },
-      'daily':          { label: '📅 Daily Logs',      order: 4 },
-      'private':        { label: '🔒 Private',         order: 5 },
-      'research':       { label: '🔬 Research',        order: 10 },
-      'tasks':          { label: '✅ Tasks',            order: 11 },
-      'projects':       { label: '📁 Projects',        order: 12 },
-      'scripts':        { label: '⚡ Scripts',          order: 13 },
-      'skills':         { label: '🧩 Skills',          order: 14 },
-      'self-improving': { label: '🔄 Self-Improving',  order: 15 },
-      'agents':         { label: '🤖 Agents',          order: 16 },
-      'superpowers':    { label: '💪 Superpowers',     order: 17 },
-      'other':          { label: '📦 Other',           order: 99 },
-    };
+  (function() {
+    'use strict';
 
-    /** For unknown directories, generate a label dynamically */
-    function getGroupMeta(type) {
-      if (GROUP_META[type]) return GROUP_META[type];
-      // Agent workspaces: agent:scout → 🕵️ Scout
-      if (type.startsWith('agent:')) {
-        const name = type.slice(6);
-        const label = '🤖 ' + name.charAt(0).toUpperCase() + name.slice(1).replace(/-/g, ' ');
-        return { label, order: 30 };
-      }
-      // Dynamic: capitalize directory name, use folder emoji
-      const label = '📁 ' + type.charAt(0).toUpperCase() + type.slice(1).replace(/-/g, ' ');
-      return { label, order: 50 };
-    }
-    const PRIVACY_EMOJI = { private: '🔴', review: '🟡', safe: '🟢' };
+    /* ═══════════════════════════════════════════
+       CONSTANTS
+    ═══════════════════════════════════════════ */
+    const CARD_W = 320;
+    const CARD_PAD = 20;
+    const GAP = 8;
+    const MIN_ZOOM = 0.04;
+    const MAX_ZOOM = 1.6;
+    const LOD_THRESHOLDS = [0.12, 0.25, 0.55]; // L0→L1, L1→L2, L2→L3
+    const CHARS_PER_LINE = 42; // approximate for card width at font-size 13px
+    const LINE_H = 21; // approximate line height in px
 
-    let activeFile = null;
-    const collapsedGroups = new Set(['daily', 'private', 'other']);
+    /* ═══════════════════════════════════════════
+       STATE
+    ═══════════════════════════════════════════ */
+    let files = [];
+    let fileContentCache = {};
+    let cardElements = [];
+    let zoom = 0.35;
+    let panX = 40, panY = 40;
+    let isPanning = false;
+    let panStart = { x: 0, y: 0, px: 0, py: 0 };
+    let activeCard = null;
+    let searchQuery = '';
+    let isConnected = false;
     let syncStatusByPath = {};
 
-    function timeAgo(isoStr) {
-      if (!isoStr) return null;
-      const diff = Date.now() - new Date(isoStr).getTime();
-      const min = Math.floor(diff / 60000);
-      if (min < 1) return 'just now';
-      if (min < 60) return min + ' min ago';
-      const hrs = Math.floor(min / 60);
-      if (hrs < 24) return hrs + ' hour' + (hrs === 1 ? '' : 's') + ' ago';
-      if (hrs < 48) return 'yesterday';
-      return Math.floor(hrs / 24) + ' days ago';
+    const viewport = document.getElementById('viewport');
+    const canvas = document.getElementById('canvas');
+
+    /* ═══════════════════════════════════════════
+       TIER CLASSIFICATION
+    ═══════════════════════════════════════════ */
+    function getTier(f) {
+      const rp = f.relativePath;
+      const ft = f.fileType;
+      // Tier 1: Memory-Essential
+      if (ft === 'daily') return 1;
+      if (ft === 'long-term') return 1;
+      if (ft === 'memory') return 1;
+      if (rp.startsWith('workspace/memory/')) return 1;
+      // Agent daily logs = Tier 1 (agent-based)
+      if (ft.startsWith('agent:') && f.fileName.match(/^\d{4}-\d{2}-\d{2}/)) return 1;
+      // Tier 2: Memory-Optional
+      if (ft === 'research' || ft === 'tasks' || ft === 'projects') return 2;
+      if (f.fileName === 'CARRY.md' || f.fileName === 'WORKFLOW.md') return 2;
+      if (ft === 'agents') return 2;
+      // Tier 3: System
+      if (ft === 'identity' || ft === 'config' || ft === 'private') return 3;
+      if (ft === 'skills' || ft === 'self-improving') return 3;
+      if (['superpowers','clawhub-staging','openclaw-skills','Star-Office-UI',
+           'crshdn-mission-control','mission-control'].includes(ft)) return 3;
+      if (ft.startsWith('agent:')) return 2; // agent non-daily files
+      return 3;
     }
 
-    function statusBadge(status) {
-      if (status === 'new') return '<span class="badge-new">NEW</span>';
-      if (status === 'modified') return '<span class="badge-modified">MOD</span>';
-      return '';
+    function getTierClass(tier) {
+      return tier === 1 ? 'tier1' : tier === 2 ? 'tier2' : 'tier3';
     }
 
-    function fmtBytes(n) {
-      if (n < 1024) return n + 'B';
-      if (n < 1024 * 1024) return (n / 1024).toFixed(1) + 'KB';
-      return (n / 1024 / 1024).toFixed(1) + 'MB';
+    function isAgentFile(f) {
+      return f.fileType.startsWith('agent:');
     }
 
+    function getAgentName(f) {
+      if (!f.fileType.startsWith('agent:')) return null;
+      const name = f.fileType.slice(6);
+      return name.charAt(0).toUpperCase() + name.slice(1);
+    }
+
+    /* ═══════════════════════════════════════════
+       MARKDOWN RENDERING
+    ═══════════════════════════════════════════ */
     function escHtml(s) {
-      return String(s)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     }
 
-    function renderMarkdown(md) {
-      const FENCE = '```';
+    function inlineMd(t) {
+      t = escHtml(t);
+      t = t.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      t = t.replace(/\*(.+?)\*/g, '<em>$1</em>');
+      t = t.replace(/_(.+?)_/g, '<em>$1</em>');
+      t = t.replace(/`([^`]+)`/g, '<code>$1</code>');
+      return t;
+    }
+
+    function renderMd(md) {
       const lines = md.split('\n');
       const out = [];
-      let inCode = false;
-      let codeBuf = [];
-      let inList = false;
+      const headings = [];
+      let inCode = false, codeBuf = [], inList = false;
 
-      function flushList() {
-        if (inList) { out.push('</ul>'); inList = false; }
-      }
+      function flushList() { if (inList) { out.push('</ul>'); inList = false; } }
 
-      function inline(t) {
-        t = t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        t = t.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-        t = t.replace(/\*(.+?)\*/g, '<em>$1</em>');
-        t = t.replace(/_(.+?)_/g, '<em>$1</em>');
-        t = t.replace(/`([^`]+)`/g, '<code>$1</code>');
-        return t;
-      }
-
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
+      for (const line of lines) {
         if (inCode) {
-          if (line.trimEnd() === FENCE || line.startsWith(FENCE + ' ') || line.trimEnd() === FENCE) {
-            const escaped = codeBuf.join('\n')
-              .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            out.push('<pre><code>' + escaped + '</code></pre>');
+          if (line.trimEnd() === '```' || line.startsWith('```')) {
+            out.push('<pre><code>' + codeBuf.join('\n').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</code></pre>');
             codeBuf = []; inCode = false;
-          } else {
-            codeBuf.push(line);
-          }
+          } else codeBuf.push(line);
           continue;
         }
-        if (line.startsWith(FENCE)) {
-          flushList(); inCode = true; codeBuf = []; continue;
-        }
+        if (line.startsWith('```')) { flushList(); inCode = true; codeBuf = []; continue; }
         const hm = line.match(/^(#{1,3}) (.+)$/);
         if (hm) {
           flushList();
           const lvl = hm[1].length;
-          out.push('<h' + lvl + '>' + inline(hm[2]) + '</h' + lvl + '>');
+          headings.push({ lvl, text: hm[2] });
+          out.push('<h' + lvl + '>' + inlineMd(hm[2]) + '</h' + lvl + '>');
           continue;
         }
-        if (/^[-*]{3,}$/.test(line.trim()) && line.trim().length >= 3) {
-          flushList(); out.push('<hr>'); continue;
-        }
+        if (/^[-*]{3,}$/.test(line.trim())) { flushList(); out.push('<hr>'); continue; }
         const lm = line.match(/^[-*] (.+)$/);
         if (lm) {
           if (!inList) { out.push('<ul>'); inList = true; }
-          out.push('<li>' + inline(lm[1]) + '</li>');
+          out.push('<li>' + inlineMd(lm[1]) + '</li>');
           continue;
         }
         flushList();
-        if (line.trim() === '') {
-          out.push('');
-        } else {
-          out.push('<p>' + inline(line) + '</p>');
-        }
+        if (line.trim() === '') out.push('');
+        else out.push('<p>' + inlineMd(line) + '</p>');
       }
       flushList();
       if (inCode && codeBuf.length) {
-        const escaped = codeBuf.join('\n')
-          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        out.push('<pre><code>' + escaped + '</code></pre>');
+        out.push('<pre><code>' + codeBuf.join('\n').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</code></pre>');
       }
-      return '<div class="md">' + out.join('\n') + '</div>';
+      return { html: out.join('\n'), headings };
     }
 
-    function buildSidebar(files) {
-      const groups = {};
+    /* ═══════════════════════════════════════════
+       CARD HEIGHT ESTIMATION
+    ═══════════════════════════════════════════ */
+    function estimateCardHeight(f) {
+      // Rough: header ~40px + body lines * lineH + padding
+      const lineCount = Math.ceil(f.sizeBytes / CHARS_PER_LINE);
+      const bodyH = lineCount * LINE_H;
+      return 40 + Math.min(bodyH, 4000) + CARD_PAD * 2; // cap at ~4000px
+    }
+
+    /* ═══════════════════════════════════════════
+       LAYOUT: BIN-PACKING PER SECTION
+    ═══════════════════════════════════════════ */
+    function layoutFiles(files) {
+      // Group by tier, then sub-group
+      const tiers = { 1: [], 2: [], 3: [] };
       for (const f of files) {
-        if (!groups[f.fileType]) groups[f.fileType] = [];
-        groups[f.fileType].push(f);
+        const t = getTier(f);
+        tiers[t].push(f);
       }
 
-      // Sort groups by order
-      const sortedTypes = Object.keys(groups).sort((a, b) => {
-        return getGroupMeta(a).order - getGroupMeta(b).order;
+      // Sort tier 1 dailies by date, rest by modified time
+      tiers[1].sort((a, b) => {
+        const aDaily = a.fileType === 'daily' ? 0 : 1;
+        const bDaily = b.fileType === 'daily' ? 0 : 1;
+        if (aDaily !== bDaily) return aDaily - bDaily;
+        // Within dailies: chronological
+        if (aDaily === 0) return a.fileName.localeCompare(b.fileName);
+        // Non-dailies: most recently modified first
+        return new Date(b.modifiedTime) - new Date(a.modifiedTime);
       });
+      tiers[2].sort((a, b) => new Date(b.modifiedTime) - new Date(a.modifiedTime));
+      tiers[3].sort((a, b) => a.fileName.localeCompare(b.fileName));
 
-      const sidebar = document.getElementById('sidebar');
-      sidebar.innerHTML = '';
+      const positions = new Map();
+      let sectionY = 0;
+      const sectionMeta = [];
 
-      for (const type of sortedTypes) {
-        const groupFiles = groups[type];
-        if (!groupFiles || groupFiles.length === 0) continue;
+      for (const tierNum of [1, 2, 3]) {
+        const tierFiles = tiers[tierNum];
+        if (tierFiles.length === 0) continue;
 
-        const meta = getGroupMeta(type);
-        const isCollapsed = collapsedGroups.has(type);
+        const label = tierNum === 1 ? '🟣 MEMORIES' : tierNum === 2 ? '🔵 PROJECTS' : '⚪ SYSTEM';
+        const sectionStartY = sectionY;
+        sectionY += 36; // space for section label
 
-        const groupEl = document.createElement('div');
-        groupEl.className = 'group';
+        // Masonry-style column packing
+        const colCount = Math.max(1, Math.min(8, Math.ceil(Math.sqrt(tierFiles.length))));
+        const colW = CARD_W + GAP;
+        const colHeights = new Array(colCount).fill(0);
 
-        const headerEl = document.createElement('div');
-        headerEl.className = 'group-header';
-        headerEl.innerHTML =
-          '<span class="group-toggle' + (isCollapsed ? ' collapsed' : '') + '">▾</span>' +
-          '<span>' + meta.label + '</span>' +
-          ' <span class="group-count">(' + groupFiles.length + ')</span>';
-
-        const filesEl = document.createElement('div');
-        filesEl.className = 'group-files' + (isCollapsed ? ' hidden' : '');
-
-        for (const f of groupFiles) {
-          const item = document.createElement('div');
-          item.className = 'file-item' + (activeFile === f.relativePath ? ' active' : '');
-          item.dataset.path = f.relativePath;
-          const st = syncStatusByPath[f.relativePath] || null;
-          item.innerHTML =
-            '<span>' + (PRIVACY_EMOJI[f.privacyLevel] || '⚪') + '</span>' +
-            '<span class="file-name">' + escHtml(f.fileName) + '</span>' +
-            statusBadge(st) +
-            '<span class="file-size">' + fmtBytes(f.sizeBytes) + '</span>';
-          item.addEventListener('click', () => loadFile(f.relativePath));
-          filesEl.appendChild(item);
+        for (const f of tierFiles) {
+          // Find shortest column
+          let minCol = 0;
+          for (let c = 1; c < colCount; c++) {
+            if (colHeights[c] < colHeights[minCol]) minCol = c;
+          }
+          const cardH = estimateCardHeight(f);
+          const x = minCol * colW;
+          const y = sectionY + colHeights[minCol];
+          positions.set(f.relativePath, { x, y, w: CARD_W, h: cardH });
+          colHeights[minCol] += cardH + GAP;
         }
 
-        headerEl.addEventListener('click', () => {
-          const toggle = headerEl.querySelector('.group-toggle');
-          if (collapsedGroups.has(type)) {
-            collapsedGroups.delete(type);
-            toggle.classList.remove('collapsed');
-            filesEl.classList.remove('hidden');
-          } else {
-            collapsedGroups.add(type);
-            toggle.classList.add('collapsed');
-            filesEl.classList.add('hidden');
+        const maxColH = Math.max(...colHeights);
+        sectionMeta.push({ label, y: sectionStartY, w: colCount * colW, h: maxColH + 36 });
+        sectionY += maxColH + 40;
+      }
+
+      return { positions, sectionMeta };
+    }
+
+    /* ═══════════════════════════════════════════
+       LOD (Level of Detail) from zoom
+    ═══════════════════════════════════════════ */
+    function getLOD() {
+      if (zoom < LOD_THRESHOLDS[0]) return 0;
+      if (zoom < LOD_THRESHOLDS[1]) return 1;
+      if (zoom < LOD_THRESHOLDS[2]) return 2;
+      return 3;
+    }
+
+    /* ═══════════════════════════════════════════
+       RENDERING
+    ═══════════════════════════════════════════ */
+    let positions = new Map();
+    let sectionMeta = [];
+
+    function buildCards() {
+      canvas.innerHTML = '';
+      cardElements = [];
+
+      // Section labels
+      for (const sec of sectionMeta) {
+        const lbl = document.createElement('div');
+        lbl.className = 'section-label';
+        lbl.style.left = '0px';
+        lbl.style.top = sec.y + 'px';
+        lbl.textContent = sec.label;
+        canvas.appendChild(lbl);
+      }
+
+      for (const f of files) {
+        const pos = positions.get(f.relativePath);
+        if (!pos) continue;
+        const tier = getTier(f);
+
+        const card = document.createElement('div');
+        card.className = 'card ' + getTierClass(tier);
+        card.style.left = pos.x + 'px';
+        card.style.top = pos.y + 'px';
+        card.style.width = pos.w + 'px';
+        card.style.height = pos.h + 'px';
+        card.dataset.path = f.relativePath;
+
+        // Sync status stamp
+        const syncSt = syncStatusByPath[f.relativePath];
+        if (syncSt === 'new') {
+          card.innerHTML += '<div class="ribbon ribbon-new"></div>';
+          card.innerHTML += '<span class="stamp stamp-new">NEW</span>';
+        } else if (syncSt === 'modified') {
+          card.innerHTML += '<div class="ribbon ribbon-mod"></div>';
+          card.innerHTML += '<span class="stamp stamp-mod">MOD</span>';
+        } else if (syncSt === 'synced') {
+          card.innerHTML += '<span class="stamp stamp-synced">SYNCED</span>';
+        }
+
+        // Agent badge
+        if (isAgentFile(f)) {
+          const agentName = getAgentName(f);
+          card.innerHTML += '<span class="agent-badge" title="' + agentName + ' agent">🤖</span>';
+          if (!syncSt) {
+            card.innerHTML += '<div class="ribbon ribbon-agent"></div>';
           }
-        });
+        }
 
-        groupEl.appendChild(headerEl);
-        groupEl.appendChild(filesEl);
-        sidebar.appendChild(groupEl);
+        // Header
+        const head = document.createElement('div');
+        head.className = 'card-head';
+        const displayName = f.fileName.replace(/\.md$/i, '');
+        const dateStr = f.modifiedTime ? timeAgo(f.modifiedTime) : '';
+        head.innerHTML = '<span class="card-name" title="' + escHtml(f.relativePath) + '">' + escHtml(displayName) + '</span>' +
+          '<span class="card-date">' + dateStr + '</span>';
+        card.appendChild(head);
+
+        // Summary (for LOD 1-2)
+        const summary = document.createElement('div');
+        summary.className = 'card-summary';
+        summary.innerHTML = '<div>' + escHtml(f.fileType) + ' · ' + fmtBytes(f.sizeBytes) + ' · ' + f.h2Count + ' sections</div>';
+        card.appendChild(summary);
+
+        // Body (for LOD 2-3) — lazy loaded
+        const body = document.createElement('div');
+        body.className = 'card-body';
+        body.dataset.path = f.relativePath;
+        card.appendChild(body);
+
+        card.addEventListener('click', () => selectCard(f.relativePath));
+
+        canvas.appendChild(card);
+        cardElements.push({ el: card, file: f, pos, body, summary });
+      }
+
+      updateLOD();
+    }
+
+    function selectCard(path) {
+      activeCard = activeCard === path ? null : path;
+      for (const c of cardElements) {
+        c.el.classList.toggle('active', c.file.relativePath === activeCard);
+        c.el.classList.toggle('dimmed', activeCard && c.file.relativePath !== activeCard);
+      }
+      if (activeCard) {
+        // Zoom into the card for reading
+        const pos = positions.get(activeCard);
+        if (pos) {
+          const vpW = viewport.clientWidth;
+          const targetZoom = Math.min(1.0, vpW / (CARD_W + 80));
+          animateTo(pos.x - 40, pos.y - 60, targetZoom);
+        }
       }
     }
 
-    function updateActiveInSidebar(relPath) {
-      document.querySelectorAll('.file-item').forEach(el => {
-        el.classList.toggle('active', el.dataset.path === relPath);
-      });
-    }
-
-    async function loadFile(relPath) {
-      activeFile = relPath;
-      updateActiveInSidebar(relPath);
-      const preview = document.getElementById('preview');
-      preview.innerHTML = '<div style="color:#555;font-size:12px;padding:20px;">Loading...</div>';
-      try {
-        const res = await fetch('/api/file?path=' + encodeURIComponent(relPath));
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const data = await res.json();
-        preview.innerHTML = renderMarkdown(data.content);
-        preview.scrollTop = 0;
-      } catch (err) {
-        preview.innerHTML = '<div style="color:#f87171;padding:20px;">Error: ' + escHtml(String(err)) + '</div>';
+    async function loadCardContent(cardInfo) {
+      const path = cardInfo.file.relativePath;
+      if (fileContentCache[path]) {
+        const { html, headings } = fileContentCache[path];
+        cardInfo.body.innerHTML =
+          '<div class="md-headings">' + headings.map(h => '<div style="font-weight:600;color:#666;margin:2px 0;font-size:' + (h.lvl === 1 ? '13' : '11.5') + 'px">' + '  '.repeat(h.lvl - 1) + escHtml(h.text) + '</div>').join('') + '</div>' +
+          '<div class="md-full">' + html + '</div>';
+        return;
       }
-    }
-
-    let isConnected = false;
-    let cachedFiles = [];
-
-    async function loadSyncStatus() {
       try {
-        const res = await fetch('/api/sync-status');
+        const res = await fetch('/api/file?path=' + encodeURIComponent(path));
         if (!res.ok) return;
         const data = await res.json();
-
-        // Update syncStatusByPath map
-        syncStatusByPath = {};
-        const statuses = data.fileStatuses || [];
-        for (const s of statuses) {
-          if (s.status) syncStatusByPath[s.relativePath] = s.status;
-        }
-
-        // Update last sync label
-        const syncStatusEl = document.getElementById('sync-status');
-        if (data.lastSyncAt) {
-          syncStatusEl.textContent = 'Last sync: ' + timeAgo(data.lastSyncAt);
-          syncStatusEl.style.color = '#555';
-        } else {
-          syncStatusEl.textContent = 'Never synced';
-          syncStatusEl.style.color = '#555';
-        }
-
-        // Update button text
-        const btn = document.getElementById('sync-btn');
-        if (!btn.disabled || btn.textContent === 'Sync to Echo') {
-          const newCount = statuses.filter(s => s.status === 'new').length;
-          const modCount = statuses.filter(s => s.status === 'modified').length;
-          const pending = newCount + modCount;
-          if (isConnected) {
-            if (pending === 0 && data.lastSyncAt) {
-              btn.textContent = 'All synced ✓';
-              btn.style.opacity = '0.5';
-              btn.disabled = true;
-            } else {
-              const label = pending > 0 ? 'Sync ' + pending + ' file' + (pending === 1 ? '' : 's') : 'Sync to Echo';
-              btn.textContent = label;
-              btn.style.opacity = '1';
-              btn.disabled = false;
-            }
-          }
-        }
-
-        // Rebuild sidebar to show badges
-        if (cachedFiles.length > 0) buildSidebar(cachedFiles);
+        const rendered = renderMd(data.content);
+        fileContentCache[path] = rendered;
+        cardInfo.body.innerHTML =
+          '<div class="md-headings">' + rendered.headings.map(h => '<div style="font-weight:600;color:#666;margin:2px 0;font-size:' + (h.lvl === 1 ? '13' : '11.5') + 'px">' + '  '.repeat(h.lvl - 1) + escHtml(h.text) + '</div>').join('') + '</div>' +
+          '<div class="md-full">' + rendered.html + '</div>';
       } catch {}
     }
 
+    function updateLOD() {
+      const lod = getLOD();
+      const vpRect = getViewportRect();
+
+      for (const c of cardElements) {
+        const p = c.pos;
+        // Viewport culling
+        const inView = p.x + p.w > vpRect.x && p.x < vpRect.x + vpRect.w &&
+                        p.y + p.h > vpRect.y && p.y < vpRect.y + vpRect.h;
+
+        // Show/hide based on LOD
+        c.summary.className = 'card-summary lod-' + lod;
+        c.body.className = 'card-body lod-' + lod;
+
+        if (inView && lod >= 2 && !fileContentCache[c.file.relativePath] && !c._loading) {
+          c._loading = true;
+          loadCardContent(c);
+        }
+
+        // Search dimming
+        if (searchQuery && !c.file.fileName.toLowerCase().includes(searchQuery) &&
+            !c.file.relativePath.toLowerCase().includes(searchQuery)) {
+          c.el.style.opacity = '0.15';
+        } else if (!c.el.classList.contains('dimmed')) {
+          c.el.style.opacity = '';
+        }
+      }
+    }
+
+    function getViewportRect() {
+      return {
+        x: -panX / zoom,
+        y: -panY / zoom,
+        w: viewport.clientWidth / zoom,
+        h: viewport.clientHeight / zoom,
+      };
+    }
+
+    function applyTransform() {
+      canvas.style.transform = 'translate(' + panX + 'px,' + panY + 'px) scale(' + zoom + ')';
+      document.getElementById('zoom-label').textContent = Math.round(zoom * 100) + '%';
+    }
+
+    function animateTo(x, y, z) {
+      const targetPanX = -x * z + viewport.clientWidth / 2 - CARD_W * z / 2;
+      const targetPanY = -y * z + 60;
+      const startPanX = panX, startPanY = panY, startZoom = zoom;
+      const duration = 400;
+      const start = performance.now();
+      function step(now) {
+        const t = Math.min(1, (now - start) / duration);
+        const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+        panX = startPanX + (targetPanX - startPanX) * ease;
+        panY = startPanY + (targetPanY - startPanY) * ease;
+        zoom = startZoom + (z - startZoom) * ease;
+        applyTransform();
+        if (t < 1) requestAnimationFrame(step);
+        else updateLOD();
+      }
+      requestAnimationFrame(step);
+    }
+
+    /* ═══════════════════════════════════════════
+       PAN & ZOOM
+    ═══════════════════════════════════════════ */
+    viewport.addEventListener('pointerdown', e => {
+      if (e.target.closest('.card')) return; // let card click through
+      isPanning = true;
+      panStart = { x: e.clientX, y: e.clientY, px: panX, py: panY };
+      document.body.classList.add('grabbing');
+      e.preventDefault();
+    });
+    window.addEventListener('pointermove', e => {
+      if (!isPanning) return;
+      panX = panStart.px + (e.clientX - panStart.x);
+      panY = panStart.py + (e.clientY - panStart.y);
+      applyTransform();
+    });
+    window.addEventListener('pointerup', () => {
+      if (isPanning) {
+        isPanning = false;
+        document.body.classList.remove('grabbing');
+        updateLOD();
+      }
+    });
+
+    viewport.addEventListener('wheel', e => {
+      e.preventDefault();
+      const rect = viewport.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      // World position under mouse before zoom
+      const wx = (mx - panX) / zoom;
+      const wy = (my - panY) / zoom;
+
+      const delta = -e.deltaY * 0.001;
+      const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom * (1 + delta)));
+
+      // Adjust pan so world point stays under mouse
+      panX = mx - wx * newZoom;
+      panY = my - wy * newZoom;
+      zoom = newZoom;
+
+      applyTransform();
+      updateLOD();
+    }, { passive: false });
+
+    // Click on canvas background to deselect
+    viewport.addEventListener('click', e => {
+      if (!e.target.closest('.card') && activeCard) {
+        activeCard = null;
+        for (const c of cardElements) {
+          c.el.classList.remove('active', 'dimmed');
+        }
+      }
+    });
+
+    /* ═══════════════════════════════════════════
+       SEARCH
+    ═══════════════════════════════════════════ */
+    const searchInput = document.getElementById('search');
+    searchInput.addEventListener('input', () => {
+      searchQuery = searchInput.value.trim().toLowerCase();
+      updateLOD();
+      // Jump to first match
+      if (searchQuery) {
+        const match = cardElements.find(c =>
+          c.file.fileName.toLowerCase().includes(searchQuery) ||
+          c.file.relativePath.toLowerCase().includes(searchQuery)
+        );
+        if (match) {
+          const p = match.pos;
+          animateTo(p.x, p.y, Math.max(zoom, 0.35));
+        }
+      }
+    });
+    searchInput.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        searchInput.value = '';
+        searchQuery = '';
+        updateLOD();
+      }
+    });
+
+    /* ═══════════════════════════════════════════
+       UTILITIES
+    ═══════════════════════════════════════════ */
+    function timeAgo(iso) {
+      const diff = Date.now() - new Date(iso).getTime();
+      const min = Math.floor(diff / 60000);
+      if (min < 1) return 'just now';
+      if (min < 60) return min + 'm ago';
+      const hrs = Math.floor(min / 60);
+      if (hrs < 24) return hrs + 'h ago';
+      if (hrs < 48) return 'yesterday';
+      return Math.floor(hrs / 24) + 'd ago';
+    }
+
+    function fmtBytes(n) {
+      if (n < 1024) return n + 'B';
+      if (n < 1048576) return (n / 1024).toFixed(1) + 'KB';
+      return (n / 1048576).toFixed(1) + 'MB';
+    }
+
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('clock').innerHTML =
+        '<b>' + now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + '</b> ' +
+        now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    /* ═══════════════════════════════════════════
+       SYNC & AUTH
+    ═══════════════════════════════════════════ */
     async function checkAuth() {
       const el = document.getElementById('auth-status');
       try {
@@ -431,123 +839,138 @@
         const data = await res.json();
         if (data.connected) {
           isConnected = true;
-          el.innerHTML = '<span style="color:#4ade80;">● Connected to Echo</span>';
-          const syncBtn = document.getElementById('sync-btn');
-          syncBtn.style.cursor = 'pointer';
-          syncBtn.onmouseover = () => { syncBtn.style.background = '#3b2a7a'; };
-          syncBtn.onmouseout = () => { syncBtn.style.background = '#2d1b69'; };
-          // Let loadSyncStatus set the button text/state
-          await loadSyncStatus();
-        } else if (data.reason === 'no_api_key') {
-          el.innerHTML = '<span style="color:#fbbf24;">⚠ No API key configured</span>' +
-            ' <a href="https://www.iditor.com/api" target="_blank" style="color:#a78bfa;font-size:12px;">Get API key →</a>';
+          el.innerHTML = '<span style="color:#4ade80;">● Connected</span>';
+          document.getElementById('sync-btn').disabled = false;
+          loadSyncStatus();
         } else {
-          el.innerHTML = '<span style="color:#f87171;">✕ Not connected</span>' +
-            ' <a href="https://www.iditor.com/api" target="_blank" style="color:#a78bfa;font-size:12px;">Get API key →</a>';
+          el.innerHTML = '<span style="color:#f87171;">✕ Offline</span>';
         }
       } catch {
-        el.innerHTML = '<span style="color:#555;">○ Offline mode</span>';
+        el.innerHTML = '<span style="color:#555;">○ Offline</span>';
       }
     }
 
-    async function doSync() {
-      if (!isConnected) return;
-      const btn = document.getElementById('sync-btn');
-      const status = document.getElementById('sync-status');
-      btn.disabled = true;
-      btn.textContent = 'Syncing...';
-      btn.style.opacity = '0.6';
-      status.textContent = '';
+    async function loadSyncStatus() {
       try {
-        const res = await fetch('/api/sync', { method: 'POST' });
+        const res = await fetch('/api/sync-status');
+        if (!res.ok) return;
         const data = await res.json();
-        if (data.error) {
-          status.style.color = '#f87171';
-          status.textContent = 'Error: ' + data.error;
-        } else {
-          const s = data.summary || {};
-          status.style.color = '#4ade80';
-          status.textContent = '✓ ' + (s.new_memory_count || 0) + ' new memories · ' +
-            (s.file_count || 0) + ' files processed';
+        syncStatusByPath = {};
+        for (const s of (data.fileStatuses || [])) {
+          if (s.status) syncStatusByPath[s.relativePath] = s.status;
         }
-      } catch (err) {
-        status.style.color = '#f87171';
-        status.textContent = 'Sync failed: ' + String(err);
-      }
-      btn.disabled = false;
-      btn.textContent = 'Sync to Echo';
-      btn.style.opacity = '1';
-      await loadSyncStatus();
-    }
-
-    async function refreshFiles() {
-      try {
-        const res = await fetch('/api/files');
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const data = await res.json();
-        const newFiles = data.files || [];
-        // Detect actual changes to avoid unnecessary redraws
-        const changed = newFiles.length !== cachedFiles.length ||
-          newFiles.some((f, i) =>
-            !cachedFiles[i] ||
-            f.relativePath !== cachedFiles[i].relativePath ||
-            f.contentHash !== cachedFiles[i].contentHash
-          );
-        if (!changed) return;
-        cachedFiles = newFiles;
-        buildSidebar(cachedFiles);
-        const totalH2 = cachedFiles.reduce((sum, f) => sum + (f.h2Count || 0), 0);
-        document.getElementById('stats').textContent =
-          cachedFiles.length + ' files · ~' + totalH2 + ' memories';
-        // If we're viewing a file that was modified, reload its content
-        if (activeFile) {
-          const stillExists = cachedFiles.some(f => f.relativePath === activeFile);
-          if (stillExists) loadFile(activeFile);
+        if (data.lastSyncAt) {
+          document.getElementById('last-sync').textContent = 'Synced ' + timeAgo(data.lastSyncAt);
+        }
+        const pending = (data.fileStatuses || []).filter(s => s.status === 'new' || s.status === 'modified').length;
+        const btn = document.getElementById('sync-btn');
+        if (pending > 0) {
+          btn.textContent = 'Sync ' + pending + ' files';
+          btn.disabled = false;
+        } else if (data.lastSyncAt) {
+          btn.textContent = 'All synced ✓';
+          btn.disabled = true;
         }
       } catch {}
     }
 
-    function connectLiveUpdates() {
+    document.getElementById('sync-btn').addEventListener('click', async () => {
+      if (!isConnected) return;
+      const btn = document.getElementById('sync-btn');
+      btn.disabled = true;
+      btn.textContent = 'Syncing…';
+      try {
+        const res = await fetch('/api/sync', { method: 'POST' });
+        const data = await res.json();
+        const s = data.summary || {};
+        document.getElementById('sync-status').textContent =
+          '✓ ' + (s.new_memory_count || 0) + ' new memories';
+        document.getElementById('sync-status').style.color = '#4ade80';
+      } catch (err) {
+        document.getElementById('sync-status').textContent = 'Sync failed';
+        document.getElementById('sync-status').style.color = '#f87171';
+      }
+      btn.textContent = 'Sync to Echo';
+      btn.disabled = false;
+      await loadSyncStatus();
+      // Rebuild to update stamps
+      buildCards();
+    });
+
+    /* ═══════════════════════════════════════════
+       SSE LIVE UPDATES
+    ═══════════════════════════════════════════ */
+    function connectSSE() {
       const es = new EventSource('/api/events');
-      es.onmessage = (evt) => {
+      es.onmessage = async (evt) => {
         try {
           const data = JSON.parse(evt.data);
           if (data.type === 'files-changed') {
-            refreshFiles();
+            // Reload files
+            const res = await fetch('/api/files');
+            if (!res.ok) return;
+            const d = await res.json();
+            files = d.files || [];
+            // Invalidate changed file content
+            if (data.file) {
+              for (const key of Object.keys(fileContentCache)) {
+                if (key.endsWith('/' + data.file) || key === data.file) {
+                  delete fileContentCache[key];
+                }
+              }
+            }
+            const layout = layoutFiles(files);
+            positions = layout.positions;
+            sectionMeta = layout.sectionMeta;
+            buildCards();
             loadSyncStatus();
+            updateStats();
           }
         } catch {}
       };
       es.onerror = () => {
-        // Reconnect after a brief pause (EventSource auto-reconnects,
-        // but we close explicitly on persistent failure)
-        setTimeout(() => {
-          if (es.readyState === EventSource.CLOSED) connectLiveUpdates();
-        }, 3000);
+        setTimeout(() => { if (es.readyState === EventSource.CLOSED) connectSSE(); }, 3000);
       };
     }
 
+    function updateStats() {
+      const t1 = files.filter(f => getTier(f) === 1).length;
+      const t2 = files.filter(f => getTier(f) === 2).length;
+      const t3 = files.filter(f => getTier(f) === 3).length;
+      document.getElementById('stats').innerHTML =
+        '<b>' + t1 + '</b> memories · <b>' + t2 + '</b> projects · <b>' + t3 + '</b> system · <b>' + files.length + '</b> total';
+    }
+
+    /* ═══════════════════════════════════════════
+       INIT
+    ═══════════════════════════════════════════ */
     async function init() {
+      updateClock();
+      setInterval(updateClock, 30000);
+
       try {
         const res = await fetch('/api/files');
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
-        cachedFiles = data.files || [];
-        buildSidebar(cachedFiles);
-        const totalH2 = cachedFiles.reduce((sum, f) => sum + (f.h2Count || 0), 0);
-        document.getElementById('stats').textContent =
-          cachedFiles.length + ' files · ~' + totalH2 + ' memories';
+        files = data.files || [];
       } catch (err) {
-        document.getElementById('sidebar').innerHTML =
-          '<div style="color:#f87171;padding:12px;">Error loading files: ' + escHtml(String(err)) + '</div>';
+        document.getElementById('stats').textContent = 'Error: ' + err.message;
+        return;
       }
+
+      const layout = layoutFiles(files);
+      positions = layout.positions;
+      sectionMeta = layout.sectionMeta;
+      buildCards();
+      updateStats();
+      applyTransform();
+
       checkAuth();
-      document.getElementById('sync-btn').addEventListener('click', doSync);
-      // Start live file watching
-      connectLiveUpdates();
+      connectSSE();
     }
 
     init();
+  })();
   </script>
 </body>
 </html>
