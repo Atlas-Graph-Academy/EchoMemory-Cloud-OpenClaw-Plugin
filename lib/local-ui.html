@@ -480,6 +480,53 @@
       await loadSyncStatus();
     }
 
+    async function refreshFiles() {
+      try {
+        const res = await fetch('/api/files');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        const newFiles = data.files || [];
+        // Detect actual changes to avoid unnecessary redraws
+        const changed = newFiles.length !== cachedFiles.length ||
+          newFiles.some((f, i) =>
+            !cachedFiles[i] ||
+            f.relativePath !== cachedFiles[i].relativePath ||
+            f.contentHash !== cachedFiles[i].contentHash
+          );
+        if (!changed) return;
+        cachedFiles = newFiles;
+        buildSidebar(cachedFiles);
+        const totalH2 = cachedFiles.reduce((sum, f) => sum + (f.h2Count || 0), 0);
+        document.getElementById('stats').textContent =
+          cachedFiles.length + ' files · ~' + totalH2 + ' memories';
+        // If we're viewing a file that was modified, reload its content
+        if (activeFile) {
+          const stillExists = cachedFiles.some(f => f.relativePath === activeFile);
+          if (stillExists) loadFile(activeFile);
+        }
+      } catch {}
+    }
+
+    function connectLiveUpdates() {
+      const es = new EventSource('/api/events');
+      es.onmessage = (evt) => {
+        try {
+          const data = JSON.parse(evt.data);
+          if (data.type === 'files-changed') {
+            refreshFiles();
+            loadSyncStatus();
+          }
+        } catch {}
+      };
+      es.onerror = () => {
+        // Reconnect after a brief pause (EventSource auto-reconnects,
+        // but we close explicitly on persistent failure)
+        setTimeout(() => {
+          if (es.readyState === EventSource.CLOSED) connectLiveUpdates();
+        }, 3000);
+      };
+    }
+
     async function init() {
       try {
         const res = await fetch('/api/files');
@@ -496,6 +543,8 @@
       }
       checkAuth();
       document.getElementById('sync-btn').addEventListener('click', doSync);
+      // Start live file watching
+      connectLiveUpdates();
     }
 
     init();
