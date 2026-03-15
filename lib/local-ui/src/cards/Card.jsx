@@ -41,12 +41,15 @@ function stripMarkdown(md) {
 export const Card = React.memo(function Card({ card, syncStatus, content, onFocus }) {
   const { file, x, y, w, h } = card;
   const tier = file._tier || 3;
+  const isLog = file._isSessionLog;
   const displayName = file.fileName.replace(/\.md$/i, '');
   const preview = stripMarkdown(content);
 
+  const cardClass = `card${isLog ? ' card-session-log' : ''}`;
+
   return (
     <div
-      className="card"
+      className={cardClass}
       data-card-path={file.relativePath}
       onClick={(e) => { e.stopPropagation(); if (onFocus) onFocus(); }}
       style={{
@@ -54,20 +57,26 @@ export const Card = React.memo(function Card({ card, syncStatus, content, onFocu
         top: y,
         width: w,
         height: h,
-        background: TIER_BG[tier],
-        borderLeft: `3px solid ${TIER_BORDER[tier]}`,
+        background: isLog ? '#e8e8ec' : TIER_BG[tier],
+        borderLeft: `3px solid ${isLog ? '#b0b0b8' : TIER_BORDER[tier]}`,
       }}
     >
       <div className="card-header">
-        <div className="card-name" style={{ color: TIER_TEXT[tier] }}>
+        {isLog && <span className="session-badge">💬</span>}
+        <div className="card-name" style={{ color: isLog ? '#999' : TIER_TEXT[tier] }}>
           {displayName}
         </div>
         {syncStatus === 'new' && <span className="stamp stamp-new">NEW</span>}
         {syncStatus === 'modified' && <span className="stamp stamp-mod">MOD</span>}
         {syncStatus === 'synced' && <span className="stamp stamp-synced">✓</span>}
       </div>
-      {preview && (
+      {preview && !isLog && (
         <div className="card-content" style={{ color: TIER_CONTENT[tier] }}>
+          {preview}
+        </div>
+      )}
+      {isLog && (
+        <div className="card-content card-content-log">
           {preview}
         </div>
       )}

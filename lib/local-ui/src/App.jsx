@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Viewport } from './canvas/Viewport';
-import { computeLayout, getTier } from './layout/masonry';
+import { computeLayout, getTier, isSessionLog } from './layout/masonry';
 import { fetchFiles, fetchAllContents, fetchAuthStatus, fetchSyncStatus, triggerSync, connectSSE } from './sync/api';
 import './styles/global.css';
 
@@ -55,10 +55,14 @@ export default function App() {
     return cleanup;
   }, [loadFiles, loadSyncStatus]);
 
-  // Annotate with tier
+  // Annotate with tier — pass contentMap for session log detection
   const annotated = useMemo(() =>
-    files.map(f => ({ ...f, _tier: getTier(f) })),
-    [files]
+    files.map(f => ({
+      ...f,
+      _tier: getTier(f, contentMap),
+      _isSessionLog: isSessionLog(f, contentMap),
+    })),
+    [files, contentMap]
   );
 
   // Responsive to viewport

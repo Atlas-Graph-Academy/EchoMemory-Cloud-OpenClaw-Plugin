@@ -45,6 +45,31 @@
   opacity: 0.72;
 }
 
+/* Session log cards — subdued, de-emphasized */
+.card-session-log {
+  opacity: 0.5;
+}
+.card-session-log:hover {
+  opacity: 0.75;
+}
+
+.session-badge {
+  font-size: 9px;
+  flex-shrink: 0;
+}
+
+.card-content-log {
+  flex: 1;
+  overflow: hidden;
+  font: 400 8px/1.35 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: #aaa;
+  white-space: pre-wrap;
+  word-break: break-word;
+  -webkit-mask-image: linear-gradient(to bottom, #000 40%, transparent 90%);
+  mask-image: linear-gradient(to bottom, #000 40%, transparent 90%);
+  opacity: 0.5;
+}
+
 /* Sync stamps */
 .stamp {
   flex-shrink: 0;
