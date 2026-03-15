@@ -1,32 +1,53 @@
 .card {
   position: absolute;
-  border-radius: 3px;
+  border-radius: 4px;
   overflow: hidden;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.18);
   cursor: pointer;
   display: flex;
-  align-items: flex-start;
-  padding: 6px 8px;
-  transition: box-shadow 0.12s;
+  flex-direction: column;
+  padding: 8px 10px;
+  transition: box-shadow 0.12s, transform 0.12s;
 }
 .card:hover {
-  box-shadow: 0 3px 12px rgba(0,0,0,0.3);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
   z-index: 10;
 }
 
+/* Header: name + sync stamp on same row */
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-bottom: 4px;
+}
+
 .card-name {
-  font: 500 11px/1.3 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font: 600 11px/1.3 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Content preview — fills remaining card space, fades out */
+.card-content {
+  flex: 1;
+  overflow: hidden;
+  font: 400 9.5px/1.45 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  letter-spacing: 0.01em;
+  white-space: pre-wrap;
+  word-break: break-word;
+  -webkit-mask-image: linear-gradient(to bottom, #000 60%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 60%, transparent 100%);
+  opacity: 0.72;
 }
 
 /* Sync stamps */
 .stamp {
-  position: absolute;
-  top: 4px;
-  right: 6px;
+  flex-shrink: 0;
   font: 700 7px/1 -apple-system, sans-serif;
   letter-spacing: 0.4px;
   padding: 2px 4px;

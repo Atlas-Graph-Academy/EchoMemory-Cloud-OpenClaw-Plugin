@@ -8,7 +8,7 @@ import { Card } from '../cards/Card';
 import { Minimap } from './Minimap';
 import './Viewport.css';
 
-export function Viewport({ cards, sections, bounds, syncStatus, onCardClick }) {
+export function Viewport({ cards, sections, bounds, syncStatus, contentMap, onCardClick }) {
   const vpRef = useRef(null);
   const canvasRef = useRef(null);
   const { viewState, ready, panMoved, focusCard, animateTo, handlers } =
@@ -76,6 +76,7 @@ export function Viewport({ cards, sections, bounds, syncStatus, onCardClick }) {
                   key={card.key}
                   card={card}
                   syncStatus={syncStatus?.[card.key]}
+                  content={contentMap?.get(card.key) ?? ''}
                   onFocus={() => {
                     focusCard(card);
                     if (onCardClick) onCardClick(card.key);

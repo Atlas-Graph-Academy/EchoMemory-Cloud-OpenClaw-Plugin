@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Viewport } from './canvas/Viewport';
 import { computeLayout, getTier } from './layout/masonry';
-import { fetchFiles, fetchAuthStatus, fetchSyncStatus, triggerSync, connectSSE } from './sync/api';
+import { fetchFiles, fetchAllContents, fetchAuthStatus, fetchSyncStatus, triggerSync, connectSSE } from './sync/api';
 import './styles/global.css';
 
 function useClock() {
@@ -26,6 +26,7 @@ function timeAgo(iso) {
 
 export default function App() {
   const [files, setFiles] = useState([]);
+  const [contentMap, setContentMap] = useState(null); // Map<path, content>
   const [authStatus, setAuthStatus] = useState(null);
   const [syncStatus, setSyncStatus] = useState(null);
   const [syncResult, setSyncResult] = useState(null);
@@ -33,7 +34,13 @@ export default function App() {
   const now = useClock();
 
   const loadFiles = useCallback(async () => {
-    try { setFiles(await fetchFiles()); } catch (e) { console.error(e); }
+    try {
+      const newFiles = await fetchFiles();
+      setFiles(newFiles);
+      // Fetch all content in parallel
+      const contents = await fetchAllContents(newFiles);
+      setContentMap(contents);
+    } catch (e) { console.error(e); }
   }, []);
 
   const loadSyncStatus = useCallback(async () => {
@@ -62,8 +69,11 @@ export default function App() {
     return () => window.removeEventListener('resize', h);
   }, []);
 
-  // Layout
-  const layout = useMemo(() => computeLayout(annotated, vpWidth), [annotated, vpWidth]);
+  // Layout — pass contentMap for content-aware sizing
+  const layout = useMemo(
+    () => computeLayout(annotated, vpWidth, contentMap),
+    [annotated, vpWidth, contentMap]
+  );
 
   // Sync status map
   const syncMap = useMemo(() => {
@@ -124,6 +134,7 @@ export default function App() {
         sections={layout.sections}
         bounds={layout.bounds}
         syncStatus={syncMap}
+        contentMap={contentMap}
         onCardClick={(path) => console.log('card click:', path)}
       />
 
