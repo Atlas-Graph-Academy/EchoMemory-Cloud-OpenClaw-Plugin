@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Echo Memory — Your OpenClaw Workspace</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0a0a0f;
+      color: #e0e0f0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    header {
+      padding: 12px 20px;
+      border-bottom: 1px solid #1e1e2e;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    header h1 { font-size: 18px; font-weight: 600; color: #a78bfa; }
+    .main { display: flex; flex: 1; overflow: hidden; }
+    .sidebar {
+      width: 280px;
+      min-width: 220px;
+      border-right: 1px solid #1e1e2e;
+      overflow-y: auto;
+      padding: 8px 4px;
+      flex-shrink: 0;
+    }
+    .preview { flex: 1; overflow-y: auto; padding: 24px; }
+    .placeholder {
+      color: #444;
+      font-style: italic;
+      margin-top: 60px;
+      text-align: center;
+      font-size: 14px;
+    }
+    .group { margin-bottom: 2px; }
+    .group-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #a78bfa;
+      cursor: pointer;
+      border-radius: 4px;
+      user-select: none;
+    }
+    .group-header:hover { background: #13131f; }
+    .group-toggle { font-size: 10px; transition: transform 0.15s; display: inline-block; }
+    .group-toggle.collapsed { transform: rotate(-90deg); }
+    .group-count { color: #666; font-weight: 400; font-size: 12px; }
+    .group-files.hidden { display: none; }
+    .file-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 8px 3px 22px;
+      font-size: 12px;
+      cursor: pointer;
+      border-radius: 4px;
+      color: #b0b0c8;
+      white-space: nowrap;
+    }
+    .file-item:hover { background: #13131f; }
+    .file-item.active { background: #1e1e3f; color: #a78bfa; }
+    .file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+    .file-size { color: #555; font-size: 11px; flex-shrink: 0; }
+    .footer {
+      padding: 8px 20px;
+      border-top: 1px solid #1e1e2e;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 12px;
+      color: #555;
+      flex-shrink: 0;
+    }
+    .footer .local-badge { color: #f59e0b; }
+    .footer .stats { margin-left: auto; color: #444; }
+    /* Markdown */
+    .md h1 {
+      font-size: 22px; font-weight: 700; color: #a78bfa;
+      margin: 0 0 12px; padding-bottom: 8px;
+      border-bottom: 1px solid #1e1e2e;
+    }
+    .md h2 { font-size: 17px; font-weight: 600; color: #818cf8; margin: 20px 0 8px; }
+    .md h3 { font-size: 14px; font-weight: 600; color: #6366f1; margin: 16px 0 6px; }
+    .md p { margin: 6px 0; line-height: 1.7; font-size: 14px; }
+    .md strong { font-weight: 700; color: #e0e0f0; }
+    .md em { font-style: italic; color: #c084fc; }
+    .md code {
+      background: #1e1e2e; color: #7dd3fc;
+      padding: 1px 5px; border-radius: 3px;
+      font-family: 'SF Mono', 'Fira Code', monospace; font-size: 13px;
+    }
+    .md pre {
+      background: #0d0d1a; border: 1px solid #1e1e2e;
+      border-radius: 6px; padding: 14px;
+      margin: 10px 0; overflow-x: auto;
+    }
+    .md pre code { background: none; padding: 0; color: #7dd3fc; font-size: 13px; }
+    .md ul { margin: 6px 0 6px 22px; }
+    .md li { margin: 3px 0; line-height: 1.6; font-size: 14px; }
+    .md hr { border: none; border-top: 1px solid #1e1e2e; margin: 18px 0; }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #2a2a3e; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <header>
+    <span style="font-size:20px">🔮</span>
+    <h1>Echo Memory — Your OpenClaw Workspace</h1>
+  </header>
+  <div class="main">
+    <div class="sidebar" id="sidebar">
+      <div style="color:#555;font-size:12px;padding:12px;">Loading...</div>
+    </div>
+    <div class="preview" id="preview">
+      <div class="placeholder">← Select a file to preview</div>
+    </div>
+  </div>
+  <div class="footer" id="footer">
+    <span class="local-badge">⚠️ All data stays on your machine.</span>
+    <span class="stats" id="stats"></span>
+  </div>
+  <script>
+    const GROUP_META = {
+      'identity':  { label: '🪪 Identity',   order: 0 },
+      'long-term': { label: '🧠 Long-term',  order: 1 },
+      'private':   { label: '🔒 Private',    order: 2 },
+      'daily':     { label: '📅 Daily Logs', order: 3 },
+      'config':    { label: '🔧 Config',     order: 4 },
+      'other':     { label: '📦 Other',      order: 5 },
+    };
+    const PRIVACY_EMOJI = { private: '🔴', review: '🟡', safe: '🟢' };
+
+    let activeFile = null;
+    const collapsedGroups = new Set(['daily', 'private']);
+
+    function fmtBytes(n) {
+      if (n < 1024) return n + 'B';
+      if (n < 1024 * 1024) return (n / 1024).toFixed(1) + 'KB';
+      return (n / 1024 / 1024).toFixed(1) + 'MB';
+    }
+
+    function escHtml(s) {
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function renderMarkdown(md) {
+      const FENCE = '```';
+      const lines = md.split('\n');
+      const out = [];
+      let inCode = false;
+      let codeBuf = [];
+      let inList = false;
+
+      function flushList() {
+        if (inList) { out.push('</ul>'); inList = false; }
+      }
+
+      function inline(t) {
+        t = t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        t = t.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        t = t.replace(/\*(.+?)\*/g, '<em>$1</em>');
+        t = t.replace(/_(.+?)_/g, '<em>$1</em>');
+        t = t.replace(/`([^`]+)`/g, '<code>$1</code>');
+        return t;
+      }
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (inCode) {
+          if (line.trimEnd() === FENCE || line.startsWith(FENCE + ' ') || line.trimEnd() === FENCE) {
+            const escaped = codeBuf.join('\n')
+              .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            out.push('<pre><code>' + escaped + '</code></pre>');
+            codeBuf = []; inCode = false;
+          } else {
+            codeBuf.push(line);
+          }
+          continue;
+        }
+        if (line.startsWith(FENCE)) {
+          flushList(); inCode = true; codeBuf = []; continue;
+        }
+        const hm = line.match(/^(#{1,3}) (.+)$/);
+        if (hm) {
+          flushList();
+          const lvl = hm[1].length;
+          out.push('<h' + lvl + '>' + inline(hm[2]) + '</h' + lvl + '>');
+          continue;
+        }
+        if (/^[-*]{3,}$/.test(line.trim()) && line.trim().length >= 3) {
+          flushList(); out.push('<hr>'); continue;
+        }
+        const lm = line.match(/^[-*] (.+)$/);
+        if (lm) {
+          if (!inList) { out.push('<ul>'); inList = true; }
+          out.push('<li>' + inline(lm[1]) + '</li>');
+          continue;
+        }
+        flushList();
+        if (line.trim() === '') {
+          out.push('');
+        } else {
+          out.push('<p>' + inline(line) + '</p>');
+        }
+      }
+      flushList();
+      if (inCode && codeBuf.length) {
+        const escaped = codeBuf.join('\n')
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        out.push('<pre><code>' + escaped + '</code></pre>');
+      }
+      return '<div class="md">' + out.join('\n') + '</div>';
+    }
+
+    function buildSidebar(files) {
+      const groups = {};
+      for (const f of files) {
+        if (!groups[f.fileType]) groups[f.fileType] = [];
+        groups[f.fileType].push(f);
+      }
+
+      const sidebar = document.getElementById('sidebar');
+      sidebar.innerHTML = '';
+
+      for (const type of ['identity', 'long-term', 'private', 'daily', 'config', 'other']) {
+        const groupFiles = groups[type];
+        if (!groupFiles || groupFiles.length === 0) continue;
+
+        const meta = GROUP_META[type];
+        const isCollapsed = collapsedGroups.has(type);
+
+        const groupEl = document.createElement('div');
+        groupEl.className = 'group';
+
+        const headerEl = document.createElement('div');
+        headerEl.className = 'group-header';
+        headerEl.innerHTML =
+          '<span class="group-toggle' + (isCollapsed ? ' collapsed' : '') + '">▾</span>' +
+          '<span>' + meta.label + '</span>' +
+          ' <span class="group-count">(' + groupFiles.length + ')</span>';
+
+        const filesEl = document.createElement('div');
+        filesEl.className = 'group-files' + (isCollapsed ? ' hidden' : '');
+
+        for (const f of groupFiles) {
+          const item = document.createElement('div');
+          item.className = 'file-item' + (activeFile === f.relativePath ? ' active' : '');
+          item.dataset.path = f.relativePath;
+          item.innerHTML =
+            '<span>' + (PRIVACY_EMOJI[f.privacyLevel] || '⚪') + '</span>' +
+            '<span class="file-name">' + escHtml(f.fileName) + '</span>' +
+            '<span class="file-size">' + fmtBytes(f.sizeBytes) + '</span>';
+          item.addEventListener('click', () => loadFile(f.relativePath));
+          filesEl.appendChild(item);
+        }
+
+        headerEl.addEventListener('click', () => {
+          const toggle = headerEl.querySelector('.group-toggle');
+          if (collapsedGroups.has(type)) {
+            collapsedGroups.delete(type);
+            toggle.classList.remove('collapsed');
+            filesEl.classList.remove('hidden');
+          } else {
+            collapsedGroups.add(type);
+            toggle.classList.add('collapsed');
+            filesEl.classList.add('hidden');
+          }
+        });
+
+        groupEl.appendChild(headerEl);
+        groupEl.appendChild(filesEl);
+        sidebar.appendChild(groupEl);
+      }
+    }
+
+    function updateActiveInSidebar(relPath) {
+      document.querySelectorAll('.file-item').forEach(el => {
+        el.classList.toggle('active', el.dataset.path === relPath);
+      });
+    }
+
+    async function loadFile(relPath) {
+      activeFile = relPath;
+      updateActiveInSidebar(relPath);
+      const preview = document.getElementById('preview');
+      preview.innerHTML = '<div style="color:#555;font-size:12px;padding:20px;">Loading...</div>';
+      try {
+        const res = await fetch('/api/file?path=' + encodeURIComponent(relPath));
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        preview.innerHTML = renderMarkdown(data.content);
+        preview.scrollTop = 0;
+      } catch (err) {
+        preview.innerHTML = '<div style="color:#f87171;padding:20px;">Error: ' + escHtml(String(err)) + '</div>';
+      }
+    }
+
+    async function init() {
+      try {
+        const res = await fetch('/api/files');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        const files = data.files || [];
+        buildSidebar(files);
+        const totalH2 = files.reduce((sum, f) => sum + (f.h2Count || 0), 0);
+        document.getElementById('stats').textContent =
+          files.length + ' files · ~' + totalH2 + ' memories';
+      } catch (err) {
+        document.getElementById('sidebar').innerHTML =
+          '<div style="color:#f87171;padding:12px;">Error loading files: ' + escHtml(String(err)) + '</div>';
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>

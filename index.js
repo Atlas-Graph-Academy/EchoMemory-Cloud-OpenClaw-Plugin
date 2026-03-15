@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import path from "node:path";
 import { buildConfig, getEnvFileStatus } from "./lib/config.js";
 import { createApiClient } from "./lib/api-client.js";
 import { formatSearchResultsText } from "./lib/echo-memory-search.js";
@@ -13,6 +14,7 @@ import {
 import { buildOnboardingText } from "./lib/onboarding.js";
 import { createSyncRunner, formatStatusText } from "./lib/sync.js";
 import { readLastSyncState } from "./lib/state.js";
+import { startLocalServer, stopLocalServer } from "./lib/local-server.js";
 
 function resolveCommandLabel(channel) {
   return channel === "discord" ? "/echomemory" : "/echo-memory";
@@ -102,6 +104,7 @@ export default {
       },
       stop: async () => {
         syncRunner.stopInterval();
+        stopLocalServer();
       },
     });
 
@@ -113,11 +116,20 @@ export default {
         const { action, actionArgs } = parseCommandArgs(ctx.args);
         const commandLabel = resolveCommandLabel(ctx.channel);
 
+        if (action === "setup") {
+          const workspaceDir = path.dirname(cfg.memoryDir);
+          const url = await startLocalServer(workspaceDir);
+          return {
+            text: `Open your workspace: ${url}\n\nAll files stay local until you choose to sync.`,
+          };
+        }
+
         if (action === "help") {
           return {
             text: [
               "Echo Memory commands:",
               "",
+              `${commandLabel} setup`,
               `${commandLabel} status`,
               `${commandLabel} search <query>`,
               `${commandLabel} graph`,
