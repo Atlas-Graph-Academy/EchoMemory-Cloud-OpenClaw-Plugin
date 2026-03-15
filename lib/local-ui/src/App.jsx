@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Viewport } from './canvas/Viewport';
-import { computeLayout, getTier, isSessionLog } from './layout/masonry';
+import { computeLayout, computeSystemLayout, getTier, isSessionLog } from './layout/masonry';
 import { fetchFiles, fetchAllContents, fetchAuthStatus, fetchSyncStatus, triggerSync, connectSSE } from './sync/api';
 import './styles/global.css';
 
@@ -26,18 +26,18 @@ function timeAgo(iso) {
 
 export default function App() {
   const [files, setFiles] = useState([]);
-  const [contentMap, setContentMap] = useState(null); // Map<path, content>
+  const [contentMap, setContentMap] = useState(null);
   const [authStatus, setAuthStatus] = useState(null);
   const [syncStatus, setSyncStatus] = useState(null);
   const [syncResult, setSyncResult] = useState(null);
   const [syncing, setSyncing] = useState(false);
+  const [view, setView] = useState('memories'); // 'memories' | 'system'
   const now = useClock();
 
   const loadFiles = useCallback(async () => {
     try {
       const newFiles = await fetchFiles();
       setFiles(newFiles);
-      // Fetch all content in parallel
       const contents = await fetchAllContents(newFiles);
       setContentMap(contents);
     } catch (e) { console.error(e); }
@@ -55,7 +55,6 @@ export default function App() {
     return cleanup;
   }, [loadFiles, loadSyncStatus]);
 
-  // Annotate with tier — pass contentMap for session log detection
   const annotated = useMemo(() =>
     files.map(f => ({
       ...f,
@@ -65,7 +64,6 @@ export default function App() {
     [files, contentMap]
   );
 
-  // Responsive to viewport
   const [vpWidth, setVpWidth] = useState(window.innerWidth);
   useEffect(() => {
     const h = () => setVpWidth(window.innerWidth);
@@ -73,13 +71,16 @@ export default function App() {
     return () => window.removeEventListener('resize', h);
   }, []);
 
-  // Layout — pass contentMap for content-aware sizing
   const layout = useMemo(
     () => computeLayout(annotated, vpWidth, contentMap),
     [annotated, vpWidth, contentMap]
   );
 
-  // Sync status map
+  const systemLayout = useMemo(() => {
+    if (view !== 'system') return null;
+    return computeSystemLayout(layout.systemFiles || [], vpWidth, contentMap);
+  }, [view, layout.systemFiles, vpWidth, contentMap]);
+
   const syncMap = useMemo(() => {
     const m = {};
     if (syncStatus?.fileStatuses) {
@@ -88,13 +89,14 @@ export default function App() {
     return m;
   }, [syncStatus]);
 
-  // Stats
   const stats = useMemo(() => {
     const t1 = annotated.filter(f => f._tier === 1).length;
     const t2 = annotated.filter(f => f._tier === 2).length;
     const t3 = annotated.filter(f => f._tier === 3).length;
     return { t1, t2, t3, total: annotated.length };
   }, [annotated]);
+
+  const systemFileCount = layout.systemFileCount || 0;
 
   const pendingCount = useMemo(() =>
     (syncStatus?.fileStatuses || []).filter(s => s.status === 'new' || s.status === 'modified').length,
@@ -115,11 +117,20 @@ export default function App() {
   const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   const isConnected = authStatus?.connected;
 
+  const activeLayout = view === 'system' && systemLayout ? systemLayout : layout;
+
   return (
     <>
       <div className="hdr">
         <span style={{ fontSize: 16 }}>📂</span>
-        <span className="hdr-title">OpenClaw Memory Archive</span>
+        {view === 'memories' ? (
+          <span className="hdr-title">OpenClaw Memory Archive</span>
+        ) : (
+          <>
+            <span className="hdr-back" onClick={() => setView('memories')}>← Back</span>
+            <span className="hdr-title hdr-title-system">System Files</span>
+          </>
+        )}
         <input className="hdr-search" type="text" placeholder="Search files…" />
         <span className="hdr-spacer" />
         <span className="hdr-meta"><b>{dateStr}</b> {timeStr}</span>
@@ -134,18 +145,32 @@ export default function App() {
       </div>
 
       <Viewport
-        cards={layout.cards}
-        sections={layout.sections}
-        bounds={layout.bounds}
+        key={view}
+        cards={activeLayout.cards}
+        sections={activeLayout.sections}
+        bounds={activeLayout.bounds}
         syncStatus={syncMap}
         contentMap={contentMap}
         onCardClick={(path) => console.log('card click:', path)}
       />
 
       <div className="ftr">
-        <span>
-          <b>{stats.t1}</b> memories · <b>{stats.t2}</b> projects · <b>{stats.t3}</b> system · <b>{stats.total}</b> total
-        </span>
+        {view === 'memories' ? (
+          <>
+            <span>
+              <b>{stats.t1}</b> memories · <b>{stats.t2}</b> knowledge · <b>{stats.total}</b> total
+            </span>
+            {systemFileCount > 0 && (
+              <span className="ftr-system" onClick={() => setView('system')} title="View system files">
+                ⚪ {systemFileCount} system files
+              </span>
+            )}
+          </>
+        ) : (
+          <span>
+            <b>{systemFileCount}</b> system files · not processed into memories
+          </span>
+        )}
         <span className="ftr-spacer" />
         {syncResult && (
           <span className={syncResult.ok ? 'sync-result' : 'sync-error'}>{syncResult.msg}</span>

@@ -6,8 +6,8 @@
 
 import React from 'react';
 
-const TIER_BG = { 1: '#fefcf3', 2: '#f8f9fc', 3: '#ededf0' };
-const TIER_BORDER = { 1: '#d4a574', 2: '#a0b4d4', 3: '#c0c0c4' };
+const TIER_BG = { 1: '#fefcf6', 2: '#eaeaed', 3: '#eaeaed' };
+const TIER_BORDER = { 1: '#d4b882', 2: '#b8b8c0', 3: '#b8b8c0' };
 
 export const CardPlaceholder = React.memo(function CardPlaceholder({ card }) {
   const { file, x, y, w, h } = card;

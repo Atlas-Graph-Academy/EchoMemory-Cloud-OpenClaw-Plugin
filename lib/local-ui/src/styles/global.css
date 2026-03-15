@@ -50,6 +50,21 @@ body {
   color: var(--accent);
   letter-spacing: 0.3px;
 }
+.hdr-title-system {
+  color: #9ca3af;
+}
+.hdr-back {
+  font-size: 12px;
+  color: #888;
+  cursor: pointer;
+  padding: 3px 8px;
+  border-radius: 4px;
+  transition: background 0.15s, color 0.15s;
+}
+.hdr-back:hover {
+  background: rgba(255,255,255,0.08);
+  color: var(--accent);
+}
 
 .hdr-search {
   background: #16161f;
@@ -136,6 +151,21 @@ body {
   opacity: 0.4;
   cursor: default;
 }
+.ftr-system {
+  color: #666;
+  font-size: 10px;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid #2a2a36;
+  transition: background 0.15s;
+}
+.ftr-system:hover {
+  background: rgba(255,255,255,0.08);
+  color: #888;
+}
+
 .sync-result {
   color: #4ade80;
 }
