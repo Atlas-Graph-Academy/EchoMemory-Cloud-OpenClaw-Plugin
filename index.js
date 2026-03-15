@@ -91,6 +91,20 @@ export default {
       id: "echo-memory-cloud-openclaw-sync",
       start: async (ctx) => {
         await syncRunner.initialize(ctx.stateDir);
+
+        // Auto-start local workspace viewer
+        const workspaceDir = path.dirname(cfg.memoryDir);
+        try {
+          const url = await startLocalServer(workspaceDir, {
+            apiClient: client,
+            syncRunner,
+            cfg,
+          });
+          api.logger?.info?.(`[echo-memory] Local workspace viewer: ${url}`);
+        } catch (error) {
+          api.logger?.warn?.(`[echo-memory] local server failed: ${String(error?.message ?? error)}`);
+        }
+
         if (!cfg.autoSync) {
           api.logger?.info?.("[echo-memory] autoSync disabled");
           return;
