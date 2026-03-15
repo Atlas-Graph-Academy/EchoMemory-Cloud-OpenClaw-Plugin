@@ -480,30 +480,33 @@
         const aDaily = a.fileType === 'daily' ? 0 : 1;
         const bDaily = b.fileType === 'daily' ? 0 : 1;
         if (aDaily !== bDaily) return aDaily - bDaily;
-        // Within dailies: chronological
         if (aDaily === 0) return a.fileName.localeCompare(b.fileName);
-        // Non-dailies: most recently modified first
         return new Date(b.modifiedTime) - new Date(a.modifiedTime);
       });
       tiers[2].sort((a, b) => new Date(b.modifiedTime) - new Date(a.modifiedTime));
       tiers[3].sort((a, b) => a.fileName.localeCompare(b.fileName));
 
       const positions = new Map();
-      let sectionY = 0;
       const sectionMeta = [];
+      const colW = CARD_W + GAP;
+
+      // HORIZONTAL layout: tiers flow LEFT to RIGHT, not top to bottom
+      let sectionX = 0;
 
       for (const tierNum of [1, 2, 3]) {
         const tierFiles = tiers[tierNum];
         if (tierFiles.length === 0) continue;
 
         const label = tierNum === 1 ? '🟣 MEMORIES' : tierNum === 2 ? '🔵 PROJECTS' : '⚪ SYSTEM';
-        const sectionStartY = sectionY;
-        sectionY += 36; // space for section label
 
-        // Masonry-style column packing
-        const colCount = Math.max(1, Math.min(8, Math.ceil(Math.sqrt(tierFiles.length))));
-        const colW = CARD_W + GAP;
+        // Target: fill a roughly square-ish area, leaning wider than tall
+        // Use enough columns so no column exceeds ~4000px tall
+        const avgH = tierFiles.reduce((s, f) => s + estimateCardHeight(f), 0) / tierFiles.length;
+        const targetColH = 3500;
+        const colCount = Math.max(2, Math.ceil(tierFiles.length * avgH / targetColH));
         const colHeights = new Array(colCount).fill(0);
+
+        const sectionStartX = sectionX;
 
         for (const f of tierFiles) {
           // Find shortest column
@@ -512,15 +515,16 @@
             if (colHeights[c] < colHeights[minCol]) minCol = c;
           }
           const cardH = estimateCardHeight(f);
-          const x = minCol * colW;
-          const y = sectionY + colHeights[minCol];
+          const x = sectionX + minCol * colW;
+          const y = 36 + colHeights[minCol]; // 36px for section label
           positions.set(f.relativePath, { x, y, w: CARD_W, h: cardH });
           colHeights[minCol] += cardH + GAP;
         }
 
         const maxColH = Math.max(...colHeights);
-        sectionMeta.push({ label, y: sectionStartY, w: colCount * colW, h: maxColH + 36 });
-        sectionY += maxColH + 40;
+        const sectionW = colCount * colW;
+        sectionMeta.push({ label, x: sectionStartX, y: 0, w: sectionW, h: maxColH + 36 });
+        sectionX += sectionW + 60; // gap between tier sections
       }
 
       return { positions, sectionMeta };
@@ -550,7 +554,7 @@
       for (const sec of sectionMeta) {
         const lbl = document.createElement('div');
         lbl.className = 'section-label';
-        lbl.style.left = '0px';
+        lbl.style.left = sec.x + 'px';
         lbl.style.top = sec.y + 'px';
         lbl.textContent = sec.label;
         canvas.appendChild(lbl);
@@ -611,7 +615,7 @@
         body.dataset.path = f.relativePath;
         card.appendChild(body);
 
-        card.addEventListener('click', () => selectCard(f.relativePath));
+        // Click handled via pointerup on viewport (pan vs click detection)
 
         canvas.appendChild(card);
         cardElements.push({ el: card, file: f, pos, body, summary });
@@ -723,24 +727,42 @@
     /* ═══════════════════════════════════════════
        PAN & ZOOM
     ═══════════════════════════════════════════ */
+    let panMoved = false;
+
     viewport.addEventListener('pointerdown', e => {
-      if (e.target.closest('.card')) return; // let card click through
       isPanning = true;
+      panMoved = false;
       panStart = { x: e.clientX, y: e.clientY, px: panX, py: panY };
       document.body.classList.add('grabbing');
+      viewport.setPointerCapture(e.pointerId);
       e.preventDefault();
     });
-    window.addEventListener('pointermove', e => {
+    viewport.addEventListener('pointermove', e => {
       if (!isPanning) return;
-      panX = panStart.px + (e.clientX - panStart.x);
-      panY = panStart.py + (e.clientY - panStart.y);
+      const dx = e.clientX - panStart.x;
+      const dy = e.clientY - panStart.y;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) panMoved = true;
+      panX = panStart.px + dx;
+      panY = panStart.py + dy;
       applyTransform();
     });
-    window.addEventListener('pointerup', () => {
-      if (isPanning) {
-        isPanning = false;
-        document.body.classList.remove('grabbing');
-        updateLOD();
+    viewport.addEventListener('pointerup', e => {
+      if (!isPanning) return;
+      isPanning = false;
+      document.body.classList.remove('grabbing');
+      updateLOD();
+
+      // If we didn't move (it's a click), handle card selection
+      if (!panMoved) {
+        const card = e.target.closest('.card');
+        if (card) {
+          selectCard(card.dataset.path);
+        } else if (activeCard) {
+          activeCard = null;
+          for (const c of cardElements) {
+            c.el.classList.remove('active', 'dimmed');
+          }
+        }
       }
     });
 
@@ -749,14 +771,13 @@
       const rect = viewport.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
-      // World position under mouse before zoom
       const wx = (mx - panX) / zoom;
       const wy = (my - panY) / zoom;
 
-      const delta = -e.deltaY * 0.001;
+      // Smoother zoom with larger delta multiplier
+      const delta = -e.deltaY * 0.002;
       const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom * (1 + delta)));
 
-      // Adjust pan so world point stays under mouse
       panX = mx - wx * newZoom;
       panY = my - wy * newZoom;
       zoom = newZoom;
@@ -764,16 +785,6 @@
       applyTransform();
       updateLOD();
     }, { passive: false });
-
-    // Click on canvas background to deselect
-    viewport.addEventListener('click', e => {
-      if (!e.target.closest('.card') && activeCard) {
-        activeCard = null;
-        for (const c of cardElements) {
-          c.el.classList.remove('active', 'dimmed');
-        }
-      }
-    });
 
     /* ═══════════════════════════════════════════
        SEARCH
@@ -963,6 +974,18 @@
       sectionMeta = layout.sectionMeta;
       buildCards();
       updateStats();
+
+      // Fit content to viewport on load
+      if (sectionMeta.length > 0) {
+        const totalW = sectionMeta.reduce((max, s) => Math.max(max, s.x + s.w), 0);
+        const totalH = sectionMeta.reduce((max, s) => Math.max(max, s.h), 0);
+        const vpW = viewport.clientWidth;
+        const vpH = viewport.clientHeight;
+        zoom = Math.min(vpW / (totalW + 80), vpH / (totalH + 80), 0.5);
+        zoom = Math.max(MIN_ZOOM, zoom);
+        panX = 20;
+        panY = 20;
+      }
       applyTransform();
 
       checkAuth();
