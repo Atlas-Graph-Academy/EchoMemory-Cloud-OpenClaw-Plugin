@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenClaw Memory Archive</title>
+  <style>
+    :root {
+      /* Card dimensions */
+      --card-w: 320px;
+      --card-pad: 20px;
+      --card-gap: 8px;
+      --card-radius: 3px;
+      /* Typography — uniform across all cards */
+      --font-body: 13px/1.65 'IBM Plex Mono', 'SF Mono', 'Fira Code', ui-monospace, monospace;
+      --font-h1: 600 16px/1.3 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --font-h2: 600 14px/1.3 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --font-h3: 600 12.5px/1.3 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --font-meta: 11px/1.4 -apple-system, BlinkMacSystemFont, sans-serif;
+      /* Tier colors */
+      --tier1-bg: #fefcf3;
+      --tier1-border: #d4a574;
+      --tier1-accent: #8b5e3c;
+      --tier2-bg: #f8f9fc;
+      --tier2-border: #a0b4d4;
+      --tier2-accent: #4a6fa5;
+      --tier3-bg: #f2f2f4;
+      --tier3-border: #c8c8cc;
+      --tier3-accent: #888;
+      /* Canvas */
+      --canvas-bg: #1a1a22;
+      --section-label: rgba(255,255,255,0.06);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--canvas-bg);
+      color: #e0e0f0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      cursor: grab;
+      user-select: none;
+    }
+    body.grabbing { cursor: grabbing; }
+
+    /* ── Header bar ─────────────────────────── */
+    .hdr {
+      height: 44px;
+      background: rgba(10,10,15,0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid #2a2a36;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 12px;
+      z-index: 100;
+      flex-shrink: 0;
+    }
+    .hdr-title { font-size: 14px; font-weight: 600; color: #a78bfa; letter-spacing: 0.3px; }
+    .hdr-search {
+      background: #16161f;
+      border: 1px solid #2a2a36;
+      border-radius: 6px;
+      color: #c0c0d8;
+      font-size: 12px;
+      padding: 5px 10px;
+      width: 200px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .hdr-search:focus { border-color: #a78bfa; }
+    .hdr-search::placeholder { color: #555; }
+    .hdr-spacer { flex: 1; }
+    .hdr-meta { font-size: 11px; color: #555; }
+    .hdr-meta b { color: #777; font-weight: 500; }
+    .hdr-conn { font-size: 11px; }
+    .hdr-zoom { font-size: 11px; color: #555; min-width: 48px; text-align: center; }
+
+    /* ── Canvas viewport ────────────────────── */
+    #viewport {
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+    }
+    #canvas {
+      position: absolute;
+      top: 0; left: 0;
+      transform-origin: 0 0;
+      /* transform set by JS */
+    }
+
+    /* ── Section labels on canvas ───────────── */
+    .section-label {
+      position: absolute;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.12);
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    /* ── File card ───────────────────────────── */
+    .card {
+      position: absolute;
+      width: var(--card-w);
+      border-radius: var(--card-radius);
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.08);
+      transition: box-shadow 0.2s, opacity 0.3s, filter 0.3s;
+      cursor: pointer;
+    }
+    .card:hover {
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4), 0 0 0 1px rgba(0,0,0,0.12);
+      z-index: 10;
+    }
+    .card.active {
+      box-shadow: 0 6px 24px rgba(167,139,250,0.3), 0 0 0 2px #a78bfa;
+      z-index: 20;
+    }
+    .card.dimmed { opacity: 0.35; filter: brightness(0.7); }
+
+    /* Card tier styles */
+    .card.tier1 { background: var(--tier1-bg); border-left: 3px solid var(--tier1-border); }
+    .card.tier2 { background: var(--tier2-bg); border-left: 3px solid var(--tier2-border); }
+    .card.tier3 { background: var(--tier3-bg); border-left: 3px solid var(--tier3-border); opacity: 0.65; }
+
+    /* Card header */
+    .card-head {
+      padding: 10px var(--card-pad) 8px;
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+    .card-head .card-name {
+      font: var(--font-h2);
+      color: #2a2a2a;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .card.tier1 .card-name { color: var(--tier1-accent); }
+    .card.tier2 .card-name { color: var(--tier2-accent); }
+    .card.tier3 .card-name { color: var(--tier3-accent); }
+
+    .card-date { font: var(--font-meta); color: #999; white-space: nowrap; }
+
+    /* Status stamps */
+    .stamp {
+      position: absolute;
+      top: 8px;
+      right: 10px;
+      font: 700 9px/1 -apple-system, sans-serif;
+      letter-spacing: 0.5px;
+      padding: 3px 7px;
+      border-radius: 2px;
+      transform: rotate(-3deg);
+      pointer-events: none;
+      border: 1.5px solid;
+      text-transform: uppercase;
+    }
+    .stamp-new { color: #1d6fa3; border-color: #1d6fa3; background: rgba(29,111,163,0.08); }
+    .stamp-mod { color: #b87a1a; border-color: #b87a1a; background: rgba(184,122,26,0.08); }
+    .stamp-synced { color: #2d8a56; border-color: #2d8a56; background: rgba(45,138,86,0.08); }
+
+    /* Bookmark ribbon */
+    .ribbon {
+      position: absolute;
+      top: -2px;
+      right: 18px;
+      width: 16px;
+      height: 28px;
+      pointer-events: none;
+    }
+    .ribbon::after {
+      content: '';
+      display: block;
+      width: 16px;
+      height: 28px;
+      clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 75%, 0 100%);
+    }
+    .ribbon.ribbon-new::after { background: #3b82f6; }
+    .ribbon.ribbon-mod::after { background: #f59e0b; }
+    .ribbon.ribbon-agent::after { background: #8b5cf6; }
+
+    /* Agent badge */
+    .agent-badge {
+      position: absolute;
+      bottom: 8px;
+      right: 10px;
+      font-size: 14px;
+      opacity: 0.7;
+    }
+
+    /* Card body (markdown content) */
+    .card-body {
+      padding: var(--card-pad);
+      color: #333;
+      font: var(--font-body);
+      overflow: hidden;
+    }
+    /* Zoom-level rendering classes */
+    .card-body.lod-0 { display: none; }
+    .card-body.lod-1 { display: none; }
+    .card-body.lod-2 .md-full { display: none; }
+    .card-body.lod-3 .md-headings { display: none; }
+
+    .card-body h1 { font: var(--font-h1); color: #1a1a1a; margin: 0 0 8px; padding-bottom: 6px; border-bottom: 1px solid #e8e4dc; }
+    .card-body h2 { font: var(--font-h2); color: #444; margin: 12px 0 4px; }
+    .card-body h3 { font: var(--font-h3); color: #666; margin: 10px 0 4px; }
+    .card-body p { margin: 4px 0; }
+    .card-body ul { margin: 4px 0 4px 16px; }
+    .card-body li { margin: 2px 0; }
+    .card-body strong { font-weight: 700; color: #1a1a1a; }
+    .card-body em { font-style: italic; color: #6b5b3e; }
+    .card-body code {
+      background: rgba(0,0,0,0.05);
+      padding: 1px 4px;
+      border-radius: 2px;
+      font-size: 12px;
+    }
+    .card-body pre {
+      background: #f5f3ee;
+      border: 1px solid #e0dcd4;
+      border-radius: 3px;
+      padding: 8px;
+      margin: 6px 0;
+      overflow-x: auto;
+      font-size: 11px;
+      line-height: 1.5;
+    }
+    .card-body pre code { background: none; padding: 0; }
+    .card-body hr { border: none; border-top: 1px solid #e0dcd4; margin: 10px 0; }
+
+    /* L0/L1 summary block (shown at low zoom) */
+    .card-summary {
+      padding: 6px var(--card-pad);
+      font: var(--font-meta);
+      color: #888;
+    }
+    .card-summary .h-list { color: #555; margin: 4px 0; }
+    .card-summary.lod-2, .card-summary.lod-3 { display: none; }
+
+    /* Footer bar */
+    .ftr {
+      height: 32px;
+      background: rgba(10,10,15,0.92);
+      backdrop-filter: blur(12px);
+      border-top: 1px solid #2a2a36;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 16px;
+      font-size: 11px;
+      color: #555;
+      z-index: 100;
+      flex-shrink: 0;
+    }
+    .ftr b { color: #777; font-weight: 500; }
+    .ftr .ftr-spacer { flex: 1; }
+    .ftr .sync-btn {
+      background: #2d1b69;
+      color: #a78bfa;
+      border: 1px solid #3b2a7a;
+      border-radius: 4px;
+      padding: 3px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .ftr .sync-btn:hover { background: #3b2a7a; }
+    .ftr .sync-btn:disabled { opacity: 0.4; cursor: default; }
+
+    /* Mini-map */
+    #minimap {
+      position: fixed;
+      bottom: 40px;
+      right: 8px;
+      width: 160px;
+      height: 100px;
+      background: rgba(10,10,15,0.85);
+      border: 1px solid #2a2a36;
+      border-radius: 4px;
+      z-index: 90;
+      overflow: hidden;
+    }
+    #minimap canvas { width: 100%; height: 100%; }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="hdr">
+    <span style="font-size:16px">📂</span>
+    <span class="hdr-title">OpenClaw Memory Archive</span>
+    <input class="hdr-search" id="search" type="text" placeholder="Search files…" />
+    <span class="hdr-spacer"></span>
+    <span class="hdr-meta" id="clock"></span>
+    <span class="hdr-meta">·</span>
+    <span class="hdr-meta" id="last-sync">Never synced</span>
+    <span class="hdr-meta">·</span>
+    <span class="hdr-conn" id="auth-status">…</span>
+    <span class="hdr-meta">·</span>
+    <span class="hdr-zoom" id="zoom-label">100%</span>
+  </div>
+
+  <!-- Canvas viewport -->
+  <div id="viewport">
+    <div id="canvas"></div>
+  </div>
+
+  <!-- Footer -->
+  <div class="ftr">
+    <span id="stats">Loading…</span>
+    <span class="ftr-spacer"></span>
+    <span id="sync-status"></span>
+    <button class="sync-btn" id="sync-btn" disabled>Sync to Echo</button>
+  </div>
+
+  <script>
+  (function() {
+    'use strict';
+
+    /* ═══════════════════════════════════════════
+       CONSTANTS
+    ═══════════════════════════════════════════ */
+    const CARD_W = 320;
+    const CARD_PAD = 20;
+    const GAP = 8;
+    const MIN_ZOOM = 0.04;
+    const MAX_ZOOM = 1.6;
+    const LOD_THRESHOLDS = [0.12, 0.25, 0.55]; // L0→L1, L1→L2, L2→L3
+    const CHARS_PER_LINE = 42; // approximate for card width at font-size 13px
+    const LINE_H = 21; // approximate line height in px
+
+    /* ═══════════════════════════════════════════
+       STATE
+    ═══════════════════════════════════════════ */
+    let files = [];
+    let fileContentCache = {};
+    let cardElements = [];
+    let zoom = 0.35;
+    let panX = 40, panY = 40;
+    let isPanning = false;
+    let panStart = { x: 0, y: 0, px: 0, py: 0 };
+    let activeCard = null;
+    let searchQuery = '';
+    let isConnected = false;
+    let syncStatusByPath = {};
+
+    const viewport = document.getElementById('viewport');
+    const canvas = document.getElementById('canvas');
+
+    /* ═══════════════════════════════════════════
+       TIER CLASSIFICATION
+    ═══════════════════════════════════════════ */
+    function getTier(f) {
+      const rp = f.relativePath;
+      const ft = f.fileType;
+      // Tier 1: Memory-Essential
+      if (ft === 'daily') return 1;
+      if (ft === 'long-term') return 1;
+      if (ft === 'memory') return 1;
+      if (rp.startsWith('workspace/memory/')) return 1;
+      // Agent daily logs = Tier 1 (agent-based)
+      if (ft.startsWith('agent:') && f.fileName.match(/^\d{4}-\d{2}-\d{2}/)) return 1;
+      // Tier 2: Memory-Optional
+      if (ft === 'research' || ft === 'tasks' || ft === 'projects') return 2;
+      if (f.fileName === 'CARRY.md' || f.fileName === 'WORKFLOW.md') return 2;
+      if (ft === 'agents') return 2;
+      // Tier 3: System
+      if (ft === 'identity' || ft === 'config' || ft === 'private') return 3;
+      if (ft === 'skills' || ft === 'self-improving') return 3;
+      if (['superpowers','clawhub-staging','openclaw-skills','Star-Office-UI',
+           'crshdn-mission-control','mission-control'].includes(ft)) return 3;
+      if (ft.startsWith('agent:')) return 2; // agent non-daily files
+      return 3;
+    }
+
+    function getTierClass(tier) {
+      return tier === 1 ? 'tier1' : tier === 2 ? 'tier2' : 'tier3';
+    }
+
+    function isAgentFile(f) {
+      return f.fileType.startsWith('agent:');
+    }
+
+    function getAgentName(f) {
+      if (!f.fileType.startsWith('agent:')) return null;
+      const name = f.fileType.slice(6);
+      return name.charAt(0).toUpperCase() + name.slice(1);
+    }
+
+    /* ═══════════════════════════════════════════
+       MARKDOWN RENDERING
+    ═══════════════════════════════════════════ */
+    function escHtml(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function inlineMd(t) {
+      t = escHtml(t);
+      t = t.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      t = t.replace(/\*(.+?)\*/g, '<em>$1</em>');
+      t = t.replace(/_(.+?)_/g, '<em>$1</em>');
+      t = t.replace(/`([^`]+)`/g, '<code>$1</code>');
+      return t;
+    }
+
+    function renderMd(md) {
+      const lines = md.split('\n');
+      const out = [];
+      const headings = [];
+      let inCode = false, codeBuf = [], inList = false;
+
+      function flushList() { if (inList) { out.push('</ul>'); inList = false; } }
+
+      for (const line of lines) {
+        if (inCode) {
+          if (line.trimEnd() === '```' || line.startsWith('```')) {
+            out.push('<pre><code>' + codeBuf.join('\n').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</code></pre>');
+            codeBuf = []; inCode = false;
+          } else codeBuf.push(line);
+          continue;
+        }
+        if (line.startsWith('```')) { flushList(); inCode = true; codeBuf = []; continue; }
+        const hm = line.match(/^(#{1,3}) (.+)$/);
+        if (hm) {
+          flushList();
+          const lvl = hm[1].length;
+          headings.push({ lvl, text: hm[2] });
+          out.push('<h' + lvl + '>' + inlineMd(hm[2]) + '</h' + lvl + '>');
+          continue;
+        }
+        if (/^[-*]{3,}$/.test(line.trim())) { flushList(); out.push('<hr>'); continue; }
+        const lm = line.match(/^[-*] (.+)$/);
+        if (lm) {
+          if (!inList) { out.push('<ul>'); inList = true; }
+          out.push('<li>' + inlineMd(lm[1]) + '</li>');
+          continue;
+        }
+        flushList();
+        if (line.trim() === '') out.push('');
+        else out.push('<p>' + inlineMd(line) + '</p>');
+      }
+      flushList();
+      if (inCode && codeBuf.length) {
+        out.push('<pre><code>' + codeBuf.join('\n').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</code></pre>');
+      }
+      return { html: out.join('\n'), headings };
+    }
+
+    /* ═══════════════════════════════════════════
+       CARD HEIGHT ESTIMATION
+    ═══════════════════════════════════════════ */
+    function estimateCardHeight(f) {
+      // Rough: header ~40px + body lines * lineH + padding
+      const lineCount = Math.ceil(f.sizeBytes / CHARS_PER_LINE);
+      const bodyH = lineCount * LINE_H;
+      return 40 + Math.min(bodyH, 4000) + CARD_PAD * 2; // cap at ~4000px
+    }
+
+    /* ═══════════════════════════════════════════
+       LAYOUT: BIN-PACKING PER SECTION
+    ═══════════════════════════════════════════ */
+    function layoutFiles(files) {
+      const tiers = { 1: [], 2: [], 3: [] };
+      for (const f of files) tiers[getTier(f)].push(f);
+
+      // Sort: Tier 1 dailies chronological first, then other memories by recency
+      tiers[1].sort((a, b) => {
+        const aDaily = a.fileType === 'daily' ? 0 : 1;
+        const bDaily = b.fileType === 'daily' ? 0 : 1;
+        if (aDaily !== bDaily) return aDaily - bDaily;
+        if (aDaily === 0) return a.fileName.localeCompare(b.fileName);
+        return new Date(b.modifiedTime) - new Date(a.modifiedTime);
+      });
+      tiers[2].sort((a, b) => new Date(b.modifiedTime) - new Date(a.modifiedTime));
+      tiers[3].sort((a, b) => a.fileName.localeCompare(b.fileName));
+
+      const positions = new Map();
+      const sectionMeta = [];
+      const colW = CARD_W + GAP;
+
+      /*
+       * LAYOUT STRATEGY: "Museum Rooms"
+       *
+       * Instead of flowing tiers horizontally, arrange them as rooms:
+       *
+       *  ┌──────────────────────┬─────────────┐
+       *  │                      │             │
+       *  │   TIER 1: MEMORIES   │  TIER 2:    │
+       *  │   (largest room,     │  PROJECTS   │
+       *  │    top-left,         │  (right)    │
+       *  │    ~60% of space)    │             │
+       *  │                      │             │
+       *  │                      ├─────────────┤
+       *  │                      │  TIER 3:    │
+       *  │                      │  SYSTEM     │
+       *  │                      │  (small)    │
+       *  └──────────────────────┴─────────────┘
+       *
+       * Each room targets a ~16:10 aspect ratio internally.
+       * Cards masonry-pack within each room.
+       */
+
+      function packSection(tierFiles, originX, originY, targetAspect) {
+        if (tierFiles.length === 0) return { w: 0, h: 0 };
+
+        // Calculate total area needed
+        const totalArea = tierFiles.reduce((s, f) => {
+          return s + CARD_W * estimateCardHeight(f);
+        }, 0);
+
+        // Target rectangle: aspect = w/h
+        // totalArea ≈ targetW * targetH, targetW = targetH * aspect
+        // → targetH = sqrt(totalArea / aspect)
+        const targetH = Math.sqrt(totalArea / targetAspect);
+        const targetW = targetH * targetAspect;
+
+        // Calculate column count from target width
+        const colCount = Math.max(2, Math.round(targetW / colW));
+        const colHeights = new Array(colCount).fill(0);
+        const LABEL_H = 44;
+
+        for (const f of tierFiles) {
+          let minCol = 0;
+          for (let c = 1; c < colCount; c++) {
+            if (colHeights[c] < colHeights[minCol]) minCol = c;
+          }
+          const cardH = estimateCardHeight(f);
+          const x = originX + minCol * colW;
+          const y = originY + LABEL_H + colHeights[minCol];
+          positions.set(f.relativePath, { x, y, w: CARD_W, h: cardH });
+          colHeights[minCol] += cardH + GAP;
+        }
+
+        const actualW = colCount * colW;
+        const actualH = LABEL_H + Math.max(...colHeights);
+        return { w: actualW, h: actualH };
+      }
+
+      // Room 1: MEMORIES (top-left, largest)
+      const ROOM_GAP = 40;
+      const t1 = packSection(tiers[1], 0, 0, 1.3); // slightly wider than tall
+      sectionMeta.push({
+        label: '🟣 MEMORIES',
+        x: 0, y: 0, w: t1.w, h: t1.h
+      });
+
+      // Room 2: PROJECTS (right of memories, top)
+      const t2X = t1.w + ROOM_GAP;
+      const t2 = packSection(tiers[2], t2X, 0, 1.0); // squarish
+      sectionMeta.push({
+        label: '🔵 PROJECTS',
+        x: t2X, y: 0, w: t2.w, h: t2.h
+      });
+
+      // Room 3: SYSTEM (below projects, right side)
+      const t3Y = t2.h + ROOM_GAP;
+      const t3 = packSection(tiers[3], t2X, t3Y, 1.5); // wider
+      sectionMeta.push({
+        label: '⚪ SYSTEM',
+        x: t2X, y: t3Y, w: t3.w, h: t3.h
+      });
+
+      return { positions, sectionMeta };
+    }
+
+    /* ═══════════════════════════════════════════
+       LOD (Level of Detail) from zoom
+    ═══════════════════════════════════════════ */
+    function getLOD() {
+      if (zoom < LOD_THRESHOLDS[0]) return 0;
+      if (zoom < LOD_THRESHOLDS[1]) return 1;
+      if (zoom < LOD_THRESHOLDS[2]) return 2;
+      return 3;
+    }
+
+    /* ═══════════════════════════════════════════
+       RENDERING
+    ═══════════════════════════════════════════ */
+    let positions = new Map();
+    let sectionMeta = [];
+
+    function buildCards() {
+      canvas.innerHTML = '';
+      cardElements = [];
+
+      // Section labels
+      for (const sec of sectionMeta) {
+        const lbl = document.createElement('div');
+        lbl.className = 'section-label';
+        lbl.style.left = sec.x + 'px';
+        lbl.style.top = sec.y + 'px';
+        lbl.textContent = sec.label;
+        canvas.appendChild(lbl);
+      }
+
+      for (const f of files) {
+        const pos = positions.get(f.relativePath);
+        if (!pos) continue;
+        const tier = getTier(f);
+
+        const card = document.createElement('div');
+        card.className = 'card ' + getTierClass(tier);
+        card.style.left = pos.x + 'px';
+        card.style.top = pos.y + 'px';
+        card.style.width = pos.w + 'px';
+        card.style.height = pos.h + 'px';
+        card.dataset.path = f.relativePath;
+
+        // Sync status stamp
+        const syncSt = syncStatusByPath[f.relativePath];
+        if (syncSt === 'new') {
+          card.innerHTML += '<div class="ribbon ribbon-new"></div>';
+          card.innerHTML += '<span class="stamp stamp-new">NEW</span>';
+        } else if (syncSt === 'modified') {
+          card.innerHTML += '<div class="ribbon ribbon-mod"></div>';
+          card.innerHTML += '<span class="stamp stamp-mod">MOD</span>';
+        } else if (syncSt === 'synced') {
+          card.innerHTML += '<span class="stamp stamp-synced">SYNCED</span>';
+        }
+
+        // Agent badge
+        if (isAgentFile(f)) {
+          const agentName = getAgentName(f);
+          card.innerHTML += '<span class="agent-badge" title="' + agentName + ' agent">🤖</span>';
+          if (!syncSt) {
+            card.innerHTML += '<div class="ribbon ribbon-agent"></div>';
+          }
+        }
+
+        // Header
+        const head = document.createElement('div');
+        head.className = 'card-head';
+        const displayName = f.fileName.replace(/\.md$/i, '');
+        const dateStr = f.modifiedTime ? timeAgo(f.modifiedTime) : '';
+        head.innerHTML = '<span class="card-name" title="' + escHtml(f.relativePath) + '">' + escHtml(displayName) + '</span>' +
+          '<span class="card-date">' + dateStr + '</span>';
+        card.appendChild(head);
+
+        // Summary (for LOD 1-2)
+        const summary = document.createElement('div');
+        summary.className = 'card-summary';
+        summary.innerHTML = '<div>' + escHtml(f.fileType) + ' · ' + fmtBytes(f.sizeBytes) + ' · ' + f.h2Count + ' sections</div>';
+        card.appendChild(summary);
+
+        // Body (for LOD 2-3) — lazy loaded
+        const body = document.createElement('div');
+        body.className = 'card-body';
+        body.dataset.path = f.relativePath;
+        card.appendChild(body);
+
+        // Click handled via pointerup on viewport (pan vs click detection)
+
+        canvas.appendChild(card);
+        cardElements.push({ el: card, file: f, pos, body, summary });
+      }
+
+      updateLOD();
+    }
+
+    function selectCard(path) {
+      activeCard = activeCard === path ? null : path;
+      for (const c of cardElements) {
+        c.el.classList.toggle('active', c.file.relativePath === activeCard);
+        c.el.classList.toggle('dimmed', activeCard && c.file.relativePath !== activeCard);
+      }
+      if (activeCard) {
+        // Zoom into the card for reading
+        const pos = positions.get(activeCard);
+        if (pos) {
+          const vpW = viewport.clientWidth;
+          const targetZoom = Math.min(1.0, vpW / (CARD_W + 80));
+          animateTo(pos.x - 40, pos.y - 60, targetZoom);
+        }
+      }
+    }
+
+    async function loadCardContent(cardInfo) {
+      const path = cardInfo.file.relativePath;
+      if (fileContentCache[path]) {
+        const { html, headings } = fileContentCache[path];
+        cardInfo.body.innerHTML =
+          '<div class="md-headings">' + headings.map(h => '<div style="font-weight:600;color:#666;margin:2px 0;font-size:' + (h.lvl === 1 ? '13' : '11.5') + 'px">' + '  '.repeat(h.lvl - 1) + escHtml(h.text) + '</div>').join('') + '</div>' +
+          '<div class="md-full">' + html + '</div>';
+        return;
+      }
+      try {
+        const res = await fetch('/api/file?path=' + encodeURIComponent(path));
+        if (!res.ok) return;
+        const data = await res.json();
+        const rendered = renderMd(data.content);
+        fileContentCache[path] = rendered;
+        cardInfo.body.innerHTML =
+          '<div class="md-headings">' + rendered.headings.map(h => '<div style="font-weight:600;color:#666;margin:2px 0;font-size:' + (h.lvl === 1 ? '13' : '11.5') + 'px">' + '  '.repeat(h.lvl - 1) + escHtml(h.text) + '</div>').join('') + '</div>' +
+          '<div class="md-full">' + rendered.html + '</div>';
+      } catch {}
+    }
+
+    function updateLOD() {
+      const lod = getLOD();
+      const vpRect = getViewportRect();
+
+      for (const c of cardElements) {
+        const p = c.pos;
+        // Viewport culling
+        const inView = p.x + p.w > vpRect.x && p.x < vpRect.x + vpRect.w &&
+                        p.y + p.h > vpRect.y && p.y < vpRect.y + vpRect.h;
+
+        // Show/hide based on LOD
+        c.summary.className = 'card-summary lod-' + lod;
+        c.body.className = 'card-body lod-' + lod;
+
+        if (inView && lod >= 2 && !fileContentCache[c.file.relativePath] && !c._loading) {
+          c._loading = true;
+          loadCardContent(c);
+        }
+
+        // Search dimming
+        if (searchQuery && !c.file.fileName.toLowerCase().includes(searchQuery) &&
+            !c.file.relativePath.toLowerCase().includes(searchQuery)) {
+          c.el.style.opacity = '0.15';
+        } else if (!c.el.classList.contains('dimmed')) {
+          c.el.style.opacity = '';
+        }
+      }
+    }
+
+    function getViewportRect() {
+      return {
+        x: -panX / zoom,
+        y: -panY / zoom,
+        w: viewport.clientWidth / zoom,
+        h: viewport.clientHeight / zoom,
+      };
+    }
+
+    function applyTransform() {
+      canvas.style.transform = 'translate(' + panX + 'px,' + panY + 'px) scale(' + zoom + ')';
+      document.getElementById('zoom-label').textContent = Math.round(zoom * 100) + '%';
+    }
+
+    function animateTo(x, y, z) {
+      const targetPanX = -x * z + viewport.clientWidth / 2 - CARD_W * z / 2;
+      const targetPanY = -y * z + 60;
+      const startPanX = panX, startPanY = panY, startZoom = zoom;
+      const duration = 400;
+      const start = performance.now();
+      function step(now) {
+        const t = Math.min(1, (now - start) / duration);
+        const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+        panX = startPanX + (targetPanX - startPanX) * ease;
+        panY = startPanY + (targetPanY - startPanY) * ease;
+        zoom = startZoom + (z - startZoom) * ease;
+        applyTransform();
+        if (t < 1) requestAnimationFrame(step);
+        else updateLOD();
+      }
+      requestAnimationFrame(step);
+    }
+
+    /* ═══════════════════════════════════════════
+       PAN & ZOOM
+    ═══════════════════════════════════════════ */
+    let panMoved = false;
+
+    viewport.addEventListener('pointerdown', e => {
+      isPanning = true;
+      panMoved = false;
+      panStart = { x: e.clientX, y: e.clientY, px: panX, py: panY };
+      document.body.classList.add('grabbing');
+      viewport.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    });
+    viewport.addEventListener('pointermove', e => {
+      if (!isPanning) return;
+      const dx = e.clientX - panStart.x;
+      const dy = e.clientY - panStart.y;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) panMoved = true;
+      panX = panStart.px + dx;
+      panY = panStart.py + dy;
+      applyTransform();
+    });
+    viewport.addEventListener('pointerup', e => {
+      if (!isPanning) return;
+      isPanning = false;
+      document.body.classList.remove('grabbing');
+      updateLOD();
+
+      // If we didn't move (it's a click), handle card selection
+      if (!panMoved) {
+        const card = e.target.closest('.card');
+        if (card) {
+          selectCard(card.dataset.path);
+        } else if (activeCard) {
+          activeCard = null;
+          for (const c of cardElements) {
+            c.el.classList.remove('active', 'dimmed');
+          }
+        }
+      }
+    });
+
+    viewport.addEventListener('wheel', e => {
+      e.preventDefault();
+      const rect = viewport.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const wx = (mx - panX) / zoom;
+      const wy = (my - panY) / zoom;
+
+      // Smoother zoom with larger delta multiplier
+      const delta = -e.deltaY * 0.002;
+      const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom * (1 + delta)));
+
+      panX = mx - wx * newZoom;
+      panY = my - wy * newZoom;
+      zoom = newZoom;
+
+      applyTransform();
+      updateLOD();
+    }, { passive: false });
+
+    /* ═══════════════════════════════════════════
+       SEARCH
+    ═══════════════════════════════════════════ */
+    const searchInput = document.getElementById('search');
+    searchInput.addEventListener('input', () => {
+      searchQuery = searchInput.value.trim().toLowerCase();
+      updateLOD();
+      // Jump to first match
+      if (searchQuery) {
+        const match = cardElements.find(c =>
+          c.file.fileName.toLowerCase().includes(searchQuery) ||
+          c.file.relativePath.toLowerCase().includes(searchQuery)
+        );
+        if (match) {
+          const p = match.pos;
+          animateTo(p.x, p.y, Math.max(zoom, 0.35));
+        }
+      }
+    });
+    searchInput.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        searchInput.value = '';
+        searchQuery = '';
+        updateLOD();
+      }
+    });
+
+    /* ═══════════════════════════════════════════
+       UTILITIES
+    ═══════════════════════════════════════════ */
+    function timeAgo(iso) {
+      const diff = Date.now() - new Date(iso).getTime();
+      const min = Math.floor(diff / 60000);
+      if (min < 1) return 'just now';
+      if (min < 60) return min + 'm ago';
+      const hrs = Math.floor(min / 60);
+      if (hrs < 24) return hrs + 'h ago';
+      if (hrs < 48) return 'yesterday';
+      return Math.floor(hrs / 24) + 'd ago';
+    }
+
+    function fmtBytes(n) {
+      if (n < 1024) return n + 'B';
+      if (n < 1048576) return (n / 1024).toFixed(1) + 'KB';
+      return (n / 1048576).toFixed(1) + 'MB';
+    }
+
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('clock').innerHTML =
+        '<b>' + now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + '</b> ' +
+        now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    /* ═══════════════════════════════════════════
+       SYNC & AUTH
+    ═══════════════════════════════════════════ */
+    async function checkAuth() {
+      const el = document.getElementById('auth-status');
+      try {
+        const res = await fetch('/api/auth-status');
+        const data = await res.json();
+        if (data.connected) {
+          isConnected = true;
+          el.innerHTML = '<span style="color:#4ade80;">● Connected</span>';
+          document.getElementById('sync-btn').disabled = false;
+          loadSyncStatus();
+        } else {
+          el.innerHTML = '<span style="color:#f87171;">✕ Offline</span>';
+        }
+      } catch {
+        el.innerHTML = '<span style="color:#555;">○ Offline</span>';
+      }
+    }
+
+    async function loadSyncStatus() {
+      try {
+        const res = await fetch('/api/sync-status');
+        if (!res.ok) return;
+        const data = await res.json();
+        syncStatusByPath = {};
+        for (const s of (data.fileStatuses || [])) {
+          if (s.status) syncStatusByPath[s.relativePath] = s.status;
+        }
+        if (data.lastSyncAt) {
+          document.getElementById('last-sync').textContent = 'Synced ' + timeAgo(data.lastSyncAt);
+        }
+        const pending = (data.fileStatuses || []).filter(s => s.status === 'new' || s.status === 'modified').length;
+        const btn = document.getElementById('sync-btn');
+        if (pending > 0) {
+          btn.textContent = 'Sync ' + pending + ' files';
+          btn.disabled = false;
+        } else if (data.lastSyncAt) {
+          btn.textContent = 'All synced ✓';
+          btn.disabled = true;
+        }
+      } catch {}
+    }
+
+    document.getElementById('sync-btn').addEventListener('click', async () => {
+      if (!isConnected) return;
+      const btn = document.getElementById('sync-btn');
+      btn.disabled = true;
+      btn.textContent = 'Syncing…';
+      try {
+        const res = await fetch('/api/sync', { method: 'POST' });
+        const data = await res.json();
+        const s = data.summary || {};
+        document.getElementById('sync-status').textContent =
+          '✓ ' + (s.new_memory_count || 0) + ' new memories';
+        document.getElementById('sync-status').style.color = '#4ade80';
+      } catch (err) {
+        document.getElementById('sync-status').textContent = 'Sync failed';
+        document.getElementById('sync-status').style.color = '#f87171';
+      }
+      btn.textContent = 'Sync to Echo';
+      btn.disabled = false;
+      await loadSyncStatus();
+      // Rebuild to update stamps
+      buildCards();
+    });
+
+    /* ═══════════════════════════════════════════
+       SSE LIVE UPDATES
+    ═══════════════════════════════════════════ */
+    function connectSSE() {
+      const es = new EventSource('/api/events');
+      es.onmessage = async (evt) => {
+        try {
+          const data = JSON.parse(evt.data);
+          if (data.type === 'files-changed') {
+            // Reload files
+            const res = await fetch('/api/files');
+            if (!res.ok) return;
+            const d = await res.json();
+            files = d.files || [];
+            // Invalidate changed file content
+            if (data.file) {
+              for (const key of Object.keys(fileContentCache)) {
+                if (key.endsWith('/' + data.file) || key === data.file) {
+                  delete fileContentCache[key];
+                }
+              }
+            }
+            const layout = layoutFiles(files);
+            positions = layout.positions;
+            sectionMeta = layout.sectionMeta;
+            buildCards();
+            loadSyncStatus();
+            updateStats();
+          }
+        } catch {}
+      };
+      es.onerror = () => {
+        setTimeout(() => { if (es.readyState === EventSource.CLOSED) connectSSE(); }, 3000);
+      };
+    }
+
+    function updateStats() {
+      const t1 = files.filter(f => getTier(f) === 1).length;
+      const t2 = files.filter(f => getTier(f) === 2).length;
+      const t3 = files.filter(f => getTier(f) === 3).length;
+      document.getElementById('stats').innerHTML =
+        '<b>' + t1 + '</b> memories · <b>' + t2 + '</b> projects · <b>' + t3 + '</b> system · <b>' + files.length + '</b> total';
+    }
+
+    /* ═══════════════════════════════════════════
+       INIT
+    ═══════════════════════════════════════════ */
+    async function init() {
+      updateClock();
+      setInterval(updateClock, 30000);
+
+      try {
+        const res = await fetch('/api/files');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        files = data.files || [];
+      } catch (err) {
+        document.getElementById('stats').textContent = 'Error: ' + err.message;
+        return;
+      }
+
+      const layout = layoutFiles(files);
+      positions = layout.positions;
+      sectionMeta = layout.sectionMeta;
+      buildCards();
+      updateStats();
+
+      // Fit all content to viewport on load with padding
+      if (sectionMeta.length > 0) {
+        const totalW = sectionMeta.reduce((max, s) => Math.max(max, s.x + s.w), 0);
+        const totalH = sectionMeta.reduce((max, s) => Math.max(max, s.y + s.h), 0);
+        const vpW = viewport.clientWidth;
+        const vpH = viewport.clientHeight;
+        const pad = 60;
+        zoom = Math.min(
+          (vpW - pad * 2) / totalW,
+          (vpH - pad * 2) / totalH,
+          0.5
+        );
+        zoom = Math.max(MIN_ZOOM, zoom);
+        // Center content
+        panX = (vpW - totalW * zoom) / 2;
+        panY = (vpH - totalH * zoom) / 2;
+      }
+      applyTransform();
+
+      checkAuth();
+      connectSSE();
+    }
+
+    init();
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+.minimap {
+  position: absolute;
+  bottom: 40px;
+  right: 12px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #2a2a36;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  z-index: 80;
+  cursor: pointer;
+  opacity: 0.85;
+  transition: opacity 0.15s;
+}
+.minimap:hover {
+  opacity: 1;
+}
+.minimap-canvas {
+  display: block;
+  width: 180px;
+  height: 120px;
+}

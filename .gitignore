@@ -55,3 +55,4 @@ reports/
 
 # Documentation
 docs/**/*.md
+!lib/local-ui/dist/

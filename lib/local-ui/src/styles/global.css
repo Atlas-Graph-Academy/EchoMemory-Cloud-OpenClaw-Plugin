@@ -1,0 +1,144 @@
+/* ── Global reset + app chrome ─────────── */
+
+:root {
+  --canvas-bg: #1a1a22;
+  --chrome-bg: rgba(10, 10, 15, 0.92);
+  --chrome-border: #2a2a36;
+  --accent: #a78bfa;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--canvas-bg);
+  color: #e0e0f0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  height: 100vh;
+  overflow: hidden;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* ── Header ───────────────────────────── */
+
+.hdr {
+  height: 44px;
+  background: var(--chrome-bg);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--chrome-border);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 12px;
+  z-index: 100;
+  flex-shrink: 0;
+}
+
+.hdr-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 0.3px;
+}
+
+.hdr-search {
+  background: #16161f;
+  border: 1px solid var(--chrome-border);
+  border-radius: 6px;
+  color: #c0c0d8;
+  font-size: 12px;
+  padding: 5px 10px;
+  width: 200px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.hdr-search:focus {
+  border-color: var(--accent);
+}
+.hdr-search::placeholder {
+  color: #555;
+}
+
+.hdr-spacer {
+  flex: 1;
+}
+
+.hdr-meta {
+  font-size: 11px;
+  color: #555;
+}
+.hdr-meta b {
+  color: #777;
+  font-weight: 500;
+}
+
+.hdr-conn {
+  font-size: 11px;
+}
+.conn-ok {
+  color: #4ade80;
+}
+.conn-off {
+  color: #f87171;
+}
+.conn-unknown {
+  color: #555;
+}
+
+/* ── Footer ───────────────────────────── */
+
+.ftr {
+  height: 32px;
+  background: var(--chrome-bg);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid var(--chrome-border);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 16px;
+  font-size: 11px;
+  color: #555;
+  z-index: 100;
+  flex-shrink: 0;
+}
+.ftr b {
+  color: #777;
+  font-weight: 500;
+}
+.ftr-spacer {
+  flex: 1;
+}
+.sync-btn {
+  background: #2d1b69;
+  color: var(--accent);
+  border: 1px solid #3b2a7a;
+  border-radius: 4px;
+  padding: 3px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.sync-btn:hover {
+  background: #3b2a7a;
+}
+.sync-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.sync-result {
+  color: #4ade80;
+}
+.sync-error {
+  color: #f87171;
+}
