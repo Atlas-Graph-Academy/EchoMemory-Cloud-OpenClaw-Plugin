@@ -74,6 +74,8 @@
     .file-item.active { background: #1e1e3f; color: #a78bfa; }
     .file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; }
     .file-size { color: #555; font-size: 11px; flex-shrink: 0; }
+    .badge-new { background:#064e3b; color:#4ade80; font-size:10px; padding:1px 5px; border-radius:9px; flex-shrink:0; font-weight:600; }
+    .badge-modified { background:#422006; color:#fbbf24; font-size:10px; padding:1px 5px; border-radius:9px; flex-shrink:0; font-weight:600; }
     .footer {
       padding: 8px 20px;
       border-top: 1px solid #1e1e2e;
@@ -155,6 +157,25 @@
 
     let activeFile = null;
     const collapsedGroups = new Set(['daily', 'private']);
+    let syncStatusByPath = {};
+
+    function timeAgo(isoStr) {
+      if (!isoStr) return null;
+      const diff = Date.now() - new Date(isoStr).getTime();
+      const min = Math.floor(diff / 60000);
+      if (min < 1) return 'just now';
+      if (min < 60) return min + ' min ago';
+      const hrs = Math.floor(min / 60);
+      if (hrs < 24) return hrs + ' hour' + (hrs === 1 ? '' : 's') + ' ago';
+      if (hrs < 48) return 'yesterday';
+      return Math.floor(hrs / 24) + ' days ago';
+    }
+
+    function statusBadge(status) {
+      if (status === 'new') return '<span class="badge-new">NEW</span>';
+      if (status === 'modified') return '<span class="badge-modified">MOD</span>';
+      return '';
+    }
 
     function fmtBytes(n) {
       if (n < 1024) return n + 'B';
@@ -273,9 +294,11 @@
           const item = document.createElement('div');
           item.className = 'file-item' + (activeFile === f.relativePath ? ' active' : '');
           item.dataset.path = f.relativePath;
+          const st = syncStatusByPath[f.relativePath] || null;
           item.innerHTML =
             '<span>' + (PRIVACY_EMOJI[f.privacyLevel] || '⚪') + '</span>' +
             '<span class="file-name">' + escHtml(f.fileName) + '</span>' +
+            statusBadge(st) +
             '<span class="file-size">' + fmtBytes(f.sizeBytes) + '</span>';
           item.addEventListener('click', () => loadFile(f.relativePath));
           filesEl.appendChild(item);
@@ -323,6 +346,55 @@
     }
 
     let isConnected = false;
+    let cachedFiles = [];
+
+    async function loadSyncStatus() {
+      try {
+        const res = await fetch('/api/sync-status');
+        if (!res.ok) return;
+        const data = await res.json();
+
+        // Update syncStatusByPath map
+        syncStatusByPath = {};
+        const statuses = data.fileStatuses || [];
+        for (const s of statuses) {
+          if (s.status) syncStatusByPath[s.relativePath] = s.status;
+        }
+
+        // Update last sync label
+        const syncStatusEl = document.getElementById('sync-status');
+        if (data.lastSyncAt) {
+          syncStatusEl.textContent = 'Last sync: ' + timeAgo(data.lastSyncAt);
+          syncStatusEl.style.color = '#555';
+        } else {
+          syncStatusEl.textContent = 'Never synced';
+          syncStatusEl.style.color = '#555';
+        }
+
+        // Update button text
+        const btn = document.getElementById('sync-btn');
+        if (!btn.disabled || btn.textContent === 'Sync to Echo') {
+          const newCount = statuses.filter(s => s.status === 'new').length;
+          const modCount = statuses.filter(s => s.status === 'modified').length;
+          const pending = newCount + modCount;
+          if (isConnected) {
+            if (pending === 0 && data.lastSyncAt) {
+              btn.textContent = 'All synced ✓';
+              btn.style.opacity = '0.5';
+              btn.disabled = true;
+            } else {
+              const label = pending > 0 ? 'Sync ' + pending + ' file' + (pending === 1 ? '' : 's') : 'Sync to Echo';
+              btn.textContent = label;
+              btn.style.opacity = '1';
+              btn.disabled = false;
+            }
+          }
+        }
+
+        // Rebuild sidebar to show badges
+        if (cachedFiles.length > 0) buildSidebar(cachedFiles);
+      } catch {}
+    }
 
     async function checkAuth() {
       const el = document.getElementById('auth-status');
@@ -333,11 +405,11 @@
           isConnected = true;
           el.innerHTML = '<span style="color:#4ade80;">● Connected to Echo</span>';
           const syncBtn = document.getElementById('sync-btn');
-          syncBtn.disabled = false;
-          syncBtn.style.opacity = '1';
           syncBtn.style.cursor = 'pointer';
           syncBtn.onmouseover = () => { syncBtn.style.background = '#3b2a7a'; };
           syncBtn.onmouseout = () => { syncBtn.style.background = '#2d1b69'; };
+          // Let loadSyncStatus set the button text/state
+          await loadSyncStatus();
         } else if (data.reason === 'no_api_key') {
           el.innerHTML = '<span style="color:#fbbf24;">⚠ No API key configured</span>' +
             ' <a href="https://www.iditor.com/api" target="_blank" style="color:#a78bfa;font-size:12px;">Get API key →</a>';
@@ -377,6 +449,7 @@
       btn.disabled = false;
       btn.textContent = 'Sync to Echo';
       btn.style.opacity = '1';
+      await loadSyncStatus();
     }
 
     async function init() {
@@ -384,11 +457,11 @@
         const res = await fetch('/api/files');
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
-        const files = data.files || [];
-        buildSidebar(files);
-        const totalH2 = files.reduce((sum, f) => sum + (f.h2Count || 0), 0);
+        cachedFiles = data.files || [];
+        buildSidebar(cachedFiles);
+        const totalH2 = cachedFiles.reduce((sum, f) => sum + (f.h2Count || 0), 0);
         document.getElementById('stats').textContent =
-          files.length + ' files · ~' + totalH2 + ' memories';
+          cachedFiles.length + ' files · ~' + totalH2 + ' memories';
       } catch (err) {
         document.getElementById('sidebar').innerHTML =
           '<div style="color:#f87171;padding:12px;">Error loading files: ' + escHtml(String(err)) + '</div>';
