@@ -468,14 +468,10 @@
        LAYOUT: BIN-PACKING PER SECTION
     ═══════════════════════════════════════════ */
     function layoutFiles(files) {
-      // Group by tier, then sub-group
       const tiers = { 1: [], 2: [], 3: [] };
-      for (const f of files) {
-        const t = getTier(f);
-        tiers[t].push(f);
-      }
+      for (const f of files) tiers[getTier(f)].push(f);
 
-      // Sort tier 1 dailies by date, rest by modified time
+      // Sort: Tier 1 dailies chronological first, then other memories by recency
       tiers[1].sort((a, b) => {
         const aDaily = a.fileType === 'daily' ? 0 : 1;
         const bDaily = b.fileType === 'daily' ? 0 : 1;
@@ -490,42 +486,87 @@
       const sectionMeta = [];
       const colW = CARD_W + GAP;
 
-      // HORIZONTAL layout: tiers flow LEFT to RIGHT, not top to bottom
-      let sectionX = 0;
+      /*
+       * LAYOUT STRATEGY: "Museum Rooms"
+       *
+       * Instead of flowing tiers horizontally, arrange them as rooms:
+       *
+       *  ┌──────────────────────┬─────────────┐
+       *  │                      │             │
+       *  │   TIER 1: MEMORIES   │  TIER 2:    │
+       *  │   (largest room,     │  PROJECTS   │
+       *  │    top-left,         │  (right)    │
+       *  │    ~60% of space)    │             │
+       *  │                      │             │
+       *  │                      ├─────────────┤
+       *  │                      │  TIER 3:    │
+       *  │                      │  SYSTEM     │
+       *  │                      │  (small)    │
+       *  └──────────────────────┴─────────────┘
+       *
+       * Each room targets a ~16:10 aspect ratio internally.
+       * Cards masonry-pack within each room.
+       */
 
-      for (const tierNum of [1, 2, 3]) {
-        const tierFiles = tiers[tierNum];
-        if (tierFiles.length === 0) continue;
+      function packSection(tierFiles, originX, originY, targetAspect) {
+        if (tierFiles.length === 0) return { w: 0, h: 0 };
 
-        const label = tierNum === 1 ? '🟣 MEMORIES' : tierNum === 2 ? '🔵 PROJECTS' : '⚪ SYSTEM';
+        // Calculate total area needed
+        const totalArea = tierFiles.reduce((s, f) => {
+          return s + CARD_W * estimateCardHeight(f);
+        }, 0);
 
-        // Target: fill a roughly square-ish area, leaning wider than tall
-        // Use enough columns so no column exceeds ~4000px tall
-        const avgH = tierFiles.reduce((s, f) => s + estimateCardHeight(f), 0) / tierFiles.length;
-        const targetColH = 3500;
-        const colCount = Math.max(2, Math.ceil(tierFiles.length * avgH / targetColH));
+        // Target rectangle: aspect = w/h
+        // totalArea ≈ targetW * targetH, targetW = targetH * aspect
+        // → targetH = sqrt(totalArea / aspect)
+        const targetH = Math.sqrt(totalArea / targetAspect);
+        const targetW = targetH * targetAspect;
+
+        // Calculate column count from target width
+        const colCount = Math.max(2, Math.round(targetW / colW));
         const colHeights = new Array(colCount).fill(0);
-
-        const sectionStartX = sectionX;
+        const LABEL_H = 44;
 
         for (const f of tierFiles) {
-          // Find shortest column
           let minCol = 0;
           for (let c = 1; c < colCount; c++) {
             if (colHeights[c] < colHeights[minCol]) minCol = c;
           }
           const cardH = estimateCardHeight(f);
-          const x = sectionX + minCol * colW;
-          const y = 36 + colHeights[minCol]; // 36px for section label
+          const x = originX + minCol * colW;
+          const y = originY + LABEL_H + colHeights[minCol];
           positions.set(f.relativePath, { x, y, w: CARD_W, h: cardH });
           colHeights[minCol] += cardH + GAP;
         }
 
-        const maxColH = Math.max(...colHeights);
-        const sectionW = colCount * colW;
-        sectionMeta.push({ label, x: sectionStartX, y: 0, w: sectionW, h: maxColH + 36 });
-        sectionX += sectionW + 60; // gap between tier sections
+        const actualW = colCount * colW;
+        const actualH = LABEL_H + Math.max(...colHeights);
+        return { w: actualW, h: actualH };
       }
+
+      // Room 1: MEMORIES (top-left, largest)
+      const ROOM_GAP = 40;
+      const t1 = packSection(tiers[1], 0, 0, 1.3); // slightly wider than tall
+      sectionMeta.push({
+        label: '🟣 MEMORIES',
+        x: 0, y: 0, w: t1.w, h: t1.h
+      });
+
+      // Room 2: PROJECTS (right of memories, top)
+      const t2X = t1.w + ROOM_GAP;
+      const t2 = packSection(tiers[2], t2X, 0, 1.0); // squarish
+      sectionMeta.push({
+        label: '🔵 PROJECTS',
+        x: t2X, y: 0, w: t2.w, h: t2.h
+      });
+
+      // Room 3: SYSTEM (below projects, right side)
+      const t3Y = t2.h + ROOM_GAP;
+      const t3 = packSection(tiers[3], t2X, t3Y, 1.5); // wider
+      sectionMeta.push({
+        label: '⚪ SYSTEM',
+        x: t2X, y: t3Y, w: t3.w, h: t3.h
+      });
 
       return { positions, sectionMeta };
     }
@@ -975,16 +1016,22 @@
       buildCards();
       updateStats();
 
-      // Fit content to viewport on load
+      // Fit all content to viewport on load with padding
       if (sectionMeta.length > 0) {
         const totalW = sectionMeta.reduce((max, s) => Math.max(max, s.x + s.w), 0);
-        const totalH = sectionMeta.reduce((max, s) => Math.max(max, s.h), 0);
+        const totalH = sectionMeta.reduce((max, s) => Math.max(max, s.y + s.h), 0);
         const vpW = viewport.clientWidth;
         const vpH = viewport.clientHeight;
-        zoom = Math.min(vpW / (totalW + 80), vpH / (totalH + 80), 0.5);
+        const pad = 60;
+        zoom = Math.min(
+          (vpW - pad * 2) / totalW,
+          (vpH - pad * 2) / totalH,
+          0.5
+        );
         zoom = Math.max(MIN_ZOOM, zoom);
-        panX = 20;
-        panY = 20;
+        // Center content
+        panX = (vpW - totalW * zoom) / 2;
+        panY = (vpH - totalH * zoom) / 2;
       }
       applyTransform();
 
