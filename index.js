@@ -92,8 +92,8 @@ export default {
       start: async (ctx) => {
         await syncRunner.initialize(ctx.stateDir);
 
-        // Auto-start local workspace viewer
-        const workspaceDir = path.dirname(cfg.memoryDir);
+        // Auto-start local workspace viewer — scan entire .openclaw directory
+        const workspaceDir = path.resolve(path.dirname(cfg.memoryDir), "..");
         try {
           const url = await startLocalServer(workspaceDir, {
             apiClient: client,
@@ -131,7 +131,7 @@ export default {
         const commandLabel = resolveCommandLabel(ctx.channel);
 
         if (action === "setup") {
-          const workspaceDir = path.dirname(cfg.memoryDir);
+          const workspaceDir = path.resolve(path.dirname(cfg.memoryDir), "..");
           const url = await startLocalServer(workspaceDir, {
             apiClient: client,
             syncRunner,

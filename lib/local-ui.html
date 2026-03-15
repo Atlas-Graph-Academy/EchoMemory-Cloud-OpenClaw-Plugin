@@ -146,18 +146,40 @@
   </div>
   <script>
     const GROUP_META = {
-      'identity':  { label: '🪪 Identity',   order: 0 },
-      'long-term': { label: '🧠 Long-term',  order: 1 },
-      'memory':    { label: '📂 Memory',     order: 2 },
-      'private':   { label: '🔒 Private',    order: 3 },
-      'daily':     { label: '📅 Daily Logs', order: 4 },
-      'config':    { label: '🔧 Config',     order: 5 },
-      'other':     { label: '📦 Other',      order: 6 },
+      'identity':       { label: '🪪 Identity',        order: 0 },
+      'long-term':      { label: '🧠 Long-term',       order: 1 },
+      'memory':         { label: '📂 Memory',          order: 2 },
+      'config':         { label: '🔧 Config',          order: 3 },
+      'daily':          { label: '📅 Daily Logs',      order: 4 },
+      'private':        { label: '🔒 Private',         order: 5 },
+      'research':       { label: '🔬 Research',        order: 10 },
+      'tasks':          { label: '✅ Tasks',            order: 11 },
+      'projects':       { label: '📁 Projects',        order: 12 },
+      'scripts':        { label: '⚡ Scripts',          order: 13 },
+      'skills':         { label: '🧩 Skills',          order: 14 },
+      'self-improving': { label: '🔄 Self-Improving',  order: 15 },
+      'agents':         { label: '🤖 Agents',          order: 16 },
+      'superpowers':    { label: '💪 Superpowers',     order: 17 },
+      'other':          { label: '📦 Other',           order: 99 },
     };
+
+    /** For unknown directories, generate a label dynamically */
+    function getGroupMeta(type) {
+      if (GROUP_META[type]) return GROUP_META[type];
+      // Agent workspaces: agent:scout → 🕵️ Scout
+      if (type.startsWith('agent:')) {
+        const name = type.slice(6);
+        const label = '🤖 ' + name.charAt(0).toUpperCase() + name.slice(1).replace(/-/g, ' ');
+        return { label, order: 30 };
+      }
+      // Dynamic: capitalize directory name, use folder emoji
+      const label = '📁 ' + type.charAt(0).toUpperCase() + type.slice(1).replace(/-/g, ' ');
+      return { label, order: 50 };
+    }
     const PRIVACY_EMOJI = { private: '🔴', review: '🟡', safe: '🟢' };
 
     let activeFile = null;
-    const collapsedGroups = new Set(['daily', 'private']);
+    const collapsedGroups = new Set(['daily', 'private', 'other']);
     let syncStatusByPath = {};
 
     function timeAgo(isoStr) {
@@ -268,14 +290,19 @@
         groups[f.fileType].push(f);
       }
 
+      // Sort groups by order
+      const sortedTypes = Object.keys(groups).sort((a, b) => {
+        return getGroupMeta(a).order - getGroupMeta(b).order;
+      });
+
       const sidebar = document.getElementById('sidebar');
       sidebar.innerHTML = '';
 
-      for (const type of ['identity', 'long-term', 'memory', 'private', 'daily', 'config', 'other']) {
+      for (const type of sortedTypes) {
         const groupFiles = groups[type];
         if (!groupFiles || groupFiles.length === 0) continue;
 
-        const meta = GROUP_META[type];
+        const meta = getGroupMeta(type);
         const isCollapsed = collapsedGroups.has(type);
 
         const groupEl = document.createElement('div');
