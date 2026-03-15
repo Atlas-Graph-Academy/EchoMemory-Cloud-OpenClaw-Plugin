@@ -118,7 +118,11 @@ export default {
 
         if (action === "setup") {
           const workspaceDir = path.dirname(cfg.memoryDir);
-          const url = await startLocalServer(workspaceDir);
+          const url = await startLocalServer(workspaceDir, {
+            apiClient: client,
+            syncRunner,
+            cfg,
+          });
           return {
             text: `Open your workspace: ${url}\n\nAll files stay local until you choose to sync.`,
           };

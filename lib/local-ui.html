@@ -85,7 +85,7 @@
       flex-shrink: 0;
     }
     .footer .local-badge { color: #f59e0b; }
-    .footer .stats { margin-left: auto; color: #444; }
+    .footer .stats { color: #444; }
     /* Markdown */
     .md h1 {
       font-size: 22px; font-weight: 700; color: #a78bfa;
@@ -120,6 +120,8 @@
   <header>
     <span style="font-size:20px">🔮</span>
     <h1>Echo Memory — Your OpenClaw Workspace</h1>
+    <span style="flex:1"></span>
+    <span id="auth-status" style="font-size:13px;color:#555;">Checking connection...</span>
   </header>
   <div class="main">
     <div class="sidebar" id="sidebar">
@@ -132,6 +134,13 @@
   <div class="footer" id="footer">
     <span class="local-badge">⚠️ All data stays on your machine.</span>
     <span class="stats" id="stats"></span>
+    <span style="flex:1"></span>
+    <span id="sync-status" style="font-size:12px;color:#555;margin-right:8px;"></span>
+    <button id="sync-btn" disabled style="
+      background:#2d1b69; color:#a78bfa; border:1px solid #3b2a7a; border-radius:6px;
+      padding:6px 18px; font-size:13px; font-weight:600; cursor:pointer;
+      opacity:0.4; transition: opacity 0.2s, background 0.2s;
+    ">Sync to Echo</button>
   </div>
   <script>
     const GROUP_META = {
@@ -313,6 +322,63 @@
       }
     }
 
+    let isConnected = false;
+
+    async function checkAuth() {
+      const el = document.getElementById('auth-status');
+      try {
+        const res = await fetch('/api/auth-status');
+        const data = await res.json();
+        if (data.connected) {
+          isConnected = true;
+          el.innerHTML = '<span style="color:#4ade80;">● Connected to Echo</span>';
+          const syncBtn = document.getElementById('sync-btn');
+          syncBtn.disabled = false;
+          syncBtn.style.opacity = '1';
+          syncBtn.style.cursor = 'pointer';
+          syncBtn.onmouseover = () => { syncBtn.style.background = '#3b2a7a'; };
+          syncBtn.onmouseout = () => { syncBtn.style.background = '#2d1b69'; };
+        } else if (data.reason === 'no_api_key') {
+          el.innerHTML = '<span style="color:#fbbf24;">⚠ No API key configured</span>' +
+            ' <a href="https://www.iditor.com/api" target="_blank" style="color:#a78bfa;font-size:12px;">Get API key →</a>';
+        } else {
+          el.innerHTML = '<span style="color:#f87171;">✕ Not connected</span>' +
+            ' <a href="https://www.iditor.com/api" target="_blank" style="color:#a78bfa;font-size:12px;">Get API key →</a>';
+        }
+      } catch {
+        el.innerHTML = '<span style="color:#555;">○ Offline mode</span>';
+      }
+    }
+
+    async function doSync() {
+      if (!isConnected) return;
+      const btn = document.getElementById('sync-btn');
+      const status = document.getElementById('sync-status');
+      btn.disabled = true;
+      btn.textContent = 'Syncing...';
+      btn.style.opacity = '0.6';
+      status.textContent = '';
+      try {
+        const res = await fetch('/api/sync', { method: 'POST' });
+        const data = await res.json();
+        if (data.error) {
+          status.style.color = '#f87171';
+          status.textContent = 'Error: ' + data.error;
+        } else {
+          const s = data.summary || {};
+          status.style.color = '#4ade80';
+          status.textContent = '✓ ' + (s.new_memory_count || 0) + ' new memories · ' +
+            (s.file_count || 0) + ' files processed';
+        }
+      } catch (err) {
+        status.style.color = '#f87171';
+        status.textContent = 'Sync failed: ' + String(err);
+      }
+      btn.disabled = false;
+      btn.textContent = 'Sync to Echo';
+      btn.style.opacity = '1';
+    }
+
     async function init() {
       try {
         const res = await fetch('/api/files');
@@ -327,6 +393,8 @@
         document.getElementById('sidebar').innerHTML =
           '<div style="color:#f87171;padding:12px;">Error loading files: ' + escHtml(String(err)) + '</div>';
       }
+      checkAuth();
+      document.getElementById('sync-btn').addEventListener('click', doSync);
     }
 
     init();
