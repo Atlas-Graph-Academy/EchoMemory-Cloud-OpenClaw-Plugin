@@ -148,10 +148,11 @@
     const GROUP_META = {
       'identity':  { label: '🪪 Identity',   order: 0 },
       'long-term': { label: '🧠 Long-term',  order: 1 },
-      'private':   { label: '🔒 Private',    order: 2 },
-      'daily':     { label: '📅 Daily Logs', order: 3 },
-      'config':    { label: '🔧 Config',     order: 4 },
-      'other':     { label: '📦 Other',      order: 5 },
+      'memory':    { label: '📂 Memory',     order: 2 },
+      'private':   { label: '🔒 Private',    order: 3 },
+      'daily':     { label: '📅 Daily Logs', order: 4 },
+      'config':    { label: '🔧 Config',     order: 5 },
+      'other':     { label: '📦 Other',      order: 6 },
     };
     const PRIVACY_EMOJI = { private: '🔴', review: '🟡', safe: '🟢' };
 
@@ -270,7 +271,7 @@
       const sidebar = document.getElementById('sidebar');
       sidebar.innerHTML = '';
 
-      for (const type of ['identity', 'long-term', 'private', 'daily', 'config', 'other']) {
+      for (const type of ['identity', 'long-term', 'memory', 'private', 'daily', 'config', 'other']) {
         const groupFiles = groups[type];
         if (!groupFiles || groupFiles.length === 0) continue;
 
