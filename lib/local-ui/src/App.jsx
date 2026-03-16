@@ -339,13 +339,13 @@ export default function App() {
               <span>Memory directory</span>
               <input
                 type="text"
-                value={setupDraft.memoryDir}
+                value={setupDraft.memoryDir || setupState?.fields?.memoryDir?.value || ''}
                 placeholder={setupState?.fields?.memoryDir?.value || ''}
                 onChange={(e) => handleSetupFieldChange('memoryDir', e.target.value)}
               />
               <small>Source: {formatSourceLabel(setupState?.fields?.memoryDir, setupState)}</small>
-              {setupState?.fields?.memoryDir?.value && (
-                <small>Current path: {setupState.fields.memoryDir.value}</small>
+              {(setupDraft.memoryDir || setupState?.fields?.memoryDir?.value) && (
+                <small>Current path: {setupDraft.memoryDir || setupState?.fields?.memoryDir?.value}</small>
               )}
             </label>
             <button className="setup-save-btn" disabled={setupSaving} onClick={handleSetupSave}>
