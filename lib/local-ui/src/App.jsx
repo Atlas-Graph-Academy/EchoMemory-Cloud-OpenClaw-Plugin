@@ -96,37 +96,34 @@ export default function App() {
     return computeSystemLayout(layout.systemFiles || [], vpWidth, contentMap);
   }, [view, layout.systemFiles, vpWidth, contentMap]);
 
-  // Build sync status map from BACKEND data (source of truth), with local state as fallback
+  // Build sync status map: merge LOCAL state + BACKEND sources
+  // Backend recent_sources is limited (20 items) so local state is primary record.
+  // Backend data overrides local for the files it knows about.
   const syncMap = useMemo(() => {
     const m = {};
 
-    // First: apply local sync status as fallback
+    // Step 1: Local state as baseline
     if (syncStatus?.fileStatuses) {
       for (const s of syncStatus.fileStatuses) if (s.status) m[s.relativePath] = s.status;
     }
 
-    // Then: override with backend source of truth
+    // Step 2: Backend sources override — these are definitively synced
     if (backendSources?.sources) {
-      // Build set of file paths that exist in backend (absolute paths)
       const backendPaths = new Set(backendSources.sources.map(s => s.filePath));
-
       for (const f of files) {
-        // Convert relativePath to absolute path for comparison
-        // Backend stores: /Users/echoget/.openclaw/workspace/memory/2026-03-15.md
-        // Local has: workspace/memory/2026-03-15.md
-        // workspaceDir from API is /Users/echoget/.openclaw
-        // So absolute = workspaceDir + '/' + relativePath
-        const possibleAbs = `/Users/echoget/.openclaw/${f.relativePath}`;
-        if (backendPaths.has(possibleAbs)) {
+        const absPath = `/Users/echoget/.openclaw/${f.relativePath}`;
+        if (backendPaths.has(absPath)) {
           m[f.relativePath] = 'synced';
-        } else if (f.privacyLevel === 'private') {
-          m[f.relativePath] = 'sealed';
-        } else if (!m[f.relativePath] || m[f.relativePath] === 'synced') {
-          // Not in backend and not locally tracked as synced → new
-          if (!backendPaths.has(possibleAbs)) {
-            m[f.relativePath] = 'new';
-          }
         }
+      }
+    }
+
+    // Step 3: Ensure private files are sealed, and untracked non-private files are 'new'
+    for (const f of files) {
+      if (f.privacyLevel === 'private') {
+        m[f.relativePath] = 'sealed';
+      } else if (!m[f.relativePath]) {
+        m[f.relativePath] = 'new';
       }
     }
 
@@ -161,7 +158,14 @@ export default function App() {
       } else {
         r = await triggerSync();
       }
-      setSyncResult({ ok: true, msg: `✓ ${r?.summary?.new_memory_count ?? 0} new memories` });
+      const s = r?.summary || {};
+      const parts = [];
+      if (s.new_memory_count > 0) parts.push(`${s.new_memory_count} new memories`);
+      if (s.new_source_count > 0) parts.push(`${s.new_source_count} files uploaded`);
+      if (s.skipped_count > 0) parts.push(`${s.skipped_count} already synced`);
+      if (s.duplicate_count > 0) parts.push(`${s.duplicate_count} duplicates`);
+      if (s.failed_file_count > 0) parts.push(`${s.failed_file_count} failed`);
+      setSyncResult({ ok: true, msg: `✓ ${parts.join(' · ') || 'done'}` });
       loadSyncStatus();
       loadBackendSources();
     } catch { setSyncResult({ ok: false, msg: 'Sync failed' }); }
