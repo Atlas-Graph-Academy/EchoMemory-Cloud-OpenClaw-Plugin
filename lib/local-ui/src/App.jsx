@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Viewport } from './canvas/Viewport';
 import { ReadingPanel } from './cards/ReadingPanel';
 import { computeLayout, computeSystemLayout, getTier, isSessionLog } from './layout/masonry';
-import { fetchFiles, fetchAllContents, fetchAuthStatus, fetchSyncStatus, triggerSync, connectSSE } from './sync/api';
+import { fetchFiles, fetchAllContents, fetchFileContent, fetchAuthStatus, fetchSyncStatus, triggerSync, connectSSE } from './sync/api';
 import './styles/global.css';
 
 function useClock() {
@@ -35,14 +35,17 @@ export default function App() {
   const [view, setView] = useState('memories'); // 'memories' | 'system'
   const [selectedPath, setSelectedPath] = useState(null);
   const [readingPath, setReadingPath] = useState(null);
+  const [readingContent, setReadingContent] = useState(null);
   const now = useClock();
 
   const loadFiles = useCallback(async () => {
     try {
       const newFiles = await fetchFiles();
       setFiles(newFiles);
-      const contents = await fetchAllContents(newFiles);
-      setContentMap(contents);
+      // Render canvas immediately with file metadata, then load contents in background
+      fetchAllContents(newFiles).then(contents => {
+        setContentMap(contents);
+      }).catch(console.error);
     } catch (e) { console.error(e); }
   }, []);
 
@@ -157,10 +160,14 @@ export default function App() {
       {readingPath ? (
         <ReadingPanel
           path={readingPath}
-          content={contentMap?.get(readingPath) ?? ''}
+          content={readingContent ?? contentMap?.get(readingPath) ?? 'Loading…'}
           file={files.find(f => f.relativePath === readingPath)}
-          onClose={() => { setReadingPath(null); setSelectedPath(null); }}
+          onClose={() => { setReadingPath(null); setSelectedPath(null); setReadingContent(null); }}
         />
+      ) : files.length === 0 ? (
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555', fontSize: 14 }}>
+          Loading files…
+        </div>
       ) : (
         <Viewport
           key={view}
@@ -175,7 +182,25 @@ export default function App() {
             setSelectedPath(prev => prev === path ? null : path);
           }}
           onCardExpand={(path) => {
+            // Show reading panel immediately — content resolves sync or async
             setReadingPath(path);
+            const existing = contentMap?.get(path);
+            if (existing) {
+              setReadingContent(existing);
+            } else {
+              // Fetch just this one file in background, panel shows "Loading…" meanwhile
+              setReadingContent(null);
+              fetchFileContent(path).then(result => {
+                const content = result?.content ?? '';
+                setReadingContent(content);
+                // Cache for future use
+                setContentMap(prev => {
+                  const next = new Map(prev || []);
+                  next.set(path, content);
+                  return next;
+                });
+              });
+            }
           }}
         />
       )}

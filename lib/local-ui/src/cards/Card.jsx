@@ -93,7 +93,7 @@ function Stamp({ status }) {
   return <span className={`stamp ${cfg.cls}`}>{cfg.label}</span>;
 }
 
-export const Card = React.memo(function Card({ card, syncStatus, content, zoom = 1, selected, dimmed, onFocus, onExpand }) {
+export const Card = React.memo(function Card({ card, syncStatus, content, zoom = 1, selected, dimmed }) {
   const { file, x, y, w, h } = card;
   const tier = file._tier || 3;
   const isLog = file._isSessionLog;
@@ -128,7 +128,6 @@ export const Card = React.memo(function Card({ card, syncStatus, content, zoom =
       <div
         className={`card${isLog ? ' card-session-log' : ''}`}
         data-card-path={file.relativePath}
-        onClick={(e) => { e.stopPropagation(); if (onFocus) onFocus(); }}
         style={{
           left: x, top: y, width: w, height: h,
           background: pal.bg,
@@ -161,7 +160,6 @@ export const Card = React.memo(function Card({ card, syncStatus, content, zoom =
     <div
       className={classNames}
       data-card-path={file.relativePath}
-      onClick={(e) => { e.stopPropagation(); if (onFocus) onFocus(); }}
       style={{
         left: x, top: y, width: w, height: h,
         background: pal.bg,
@@ -178,7 +176,6 @@ export const Card = React.memo(function Card({ card, syncStatus, content, zoom =
           <button
             className="card-expand-btn"
             title="Read full document"
-            onClick={(e) => { e.stopPropagation(); if (onExpand) onExpand(); }}
           >
             ↗
           </button>

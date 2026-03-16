@@ -85,15 +85,40 @@ export function Viewport({ cards, sections, bounds, syncStatus, contentMap, sele
     );
   }, [sections, viewState, ready]);
 
+  // ── Unified click handling ──
+  // ALL click logic lives here in the pointer event system.
+  // Card components are pure display — no onClick handlers.
+  // This eliminates pointer vs React event conflicts.
+  const lastClickRef = useRef({ path: null, time: 0 });
+
   const handlePointerUp = (e) => {
     handlers.onPointerUp(e);
     if (!panMoved.current) {
       const el = document.elementFromPoint(e.clientX, e.clientY);
+
+      // Expand button click → go to reading mode
+      if (el?.closest('.card-expand-btn')) {
+        const cardEl = el.closest('[data-card-path]');
+        if (cardEl && onCardExpand) onCardExpand(cardEl.dataset.cardPath);
+        return;
+      }
+
       const cardEl = el?.closest('[data-card-path]');
       if (cardEl) {
         const path = cardEl.dataset.cardPath;
         const card = cards.find(c => c.key === path);
         if (card) {
+          const now = Date.now();
+          const last = lastClickRef.current;
+          
+          // Double-click on same card → expand to reading mode
+          if (last.path === path && now - last.time < 400) {
+            lastClickRef.current = { path: null, time: 0 };
+            if (onCardExpand) onCardExpand(path);
+            return;
+          }
+          
+          lastClickRef.current = { path, time: now };
           focusCard(card);
           if (onCardClick) onCardClick(path);
         }
@@ -158,13 +183,6 @@ export function Viewport({ cards, sections, bounds, syncStatus, contentMap, sele
                   zoom={viewState.zoom}
                   selected={selectedPath === card.key}
                   dimmed={!!selectedPath && selectedPath !== card.key}
-                  onFocus={() => {
-                    focusCard(card);
-                    if (onCardClick) onCardClick(card.key);
-                  }}
-                  onExpand={() => {
-                    if (onCardExpand) onCardExpand(card.key);
-                  }}
                 />
               ))}
             </>
