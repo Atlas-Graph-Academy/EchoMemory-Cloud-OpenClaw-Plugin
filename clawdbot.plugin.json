@@ -10,11 +10,11 @@
     "properties": {
       "baseUrl": {
         "type": "string",
-        "description": "Base URL for the Echo Memory Cloud API (e.g. from .env ECHOMEM_BASE_URL)"
+        "description": "Deprecated and ignored. The plugin now uses a fixed internal EchoMem backend endpoint."
       },
       "webBaseUrl": {
         "type": "string",
-        "description": "Base URL for the Echo web app used for public graph links (e.g. from .env ECHOMEM_WEB_BASE_URL)"
+        "description": "Deprecated and ignored. The plugin now uses a fixed internal Echo web endpoint."
       },
       "apiKey": {
         "type": "string",

@@ -15,7 +15,7 @@ OpenClaw plugin for syncing local markdown memories into EchoMem Cloud and makin
 - it does not auto-sync memories unless you enable it or manually trigger it
 - it does not force memory search on every Slack message
 
-The plugin runs inside OpenClaw. The only external service it needs is an EchoMem backend reachable at `baseUrl`.
+The plugin runs inside OpenClaw. It uses fixed internal EchoMem service endpoints and only needs your API key plus local memory settings.
 
 ## Before You Begin
 
@@ -30,27 +30,15 @@ Recommended API key scopes:
 - `ingest:write` for markdown sync
 - `memory:read` for retrieval and `/echo-memory search`
 
-## Base URL
-
-`baseUrl` should point to the EchoMemory service endpoint.
-
-Use the deployed backend for normal usage:
-
-```json
-"baseUrl": "https://echo-mem-chrome.vercel.app"
-```
-
-If OpenClaw prints `plugin not found: echo-memory-cloud-openclaw-plugin`, that is an installation problem, not a `baseUrl` problem.
-
 ## Required Config
 
-- `baseUrl`: EchoMem backend base URL
 - `apiKey`: EchoMemory API key starting with `ec_`
 
 Optional config:
 
+- `baseUrl`: deprecated and ignored
+- `webBaseUrl`: deprecated and ignored
 - `memoryDir`: absolute path to the markdown memory directory
-- `webBaseUrl`: Echo web app base URL for public graph links, default `https://www.iditor.com`
 - `autoSync`: default `true`
 - `localUiAutoOpenOnGatewayStart`: default `true` on local desktop runs, but browser launch is skipped automatically for SSH/CI/headless sessions
 - `localUiAutoInstall`: default `true`; automatically runs `npm install` and `npm run build` for `lib/local-ui` when assets are missing
@@ -72,8 +60,6 @@ Supported runtime `.env` locations:
 
 Supported environment variables:
 
-- `ECHOMEM_BASE_URL`
-- `ECHOMEM_WEB_BASE_URL`
 - `ECHOMEM_API_KEY`
 - `ECHOMEM_MEMORY_DIR`
 - `ECHOMEM_AUTO_SYNC`
@@ -87,8 +73,6 @@ Supported environment variables:
 Example `~/.openclaw/.env`:
 
 ```env
-ECHOMEM_BASE_URL=https://echo-mem-chrome.vercel.app
-ECHOMEM_WEB_BASE_URL=https://www.iditor.com
 ECHOMEM_API_KEY=ec_your_key_here
 ECHOMEM_MEMORY_DIR=C:\Users\your-user\.openclaw\workspace\memory
 ECHOMEM_AUTO_SYNC=false
@@ -120,8 +104,6 @@ Example `openclaw.json` config:
       "echo-memory-cloud-openclaw-plugin": {
         "enabled": true,
         "config": {
-          "baseUrl": "https://echo-mem-chrome.vercel.app",
-          "webBaseUrl": "https://www.iditor.com",
           "apiKey": "ec_your_key_here",
           "memoryDir": "C:\\Users\\your-user\\.openclaw\\workspace\\memory", // tweak it based on Mac or Windows environment
           "autoSync": false,
@@ -157,7 +139,7 @@ After installation:
 
 1. restart `openclaw gateway`
 2. keep the plugin config entry in `~/.openclaw/openclaw.json`
-3. point `baseUrl` to the real EchoMem backend you want to use
+3. set your `apiKey` and optional `memoryDir`
 
 ### Successful load looks like this
 

@@ -69,8 +69,6 @@ export default function App() {
   const [backendSources, setBackendSources] = useState(null);
   const [setupState, setSetupState] = useState(null);
   const [setupDraft, setSetupDraft] = useState({
-    baseUrl: '',
-    webBaseUrl: '',
     apiKey: '',
     memoryDir: '',
   });
@@ -116,8 +114,6 @@ export default function App() {
     setSetupState(data);
     if (data?.fields) {
       setSetupDraft({
-        baseUrl: data.fields.baseUrl?.value || '',
-        webBaseUrl: data.fields.webBaseUrl?.value || '',
         apiKey: data.fields.apiKey?.value || '',
         memoryDir: data.fields.memoryDir?.value || '',
       });
