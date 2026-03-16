@@ -21,6 +21,47 @@
   z-index: 10;
 }
 
+/* ── Selected state: enlarged + highlighted ── */
+.card-selected {
+  transform: scale(1.08);
+  transform-origin: center center;
+  box-shadow: 0 8px 32px rgba(167, 139, 250, 0.35), 0 0 0 2px rgba(167, 139, 250, 0.6);
+  z-index: 50 !important;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease;
+}
+
+/* ── Dimmed state: other cards fade when one is selected ── */
+.card-dimmed {
+  opacity: 0.35;
+  transition: opacity 0.3s ease;
+}
+.card-dimmed:hover {
+  opacity: 0.7;
+}
+
+/* ── Expand button (appears on selected card) ── */
+.card-expand-btn {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 4px;
+  background: rgba(167, 139, 250, 0.2);
+  color: #a78bfa;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, transform 0.15s;
+  line-height: 1;
+}
+.card-expand-btn:hover {
+  background: rgba(167, 139, 250, 0.4);
+  transform: scale(1.15);
+}
+
 /* LOD 0: pure rectangle, no interactivity overhead */
 .card-lod0 {
   position: absolute;

@@ -93,7 +93,7 @@ function Stamp({ status }) {
   return <span className={`stamp ${cfg.cls}`}>{cfg.label}</span>;
 }
 
-export const Card = React.memo(function Card({ card, syncStatus, content, zoom = 1, onFocus }) {
+export const Card = React.memo(function Card({ card, syncStatus, content, zoom = 1, selected, dimmed, onFocus, onExpand }) {
   const { file, x, y, w, h } = card;
   const tier = file._tier || 3;
   const isLog = file._isSessionLog;
@@ -149,9 +149,17 @@ export const Card = React.memo(function Card({ card, syncStatus, content, zoom =
   // LOD 2: full card
   const preview = useMemo(() => stripMarkdown(content), [content]);
 
+  const classNames = [
+    'card',
+    isLog ? 'card-session-log' : '',
+    effectiveStatus === 'sealed' ? 'card-sealed' : '',
+    selected ? 'card-selected' : '',
+    dimmed ? 'card-dimmed' : '',
+  ].filter(Boolean).join(' ');
+
   return (
     <div
-      className={`card${isLog ? ' card-session-log' : ''}${effectiveStatus === 'sealed' ? ' card-sealed' : ''}`}
+      className={classNames}
       data-card-path={file.relativePath}
       onClick={(e) => { e.stopPropagation(); if (onFocus) onFocus(); }}
       style={{
@@ -166,6 +174,15 @@ export const Card = React.memo(function Card({ card, syncStatus, content, zoom =
           {displayName}
         </div>
         {effectiveStatus !== 'sealed' && <Stamp status={effectiveStatus} />}
+        {selected && (
+          <button
+            className="card-expand-btn"
+            title="Read full document"
+            onClick={(e) => { e.stopPropagation(); if (onExpand) onExpand(); }}
+          >
+            ↗
+          </button>
+        )}
       </div>
       {preview && !isLog && (
         <div className="card-content" style={{ color: pal.content }}>

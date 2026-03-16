@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Viewport } from './canvas/Viewport';
+import { ReadingPanel } from './cards/ReadingPanel';
 import { computeLayout, computeSystemLayout, getTier, isSessionLog } from './layout/masonry';
 import { fetchFiles, fetchAllContents, fetchAuthStatus, fetchSyncStatus, triggerSync, connectSSE } from './sync/api';
 import './styles/global.css';
@@ -32,6 +33,8 @@ export default function App() {
   const [syncResult, setSyncResult] = useState(null);
   const [syncing, setSyncing] = useState(false);
   const [view, setView] = useState('memories'); // 'memories' | 'system'
+  const [selectedPath, setSelectedPath] = useState(null);
+  const [readingPath, setReadingPath] = useState(null);
   const now = useClock();
 
   const loadFiles = useCallback(async () => {
@@ -123,7 +126,14 @@ export default function App() {
     <>
       <div className="hdr">
         <span style={{ fontSize: 16 }}>📂</span>
-        {view === 'memories' ? (
+        {readingPath ? (
+          <>
+            <span className="hdr-back" onClick={() => { setReadingPath(null); setSelectedPath(null); }}>← Archive</span>
+            <span className="hdr-title">
+              {(files.find(f => f.relativePath === readingPath)?.fileName || '').replace(/\.md$/i, '')}
+            </span>
+          </>
+        ) : view === 'memories' ? (
           <span className="hdr-title">OpenClaw Memory Archive</span>
         ) : (
           <>
@@ -144,15 +154,31 @@ export default function App() {
         </span>
       </div>
 
-      <Viewport
-        key={view}
-        cards={activeLayout.cards}
-        sections={activeLayout.sections}
-        bounds={activeLayout.bounds}
-        syncStatus={syncMap}
-        contentMap={contentMap}
-        onCardClick={(path) => console.log('card click:', path)}
-      />
+      {readingPath ? (
+        <ReadingPanel
+          path={readingPath}
+          content={contentMap?.get(readingPath) ?? ''}
+          file={files.find(f => f.relativePath === readingPath)}
+          onClose={() => { setReadingPath(null); setSelectedPath(null); }}
+        />
+      ) : (
+        <Viewport
+          key={view}
+          cards={activeLayout.cards}
+          sections={activeLayout.sections}
+          bounds={activeLayout.bounds}
+          syncStatus={syncMap}
+          contentMap={contentMap}
+          selectedPath={selectedPath}
+          onCardClick={(path) => {
+            if (path === null) { setSelectedPath(null); return; }
+            setSelectedPath(prev => prev === path ? null : path);
+          }}
+          onCardExpand={(path) => {
+            setReadingPath(path);
+          }}
+        />
+      )}
 
       <div className="ftr">
         {view === 'memories' ? (
