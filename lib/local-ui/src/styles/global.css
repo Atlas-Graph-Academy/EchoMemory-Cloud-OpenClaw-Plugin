@@ -166,6 +166,21 @@ body {
   color: #888;
 }
 
+.ftr-select-toggle {
+  background: none;
+  border: 1px solid #333;
+  border-radius: 4px;
+  color: #888;
+  font-size: 11px;
+  padding: 2px 8px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.ftr-select-toggle:hover {
+  background: rgba(255,255,255,0.06);
+  color: #bbb;
+}
+
 .sync-result {
   color: #4ade80;
 }

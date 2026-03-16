@@ -93,7 +93,7 @@ function Stamp({ status }) {
   return <span className={`stamp ${cfg.cls}`}>{cfg.label}</span>;
 }
 
-export const Card = React.memo(function Card({ card, syncStatus, content, zoom = 1, selected, dimmed }) {
+export const Card = React.memo(function Card({ card, syncStatus, content, zoom = 1, selected, dimmed, selectMode, checked }) {
   const { file, x, y, w, h } = card;
   const tier = file._tier || 3;
   const isLog = file._isSessionLog;
@@ -167,12 +167,17 @@ export const Card = React.memo(function Card({ card, syncStatus, content, zoom =
       }}
     >
       <div className="card-header">
+        {selectMode && (
+          <span className={`card-checkbox ${checked ? 'card-checkbox-on' : ''}`} data-checkbox="true">
+            {checked ? '☑' : '☐'}
+          </span>
+        )}
         {isLog && <span className="session-badge">💬</span>}
         <div className="card-name" style={{ color: isLog ? '#999' : pal.text }}>
           {displayName}
         </div>
         {effectiveStatus !== 'sealed' && <Stamp status={effectiveStatus} />}
-        {selected && (
+        {selected && !selectMode && (
           <button
             className="card-expand-btn"
             title="Read full document"

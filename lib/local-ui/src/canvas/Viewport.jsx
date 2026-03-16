@@ -19,7 +19,7 @@ const RENDER_MARGIN = 600; // px in screen space
 // Cards beyond this are not in DOM at all
 const PLACEHOLDER_MARGIN = 2000; // px in screen space
 
-export function Viewport({ cards, sections, bounds, syncStatus, contentMap, selectedPath, onCardClick, onCardExpand }) {
+export function Viewport({ cards, sections, bounds, syncStatus, contentMap, selectedPath, selectMode, syncSelection, onCardClick, onCardExpand }) {
   const vpRef = useRef(null);
   const canvasRef = useRef(null);
   const { viewState, ready, panMoved, focusCard, animateTo, handlers } =
@@ -183,6 +183,8 @@ export function Viewport({ cards, sections, bounds, syncStatus, contentMap, sele
                   zoom={viewState.zoom}
                   selected={selectedPath === card.key}
                   dimmed={!!selectedPath && selectedPath !== card.key}
+                  selectMode={selectMode}
+                  checked={syncSelection?.has(card.key)}
                 />
               ))}
             </>

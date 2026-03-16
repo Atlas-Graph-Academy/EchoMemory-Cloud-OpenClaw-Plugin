@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Viewport } from './canvas/Viewport';
 import { ReadingPanel } from './cards/ReadingPanel';
 import { computeLayout, computeSystemLayout, getTier, isSessionLog } from './layout/masonry';
-import { fetchFiles, fetchAllContents, fetchFileContent, fetchAuthStatus, fetchSyncStatus, triggerSync, connectSSE } from './sync/api';
+import { fetchFiles, fetchAllContents, fetchFileContent, fetchAuthStatus, fetchSyncStatus, fetchBackendSources, triggerSync, triggerSyncSelected, connectSSE } from './sync/api';
 import './styles/global.css';
 
 function useClock() {
@@ -32,10 +32,13 @@ export default function App() {
   const [syncStatus, setSyncStatus] = useState(null);
   const [syncResult, setSyncResult] = useState(null);
   const [syncing, setSyncing] = useState(false);
+  const [backendSources, setBackendSources] = useState(null);
   const [view, setView] = useState('memories'); // 'memories' | 'system'
   const [selectedPath, setSelectedPath] = useState(null);
   const [readingPath, setReadingPath] = useState(null);
   const [readingContent, setReadingContent] = useState(null);
+  const [selectMode, setSelectMode] = useState(false);
+  const [syncSelection, setSyncSelection] = useState(new Set());
   const now = useClock();
 
   const loadFiles = useCallback(async () => {
@@ -53,13 +56,19 @@ export default function App() {
     setSyncStatus(await fetchSyncStatus());
   }, []);
 
+  const loadBackendSources = useCallback(async () => {
+    const data = await fetchBackendSources();
+    if (data?.ok) setBackendSources(data);
+  }, []);
+
   useEffect(() => {
     loadFiles();
     fetchAuthStatus().then(setAuthStatus);
     loadSyncStatus();
+    loadBackendSources();
     const cleanup = connectSSE(() => { loadFiles(); loadSyncStatus(); });
     return cleanup;
-  }, [loadFiles, loadSyncStatus]);
+  }, [loadFiles, loadSyncStatus, loadBackendSources]);
 
   const annotated = useMemo(() =>
     files.map(f => ({
@@ -87,13 +96,42 @@ export default function App() {
     return computeSystemLayout(layout.systemFiles || [], vpWidth, contentMap);
   }, [view, layout.systemFiles, vpWidth, contentMap]);
 
+  // Build sync status map from BACKEND data (source of truth), with local state as fallback
   const syncMap = useMemo(() => {
     const m = {};
+
+    // First: apply local sync status as fallback
     if (syncStatus?.fileStatuses) {
       for (const s of syncStatus.fileStatuses) if (s.status) m[s.relativePath] = s.status;
     }
+
+    // Then: override with backend source of truth
+    if (backendSources?.sources) {
+      // Build set of file paths that exist in backend (absolute paths)
+      const backendPaths = new Set(backendSources.sources.map(s => s.filePath));
+
+      for (const f of files) {
+        // Convert relativePath to absolute path for comparison
+        // Backend stores: /Users/echoget/.openclaw/workspace/memory/2026-03-15.md
+        // Local has: workspace/memory/2026-03-15.md
+        // workspaceDir from API is /Users/echoget/.openclaw
+        // So absolute = workspaceDir + '/' + relativePath
+        const possibleAbs = `/Users/echoget/.openclaw/${f.relativePath}`;
+        if (backendPaths.has(possibleAbs)) {
+          m[f.relativePath] = 'synced';
+        } else if (f.privacyLevel === 'private') {
+          m[f.relativePath] = 'sealed';
+        } else if (!m[f.relativePath] || m[f.relativePath] === 'synced') {
+          // Not in backend and not locally tracked as synced → new
+          if (!backendPaths.has(possibleAbs)) {
+            m[f.relativePath] = 'new';
+          }
+        }
+      }
+    }
+
     return m;
-  }, [syncStatus]);
+  }, [syncStatus, backendSources, files]);
 
   const stats = useMemo(() => {
     const t1 = annotated.filter(f => f._tier === 1).length;
@@ -104,20 +142,40 @@ export default function App() {
 
   const systemFileCount = layout.systemFileCount || 0;
 
-  const pendingCount = useMemo(() =>
-    (syncStatus?.fileStatuses || []).filter(s => s.status === 'new' || s.status === 'modified').length,
-    [syncStatus]
-  );
+  const pendingCount = useMemo(() => {
+    let count = 0;
+    for (const status of Object.values(syncMap)) {
+      if (status === 'new' || status === 'modified') count++;
+    }
+    return count;
+  }, [syncMap]);
 
   const handleSync = useCallback(async () => {
     setSyncing(true); setSyncResult(null);
     try {
-      const r = await triggerSync();
-      setSyncResult({ ok: true, msg: `✓ ${r?.summary?.new_memory_count ?? 0} new` });
+      let r;
+      if (selectMode && syncSelection.size > 0) {
+        r = await triggerSyncSelected([...syncSelection]);
+        setSyncSelection(new Set());
+        setSelectMode(false);
+      } else {
+        r = await triggerSync();
+      }
+      setSyncResult({ ok: true, msg: `✓ ${r?.summary?.new_memory_count ?? 0} new memories` });
       loadSyncStatus();
-    } catch { setSyncResult({ ok: false, msg: 'Failed' }); }
+      loadBackendSources();
+    } catch { setSyncResult({ ok: false, msg: 'Sync failed' }); }
     finally { setSyncing(false); }
-  }, [loadSyncStatus]);
+  }, [loadSyncStatus, selectMode, syncSelection]);
+
+  const toggleFileSelection = useCallback((path) => {
+    setSyncSelection(prev => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  }, []);
 
   const dateStr = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
@@ -177,7 +235,13 @@ export default function App() {
           syncStatus={syncMap}
           contentMap={contentMap}
           selectedPath={selectedPath}
+          selectMode={selectMode}
+          syncSelection={syncSelection}
           onCardClick={(path) => {
+            if (selectMode) {
+              if (path) toggleFileSelection(path);
+              return;
+            }
             if (path === null) { setSelectedPath(null); return; }
             setSelectedPath(prev => prev === path ? null : path);
           }}
@@ -206,7 +270,22 @@ export default function App() {
       )}
 
       <div className="ftr">
-        {view === 'memories' ? (
+        {selectMode ? (
+          <>
+            <span style={{ color: '#a78bfa' }}>
+              <b>{syncSelection.size}</b> file{syncSelection.size !== 1 ? 's' : ''} selected
+            </span>
+            <button className="ftr-select-toggle" onClick={() => {
+              // Select all pending (new/modified)
+              const pending = (syncStatus?.fileStatuses || [])
+                .filter(s => s.status === 'new' || s.status === 'modified')
+                .map(s => s.relativePath);
+              setSyncSelection(new Set(pending));
+            }}>Select all pending</button>
+            <button className="ftr-select-toggle" onClick={() => setSyncSelection(new Set())}>Clear</button>
+            <button className="ftr-select-toggle" onClick={() => { setSelectMode(false); setSyncSelection(new Set()); }}>Cancel</button>
+          </>
+        ) : view === 'memories' ? (
           <>
             <span>
               <b>{stats.t1}</b> memories · <b>{stats.t2}</b> knowledge · <b>{stats.total}</b> total
@@ -226,8 +305,15 @@ export default function App() {
         {syncResult && (
           <span className={syncResult.ok ? 'sync-result' : 'sync-error'}>{syncResult.msg}</span>
         )}
-        <button className="sync-btn" disabled={!isConnected || syncing} onClick={handleSync}>
-          {syncing ? 'Syncing…' : pendingCount > 0 ? `Sync ${pendingCount} files` : 'All synced ✓'}
+        {!selectMode && pendingCount > 0 && (
+          <button className="ftr-select-toggle" onClick={() => setSelectMode(true)}>
+            Select files…
+          </button>
+        )}
+        <button className="sync-btn" disabled={!isConnected || syncing || (selectMode && syncSelection.size === 0)} onClick={handleSync}>
+          {syncing ? 'Syncing…' : selectMode
+            ? `Sync ${syncSelection.size} selected`
+            : pendingCount > 0 ? `Sync all ${pendingCount}` : 'All synced ✓'}
         </button>
       </div>
     </>
