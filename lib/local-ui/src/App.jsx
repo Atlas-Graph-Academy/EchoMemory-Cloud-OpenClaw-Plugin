@@ -314,11 +314,20 @@ export default function App() {
             Select files…
           </button>
         )}
-        <button className="sync-btn" disabled={!isConnected || syncing || (selectMode && syncSelection.size === 0)} onClick={handleSync}>
-          {syncing ? 'Syncing…' : selectMode
-            ? `Sync ${syncSelection.size} selected`
-            : pendingCount > 0 ? `Sync all ${pendingCount}` : 'All synced ✓'}
-        </button>
+        {selectMode ? (
+          <button className="sync-btn" disabled={!isConnected || syncing || syncSelection.size === 0} onClick={handleSync}>
+            {syncing ? 'Syncing…' : `Sync ${syncSelection.size} selected`}
+          </button>
+        ) : (
+          <a
+            href="https://www.iditor.com/login?next=/memory-graph"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="explore-btn"
+          >
+            🔮 Explore your memories
+          </a>
+        )}
       </div>
     </>
   );

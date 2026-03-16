@@ -181,6 +181,23 @@ body {
   color: #bbb;
 }
 
+.explore-btn {
+  background: linear-gradient(135deg, #6d28d9, #a855f7);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 3px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: opacity 0.15s, transform 0.15s;
+}
+.explore-btn:hover {
+  opacity: 0.88;
+  transform: translateY(-1px);
+}
+
 .sync-result {
   color: #4ade80;
 }
