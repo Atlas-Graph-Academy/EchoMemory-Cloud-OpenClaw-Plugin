@@ -46,6 +46,9 @@ function buildAuthLabel(authStatus, hasApiKey) {
 
 function formatSourceLabel(field, setupState) {
   if (!field?.source) return 'unknown';
+  if (field.source === 'local_only_override') {
+    return 'local-only override';
+  }
   if (field.source === 'plugin_config') {
     return `plugin config (${setupState?.configFile?.targetPath || 'openclaw.json'})`;
   }
@@ -330,6 +333,7 @@ export default function App() {
                 type="password"
                 value={setupDraft.apiKey}
                 placeholder={setupState?.fields?.apiKey?.maskedValue || 'ec_...'}
+                autoComplete="new-password"
                 onChange={(e) => handleSetupFieldChange('apiKey', e.target.value)}
               />
               <small>Source: {formatSourceLabel(setupState?.fields?.apiKey, setupState)}</small>
