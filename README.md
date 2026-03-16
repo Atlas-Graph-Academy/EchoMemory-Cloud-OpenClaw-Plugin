@@ -239,6 +239,8 @@ The plugin starts a localhost workspace UI during gateway startup and can auto-o
 - browser auto-open is skipped automatically for SSH, CI, and headless Linux sessions
 - `/echo-memory setup` returns the current localhost URL and also tries to open the browser
 - natural-language requests can use the `echo_memory_local_ui` tool to get the exact live URL instead of guessing the port
+- the local markdown archive stays fully browsable even when no Echo Cloud API key is configured
+- a left-side hover rail in the local UI shows setup instructions, masked current values, and can save updated credentials into your local `.env` file
 
 Graph link behavior:
 

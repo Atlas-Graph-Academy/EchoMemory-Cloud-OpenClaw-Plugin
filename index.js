@@ -60,6 +60,7 @@ export default {
         syncRunner,
         cfg,
         logger: api.logger,
+        pluginConfig: api.pluginConfig,
       });
 
       let openedInBrowser = false;
