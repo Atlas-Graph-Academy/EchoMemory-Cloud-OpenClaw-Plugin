@@ -58,6 +58,7 @@ function formatSourceLabel(field, setupState) {
 export default function App() {
   const [files, setFiles] = useState([]);
   const [contentMap, setContentMap] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const [authStatus, setAuthStatus] = useState(null);
   const [syncStatus, setSyncStatus] = useState(null);
   const [syncResult, setSyncResult] = useState(null);
@@ -143,6 +144,24 @@ export default function App() {
     [files, contentMap],
   );
 
+  const filteredAnnotated = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return annotated;
+    return annotated.filter((file) => {
+      const content = contentMap?.get(file.relativePath) || '';
+      const haystack = [
+        file.fileName,
+        file.relativePath,
+        file.fileType,
+        content,
+      ]
+        .filter(Boolean)
+        .join('\n')
+        .toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [annotated, contentMap, searchQuery]);
+
   const [vpWidth, setVpWidth] = useState(window.innerWidth);
   useEffect(() => {
     const handleResize = () => setVpWidth(window.innerWidth);
@@ -150,7 +169,7 @@ export default function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const layout = useMemo(() => computeLayout(annotated, vpWidth, contentMap), [annotated, vpWidth, contentMap]);
+  const layout = useMemo(() => computeLayout(filteredAnnotated, vpWidth, contentMap), [filteredAnnotated, vpWidth, contentMap]);
 
   const systemLayout = useMemo(() => {
     if (view !== 'system') return null;
@@ -188,10 +207,10 @@ export default function App() {
   }, [syncStatus, backendSources, files]);
 
   const stats = useMemo(() => {
-    const t1 = annotated.filter((file) => file._tier === 1).length;
-    const t2 = annotated.filter((file) => file._tier === 2).length;
-    return { t1, t2, total: annotated.length };
-  }, [annotated]);
+    const t1 = filteredAnnotated.filter((file) => file._tier === 1).length;
+    const t2 = filteredAnnotated.filter((file) => file._tier === 2).length;
+    return { t1, t2, total: filteredAnnotated.length };
+  }, [filteredAnnotated]);
 
   const systemFileCount = layout.systemFileCount || 0;
 
@@ -316,26 +335,6 @@ export default function App() {
               <small>Source: {formatSourceLabel(setupState?.fields?.apiKey, setupState)}</small>
             </label>
             <label className="setup-field">
-              <span>Backend URL</span>
-              <input
-                type="password"
-                value={setupDraft.baseUrl}
-                placeholder={setupState?.fields?.baseUrl?.maskedValue || 'https://echo-mem-chrome.vercel.app'}
-                onChange={(e) => handleSetupFieldChange('baseUrl', e.target.value)}
-              />
-              <small>Source: {formatSourceLabel(setupState?.fields?.baseUrl, setupState)}</small>
-            </label>
-            <label className="setup-field">
-              <span>Web app URL</span>
-              <input
-                type="password"
-                value={setupDraft.webBaseUrl}
-                placeholder={setupState?.fields?.webBaseUrl?.maskedValue || 'https://www.iditor.com'}
-                onChange={(e) => handleSetupFieldChange('webBaseUrl', e.target.value)}
-              />
-              <small>Source: {formatSourceLabel(setupState?.fields?.webBaseUrl, setupState)}</small>
-            </label>
-            <label className="setup-field">
               <span>Memory directory</span>
               <input
                 type="text"
@@ -379,7 +378,13 @@ export default function App() {
             <span className="hdr-title hdr-title-system">System Files</span>
           </>
         )}
-        <input className="hdr-search" type="text" placeholder="Search coming soon" disabled />
+        <input
+          className="hdr-search"
+          type="text"
+          value={searchQuery}
+          placeholder="Search files and content"
+          onChange={(event) => setSearchQuery(event.target.value)}
+        />
         <span className="hdr-spacer" />
         <span className="hdr-meta"><b>{dateStr}</b> {timeStr}</span>
         <span className="hdr-meta">|</span>
@@ -404,6 +409,8 @@ export default function App() {
         />
       ) : files.length === 0 ? (
         <div className="empty-state">Loading files...</div>
+      ) : filteredAnnotated.length === 0 ? (
+        <div className="empty-state">No files match "{searchQuery.trim()}"</div>
       ) : (
         <Viewport
           key={view}
