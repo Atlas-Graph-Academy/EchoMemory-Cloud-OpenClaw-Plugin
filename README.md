@@ -79,6 +79,7 @@ Supported environment variables:
 - `ECHOMEM_AUTO_SYNC`
 - `ECHOMEM_LOCAL_UI_AUTO_OPEN_ON_GATEWAY_START`
 - `ECHOMEM_LOCAL_UI_AUTO_INSTALL`
+- `ECHOMEM_LOCAL_ONLY_MODE`
 - `ECHOMEM_SYNC_INTERVAL_MINUTES`
 - `ECHOMEM_BATCH_SIZE`
 - `ECHOMEM_REQUEST_TIMEOUT_MS`
@@ -93,6 +94,7 @@ ECHOMEM_MEMORY_DIR=C:\Users\your-user\.openclaw\workspace\memory
 ECHOMEM_AUTO_SYNC=false
 ECHOMEM_LOCAL_UI_AUTO_OPEN_ON_GATEWAY_START=true
 ECHOMEM_LOCAL_UI_AUTO_INSTALL=true
+ECHOMEM_LOCAL_ONLY_MODE=false
 ECHOMEM_SYNC_INTERVAL_MINUTES=15
 ECHOMEM_BATCH_SIZE=10
 ECHOMEM_REQUEST_TIMEOUT_MS=300000
@@ -241,6 +243,7 @@ The plugin starts a localhost workspace UI during gateway startup and can auto-o
 - natural-language requests can use the `echo_memory_local_ui` tool to get the exact live URL instead of guessing the port
 - the local markdown archive stays fully browsable even when no Echo Cloud API key is configured
 - a left-side hover rail in the local UI shows setup instructions, masked current values, and can save updated credentials into your local `.env` file
+- removing the API key from the sidebar forces `ECHOMEM_LOCAL_ONLY_MODE=true`, which suppresses any remaining API key from `openclaw.json`, `.env`, or inherited process env on future loads
 
 Graph link behavior:
 
