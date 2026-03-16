@@ -6,6 +6,7 @@ import { formatSearchResultsText } from "./lib/echo-memory-search.js";
 import {
   buildPrivateGraphLoginUrl,
   createEchoMemoryGraphTool,
+  createEchoMemoryLocalUiTool,
   createEchoMemoryOnboardTool,
   createEchoMemorySearchTool,
   createEchoMemoryStatusTool,
@@ -14,7 +15,7 @@ import {
 import { buildOnboardingText } from "./lib/onboarding.js";
 import { createSyncRunner, formatStatusText } from "./lib/sync.js";
 import { readLastSyncState } from "./lib/state.js";
-import { startLocalServer, stopLocalServer } from "./lib/local-server.js";
+import { openUrlInDefaultBrowser, startLocalServer, stopLocalServer } from "./lib/local-server.js";
 
 function resolveCommandLabel(channel) {
   return channel === "discord" ? "/echomemory" : "/echo-memory";
@@ -50,10 +51,38 @@ export default {
       cfg,
       client,
     });
+    const workspaceDir = path.resolve(path.dirname(cfg.memoryDir), "..");
+    let startupBrowserOpenAttempted = false;
+
+    async function ensureLocalUi({ openInBrowser = false, trigger = "manual" } = {}) {
+      const url = await startLocalServer(workspaceDir, {
+        apiClient: client,
+        syncRunner,
+        cfg,
+        logger: api.logger,
+      });
+
+      let openedInBrowser = false;
+      let openReason = "not_requested";
+      if (openInBrowser) {
+        const openResult = await openUrlInDefaultBrowser(url, {
+          logger: api.logger,
+          force: trigger !== "gateway-start",
+        });
+        openedInBrowser = openResult.opened;
+        openReason = openResult.reason;
+      }
+
+      return { url, openedInBrowser, openReason };
+    }
 
     api.registerTool(createEchoMemorySearchTool(client));
     api.registerTool(createEchoMemoryOnboardTool(cfg, resolveCommandLabel("slack")));
     api.registerTool(createEchoMemoryGraphTool(client, cfg));
+    api.registerTool(createEchoMemoryLocalUiTool({
+      getLocalUiUrl: ensureLocalUi,
+      commandLabel: resolveCommandLabel("slack"),
+    }));
     api.registerTool(createEchoMemoryStatusTool(client, syncRunner));
     api.registerTool(createEchoMemorySyncTool(client, syncRunner));
     api.on("before_prompt_build", (_event, ctx) => {
@@ -65,12 +94,15 @@ export default {
           "EchoMem cloud retrieval is available through the `echo_memory_search` tool.",
           "Echo Memory setup and usage guidance is available through the `echo_memory_onboard` tool.",
           "Echo memory graph links are available through the `echo_memory_graph_link` tool.",
+          "Echo memory local workspace UI links are available through the `echo_memory_local_ui` tool.",
           "Echo sync inspection is available through the `echo_memory_status` tool.",
           "Echo markdown-to-cloud sync is available through the `echo_memory_sync` tool.",
           "Use it when the conversation asks about prior facts, plans, decisions, dates, preferences, people, or when memory context would improve accuracy.",
           "Prefer it before answering memory-dependent questions instead of guessing.",
           "Use `echo_memory_onboard` when the user asks how to install, set up, configure, authenticate, or use the plugin, or asks about signup, API keys, commands, graph access, or troubleshooting.",
           "Use `echo_memory_graph_link` when the user asks to open, see, view, or visit their memory graph or the public memory page.",
+          "Use `echo_memory_local_ui` when the user asks to open, view, browse, launch, or get the URL for the local workspace UI, local memory UI, or markdown workspace viewer.",
+          "If the user asks to open the local workspace UI, request `openInBrowser: true` and include the returned localhost URL directly in the reply.",
           "Use `visibility: private` for the user's personal memory graph login page and `visibility: public` for the shared public memories page at iditor.com/memories.",
           "Private graph access from OpenClaw intentionally requires a fresh login at iditor.com/login?next=/memory-graph instead of an auto-login bridge link.",
           "When providing a graph link, include the returned URL directly in the Slack reply.",
@@ -92,15 +124,21 @@ export default {
       start: async (ctx) => {
         await syncRunner.initialize(ctx.stateDir);
 
-        // Auto-start local workspace viewer — scan entire .openclaw directory
-        const workspaceDir = path.resolve(path.dirname(cfg.memoryDir), "..");
         try {
-          const url = await startLocalServer(workspaceDir, {
-            apiClient: client,
-            syncRunner,
-            cfg,
+          const shouldOpenBrowser = cfg.localUiAutoOpenOnGatewayStart && !startupBrowserOpenAttempted;
+          const { url, openedInBrowser, openReason } = await ensureLocalUi({
+            openInBrowser: shouldOpenBrowser,
+            trigger: "gateway-start",
           });
           api.logger?.info?.(`[echo-memory] Local workspace viewer: ${url}`);
+          if (shouldOpenBrowser) {
+            startupBrowserOpenAttempted = true;
+            if (openedInBrowser) {
+              api.logger?.info?.("[echo-memory] Opened local workspace viewer in the default browser");
+            } else {
+              api.logger?.info?.(`[echo-memory] Skipped browser auto-open (${openReason})`);
+            }
+          }
         } catch (error) {
           api.logger?.warn?.(`[echo-memory] local server failed: ${String(error?.message ?? error)}`);
         }
@@ -131,14 +169,19 @@ export default {
         const commandLabel = resolveCommandLabel(ctx.channel);
 
         if (action === "setup") {
-          const workspaceDir = path.resolve(path.dirname(cfg.memoryDir), "..");
-          const url = await startLocalServer(workspaceDir, {
-            apiClient: client,
-            syncRunner,
-            cfg,
+          const { url, openedInBrowser } = await ensureLocalUi({
+            openInBrowser: true,
+            trigger: "command",
           });
           return {
-            text: `Open your workspace: ${url}\n\nAll files stay local until you choose to sync.`,
+            text: [
+              `Open your workspace: ${url}`,
+              openedInBrowser
+                ? "The default browser was opened on this machine."
+                : "Open the URL manually if the browser did not launch automatically.",
+              "",
+              "All files stay local until you choose to sync.",
+            ].join("\n"),
           };
         }
 

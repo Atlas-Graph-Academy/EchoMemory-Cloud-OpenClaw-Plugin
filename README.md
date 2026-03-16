@@ -52,6 +52,8 @@ Optional config:
 - `memoryDir`: absolute path to the markdown memory directory
 - `webBaseUrl`: Echo web app base URL for public graph links, default `https://www.iditor.com`
 - `autoSync`: default `true`
+- `localUiAutoOpenOnGatewayStart`: default `true` on local desktop runs, but browser launch is skipped automatically for SSH/CI/headless sessions
+- `localUiAutoInstall`: default `true`; automatically runs `npm install` and `npm run build` for `lib/local-ui` when assets are missing
 - `syncIntervalMinutes`: default `15`
 - `batchSize`: default `10`
 - `requestTimeoutMs`: default `300000`
@@ -75,6 +77,8 @@ Supported environment variables:
 - `ECHOMEM_API_KEY`
 - `ECHOMEM_MEMORY_DIR`
 - `ECHOMEM_AUTO_SYNC`
+- `ECHOMEM_LOCAL_UI_AUTO_OPEN_ON_GATEWAY_START`
+- `ECHOMEM_LOCAL_UI_AUTO_INSTALL`
 - `ECHOMEM_SYNC_INTERVAL_MINUTES`
 - `ECHOMEM_BATCH_SIZE`
 - `ECHOMEM_REQUEST_TIMEOUT_MS`
@@ -87,6 +91,8 @@ ECHOMEM_WEB_BASE_URL=https://www.iditor.com
 ECHOMEM_API_KEY=ec_your_key_here
 ECHOMEM_MEMORY_DIR=C:\Users\your-user\.openclaw\workspace\memory
 ECHOMEM_AUTO_SYNC=false
+ECHOMEM_LOCAL_UI_AUTO_OPEN_ON_GATEWAY_START=true
+ECHOMEM_LOCAL_UI_AUTO_INSTALL=true
 ECHOMEM_SYNC_INTERVAL_MINUTES=15
 ECHOMEM_BATCH_SIZE=10
 ECHOMEM_REQUEST_TIMEOUT_MS=300000
@@ -117,6 +123,8 @@ Example `openclaw.json` config:
           "apiKey": "ec_your_key_here",
           "memoryDir": "C:\\Users\\your-user\\.openclaw\\workspace\\memory", // tweak it based on Mac or Windows environment
           "autoSync": false,
+          "localUiAutoOpenOnGatewayStart": true,
+          "localUiAutoInstall": true,
           "syncIntervalMinutes": 15,
           "batchSize": 10,
           "requestTimeoutMs": 300000,
@@ -155,6 +163,9 @@ These lines indicate the plugin was loaded successfully:
 
 - OpenClaw discovered the plugin path
 - `[echo-memory] No .env file found ... Using plugin config or process env.`
+- `[echo-memory] Installing local-ui dependencies...` on first run if `lib/local-ui/node_modules` is missing
+- `[echo-memory] Building local-ui frontend...` on first run if `lib/local-ui/dist/assets` is missing
+- `[echo-memory] Local workspace viewer: http://127.0.0.1:17823`
 - `[echo-memory] autoSync disabled` or normal sync startup logs
 
 This warning is not fatal by itself:
@@ -210,6 +221,7 @@ After changing Slack auth config, restart `openclaw gateway`.
 ## Commands
 
 - `/echo-memory status`
+- `/echo-memory setup`
 - `/echo-memory sync`
 - `/echo-memory whoami`
 - `/echo-memory search <query>`
@@ -218,6 +230,15 @@ After changing Slack auth config, restart `openclaw gateway`.
 - `/echo-memory onboard`
 - `/echo-memory onboard <topic>`
 - `/echo-memory help`
+
+## Local UI
+
+The plugin starts a localhost workspace UI during gateway startup and can auto-open it in the default browser on local desktop machines.
+
+- first run can automatically trigger `npm install` and `npm run build` under `lib/local-ui`
+- browser auto-open is skipped automatically for SSH, CI, and headless Linux sessions
+- `/echo-memory setup` returns the current localhost URL and also tries to open the browser
+- natural-language requests can use the `echo_memory_local_ui` tool to get the exact live URL instead of guessing the port
 
 Graph link behavior:
 
