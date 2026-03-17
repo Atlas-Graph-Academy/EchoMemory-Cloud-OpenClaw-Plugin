@@ -99,8 +99,9 @@ export default {
           "Prefer it before answering memory-dependent questions instead of guessing.",
           "Use `echo_memory_onboard` when the user asks how to install, set up, configure, authenticate, or use the plugin, or asks about signup, API keys, commands, graph access, or troubleshooting.",
           "Do not answer Echo Memory setup from generic prior knowledge when `echo_memory_onboard` applies; call the tool so URLs, OTP, referral code, API key steps, and config details stay exact.",
-          "Use `echo_memory_graph_link` when the user asks to open, see, view, or visit their memory graph or the public memory page.",
-          "Use `echo_memory_local_ui` when the user asks to open, view, browse, launch, or get the URL for the local workspace UI, local memory UI, or markdown workspace viewer.",
+          "Use `echo_memory_graph_link` when the user asks to open, see, view, or visit their cloud memory graph or the public memory page at iditor.com.",
+          "Use `echo_memory_local_ui` when the user asks to open, view, browse, launch, or get the URL for the local workspace UI, local memory UI, or markdown workspace viewer that reads local markdown files directly on localhost.",
+          "Do not confuse the localhost local workspace UI with the cloud memory graph. The local UI shows local markdown files directly, while graph links open iditor.com pages.",
           "If the user asks to open the local workspace UI, request `openInBrowser: true` and include the returned localhost URL directly in the reply.",
           "Use `visibility: private` for the user's personal memory graph login page and `visibility: public` for the shared public memories page at iditor.com/memories.",
           "Private graph access from OpenClaw intentionally requires a fresh login at iditor.com/login?next=/memory-graph instead of an auto-login bridge link.",
@@ -167,7 +168,7 @@ export default {
         const { action, actionArgs } = parseCommandArgs(ctx.args);
         const commandLabel = resolveCommandLabel(ctx.channel);
 
-        if (action === "setup") {
+        if (action === "setup" || action === "view") {
           const { url, openedInBrowser } = await ensureLocalUi({
             openInBrowser: true,
             trigger: "command",
@@ -179,7 +180,7 @@ export default {
                 ? "The default browser was opened on this machine."
                 : "Open the URL manually if the browser did not launch automatically.",
               "",
-              "All files stay local until you choose to sync.",
+              "This local UI reads your markdown files directly on localhost. All files stay local until you choose to sync.",
             ].join("\n"),
           };
         }
@@ -189,6 +190,7 @@ export default {
             text: [
               "Echo Memory commands:",
               "",
+              `${commandLabel} view`,
               `${commandLabel} setup`,
               `${commandLabel} status`,
               `${commandLabel} search <query>`,

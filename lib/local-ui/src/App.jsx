@@ -58,6 +58,12 @@ function formatSourceLabel(field, setupState) {
   return field.source;
 }
 
+function normalizePathKey(rawPath) {
+  if (!rawPath) return '';
+  const normalized = String(rawPath).replace(/\\/g, '/');
+  return normalized.toLowerCase();
+}
+
 export default function App() {
   const [files, setFiles] = useState([]);
   const [contentMap, setContentMap] = useState(null);
@@ -185,9 +191,13 @@ export default function App() {
     }
 
     if (backendSources?.sources) {
-      const backendPaths = new Set(backendSources.sources.map((source) => source.filePath));
+      const backendPaths = new Set(
+        backendSources.sources
+          .map((source) => normalizePathKey(source.filePath))
+          .filter(Boolean),
+      );
       for (const file of files) {
-        const normalized = file.absolutePath || file.filePath;
+        const normalized = normalizePathKey(file.absolutePath || file.filePath);
         if (normalized && backendPaths.has(normalized)) {
           next[file.relativePath] = 'synced';
         }

@@ -207,6 +207,7 @@ After changing Slack auth config, restart `openclaw gateway`.
 ## Commands
 
 - `/echo-memory status`
+- `/echo-memory view`
 - `/echo-memory setup`
 - `/echo-memory sync`
 - `/echo-memory whoami`
@@ -223,7 +224,8 @@ The plugin starts a localhost workspace UI during gateway startup and can auto-o
 
 - first run can automatically trigger `npm install` and `npm run build` under `lib/local-ui`
 - browser auto-open is skipped automatically for SSH, CI, and headless Linux sessions
-- `/echo-memory setup` returns the current localhost URL and also tries to open the browser
+- `/echo-memory view` returns the current localhost URL for the local markdown workspace UI and also tries to open the browser
+- `/echo-memory setup` is a compatibility alias for `/echo-memory view`
 - natural-language requests can use the `echo_memory_local_ui` tool to get the exact live URL instead of guessing the port
 - the local markdown archive stays fully browsable even when no Echo Cloud API key is configured
 - a left-side hover rail in the local UI shows setup instructions, masked current values, and can save updated credentials into your local `.env` file
@@ -233,6 +235,7 @@ Graph link behavior:
 
 - `/echo-memory graph` opens `https://www.iditor.com/login?next=/memory-graph` so you log in again before accessing your private personal memory graph
 - `/echo-memory graph public` opens the shared public memories page at `https://www.iditor.com/memories`
+- the local workspace UI and the cloud memory graph are different surfaces: the local UI reads local markdown files on localhost, while graph commands open iditor.com pages
 
 Onboarding behavior:
 
