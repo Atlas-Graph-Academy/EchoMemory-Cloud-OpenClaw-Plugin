@@ -86,10 +86,7 @@ export default {
     }));
     api.registerTool(createEchoMemoryStatusTool(client, syncRunner));
     api.registerTool(createEchoMemorySyncTool(client, syncRunner));
-    api.on("before_prompt_build", (_event, ctx) => {
-      if (ctx.messageProvider && ctx.messageProvider !== "slack") {
-        return;
-      }
+    api.on("before_prompt_build", (_event, _ctx) => {
       return {
         appendSystemContext: [
           "EchoMem cloud retrieval is available through the `echo_memory_search` tool.",
@@ -101,6 +98,7 @@ export default {
           "Use it when the conversation asks about prior facts, plans, decisions, dates, preferences, people, or when memory context would improve accuracy.",
           "Prefer it before answering memory-dependent questions instead of guessing.",
           "Use `echo_memory_onboard` when the user asks how to install, set up, configure, authenticate, or use the plugin, or asks about signup, API keys, commands, graph access, or troubleshooting.",
+          "Do not answer Echo Memory setup from generic prior knowledge when `echo_memory_onboard` applies; call the tool so URLs, OTP, referral code, API key steps, and config details stay exact.",
           "Use `echo_memory_graph_link` when the user asks to open, see, view, or visit their memory graph or the public memory page.",
           "Use `echo_memory_local_ui` when the user asks to open, view, browse, launch, or get the URL for the local workspace UI, local memory UI, or markdown workspace viewer.",
           "If the user asks to open the local workspace UI, request `openInBrowser: true` and include the returned localhost URL directly in the reply.",
