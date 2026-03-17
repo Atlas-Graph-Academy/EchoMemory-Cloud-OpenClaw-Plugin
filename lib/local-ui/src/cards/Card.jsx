@@ -52,6 +52,13 @@ const STAMP_CONFIG = {
   synced: { label: 'OK', cls: 'stamp-synced' },
 };
 
+const TRANSIENT_STAMP_CONFIG = {
+  queued: { label: 'QUEUED', cls: 'stamp-queued' },
+  syncing: { label: 'SYNCING', cls: 'stamp-syncing' },
+  done: { label: 'DONE', cls: 'stamp-done' },
+  failed: { label: 'FAILED', cls: 'stamp-failed' },
+};
+
 function Stamp({ status }) {
   const cfg = STAMP_CONFIG[status];
   if (!cfg) return null;
@@ -61,9 +68,16 @@ function Stamp({ status }) {
   return <span className={`stamp ${cfg.cls}`}>{cfg.label}</span>;
 }
 
+function TransientStamp({ status }) {
+  const cfg = TRANSIENT_STAMP_CONFIG[status];
+  if (!cfg) return null;
+  return <span className={`stamp stamp-transient ${cfg.cls}`}>{cfg.label}</span>;
+}
+
 export const Card = React.memo(function Card({
   card,
   syncStatus,
+  transientStatus,
   content,
   zoom = 1,
   selected,
@@ -116,6 +130,7 @@ export const Card = React.memo(function Card({
           <div className="card-name" style={{ color: isLog ? '#999' : pal.text }}>
             {displayName}
           </div>
+          {transientStatus && effectiveStatus !== 'sealed' && <TransientStamp status={transientStatus} />}
           <Stamp status={effectiveStatus} />
         </div>
       </div>
@@ -156,6 +171,7 @@ export const Card = React.memo(function Card({
         <div className="card-name" style={{ color: isLog ? '#999' : pal.text }}>
           {displayName}
         </div>
+        {transientStatus && effectiveStatus !== 'sealed' && <TransientStamp status={transientStatus} />}
         {effectiveStatus !== 'sealed' && <Stamp status={effectiveStatus} />}
         {selected && !selectMode && (
           <button className="card-expand-btn" title="Read full document">

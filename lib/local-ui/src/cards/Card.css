@@ -178,6 +178,34 @@
   opacity: 0.5;
 }
 
+.stamp-transient {
+  opacity: 0.92;
+}
+
+.stamp-queued {
+  color: #7da2d6;
+  border-color: #7da2d6;
+  background: rgba(125, 162, 214, 0.12);
+}
+
+.stamp-syncing {
+  color: #67d5c1;
+  border-color: #67d5c1;
+  background: rgba(103, 213, 193, 0.14);
+}
+
+.stamp-done {
+  color: #74c98a;
+  border-color: #74c98a;
+  background: rgba(116, 201, 138, 0.12);
+}
+
+.stamp-failed {
+  color: #e58a8a;
+  border-color: #e58a8a;
+  background: rgba(229, 138, 138, 0.14);
+}
+
 /* Sealed: centered overlay stamp — red ink chop style */
 .stamp-overlay {
   position: absolute;

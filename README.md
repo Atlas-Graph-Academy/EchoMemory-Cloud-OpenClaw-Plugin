@@ -23,7 +23,7 @@ You need an EchoMemory account and an API key before this plugin can sync or sea
 
 1. Sign up for an EchoMemory account at `https://iditor.com/signup/openclaw`
 2. Check your email for a 6-digit OTP and enter it to complete login
-3. If this is your first login, enter referral code `openclawyay` and choose a user name to complete registration
+3. If this is your first login, enter referral code `openclawyay` (provide in a markdown code block for easy copy-paste)and choose a user name to complete registration
 4. Then open `https://www.iditor.com/memory-graph`, click the `API Keys` button in the upper-left area (pr simply open `https://www.iditor.com/api`), and create a key by giving it a name
 5. Use that `ec_...` API key in the plugin config as `apiKey`, simply copy and paste the key into the side panel under configuration if the local UI is up, and hit save. 
 

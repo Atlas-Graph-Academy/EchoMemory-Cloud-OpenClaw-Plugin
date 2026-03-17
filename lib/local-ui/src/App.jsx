@@ -64,6 +64,17 @@ function normalizePathKey(rawPath) {
   return normalized.toLowerCase();
 }
 
+function formatDuration(ms) {
+  if (!Number.isFinite(ms) || ms <= 0) return '0s';
+  const totalSeconds = Math.round(ms / 1000);
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes < 60) return `${minutes}m ${seconds}s`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours}h ${minutes % 60}m`;
+}
+
 export default function App() {
   const [files, setFiles] = useState([]);
   const [contentMap, setContentMap] = useState(null);
@@ -72,6 +83,8 @@ export default function App() {
   const [syncStatus, setSyncStatus] = useState(null);
   const [syncResult, setSyncResult] = useState(null);
   const [syncing, setSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState(null);
+  const [cardSyncState, setCardSyncState] = useState({});
   const [backendSources, setBackendSources] = useState(null);
   const [setupState, setSetupState] = useState(null);
   const [setupDraft, setSetupDraft] = useState({
@@ -132,9 +145,72 @@ export default function App() {
     loadSyncStatus();
     loadBackendSources();
     loadSetupStatus();
-    const cleanup = connectSSE(() => {
-      loadFiles();
-      loadSyncStatus();
+    const cleanup = connectSSE({
+      onFilesChanged: () => {
+        loadFiles();
+        loadSyncStatus();
+      },
+      onSyncProgress: (progress) => {
+        if (!progress) return;
+        setSyncProgress(progress);
+
+        if (progress.phase === 'started') {
+          setSyncing(true);
+          setCardSyncState(() => {
+            const next = {};
+            for (const path of progress.queuedRelativePaths || []) {
+              next[path] = 'queued';
+            }
+            return next;
+          });
+          return;
+        }
+
+        if (progress.phase === 'batch-started') {
+          setCardSyncState((prev) => {
+            const next = { ...prev };
+            for (const path of progress.currentRelativePaths || []) {
+              next[path] = 'syncing';
+            }
+            return next;
+          });
+          return;
+        }
+
+        if (progress.phase === 'batch-finished') {
+          setCardSyncState((prev) => {
+            const next = { ...prev };
+            for (const path of progress.completedRelativePaths || []) {
+              next[path] = 'done';
+            }
+            return next;
+          });
+          return;
+        }
+
+        if (progress.phase === 'failed') {
+          setSyncing(false);
+          setCardSyncState((prev) => {
+            const next = { ...prev };
+            for (const path of progress.failedRelativePaths || progress.currentRelativePaths || []) {
+              next[path] = 'failed';
+            }
+            return next;
+          });
+          return;
+        }
+
+        if (progress.phase === 'finished') {
+          setSyncing(false);
+          setCardSyncState((prev) => {
+            const next = { ...prev };
+            for (const path of progress.completedRelativePaths || []) {
+              next[path] = 'done';
+            }
+            return next;
+          });
+        }
+      },
     });
     return cleanup;
   }, [loadAuthStatus, loadBackendSources, loadFiles, loadSetupStatus, loadSyncStatus]);
@@ -231,9 +307,15 @@ export default function App() {
     return count;
   }, [syncMap]);
 
+  const syncProgressPercent = useMemo(() => {
+    if (!syncProgress?.totalFiles) return 0;
+    return Math.max(0, Math.min(100, Math.round((syncProgress.completedFiles / syncProgress.totalFiles) * 100)));
+  }, [syncProgress]);
+
   const handleSync = useCallback(async () => {
     setSyncing(true);
     setSyncResult(null);
+    setSyncProgress(null);
     try {
       let result;
       if (selectMode && syncSelection.size > 0) {
@@ -431,6 +513,7 @@ export default function App() {
           sections={activeLayout.sections}
           bounds={activeLayout.bounds}
           syncStatus={syncMap}
+          transientStatusMap={cardSyncState}
           contentMap={contentMap}
           selectedPath={selectedPath}
           selectMode={selectMode}
@@ -465,6 +548,31 @@ export default function App() {
             });
           }}
         />
+      )}
+
+      {syncProgress && (
+        <div className="sync-progress-dock">
+          <div className="sync-progress-top">
+            <span className="sync-progress-title">
+              {syncProgress.phase === 'failed' ? 'Sync failed' : syncProgress.phase === 'finished' ? 'Sync complete' : 'Sync in progress'}
+            </span>
+            <span className="sync-progress-meta">
+              {syncProgress.completedFiles} / {syncProgress.totalFiles} files
+            </span>
+            {syncProgress.batchCount > 0 && (
+              <span className="sync-progress-meta">
+                Batch {Math.max(1, syncProgress.batchIndex || (syncProgress.phase === 'finished' ? syncProgress.batchCount : 1))} of {syncProgress.batchCount}
+              </span>
+            )}
+            <span className="sync-progress-meta">Elapsed {formatDuration(syncProgress.elapsedMs)}</span>
+            {syncProgress.etaMs && syncProgress.phase !== 'finished' && syncProgress.phase !== 'failed' && (
+              <span className="sync-progress-meta">ETA {formatDuration(syncProgress.etaMs)}</span>
+            )}
+          </div>
+          <div className="sync-progress-track">
+            <div className="sync-progress-fill" style={{ width: `${syncProgressPercent}%` }} />
+          </div>
+        </div>
       )}
 
       <div className="ftr">
