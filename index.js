@@ -98,7 +98,8 @@ export default {
           "Use it when the conversation asks about prior facts, plans, decisions, dates, preferences, people, or when memory context would improve accuracy.",
           "Prefer it before answering memory-dependent questions instead of guessing.",
           "Use `echo_memory_onboard` when the user asks how to install, set up, configure, authenticate, or use the plugin, or asks about signup, API keys, commands, graph access, or troubleshooting.",
-          "Do not answer Echo Memory setup from generic prior knowledge when `echo_memory_onboard` applies; call the tool so URLs, OTP, referral code, API key steps, and config details stay exact.",
+          "Treat any question about becoming a new EchoMemory user, signing up, creating an account, receiving OTP, referral code, API key creation, or configuring the plugin as an onboarding question for `echo_memory_onboard`.",
+          "Do not answer Echo Memory signup, account setup, or plugin setup from generic prior knowledge. Call `echo_memory_onboard` so the OpenClaw-specific signup URL, OTP step, referral code, API key flow, command names, and config details stay exact.",
           "Use `echo_memory_graph_link` when the user asks to open, see, view, or visit their cloud memory graph or the public memory page at iditor.com.",
           "Use `echo_memory_local_ui` when the user asks to open, view, browse, launch, or get the URL for the local workspace UI, local memory UI, or markdown workspace viewer that reads local markdown files directly on localhost.",
           "Do not confuse the localhost local workspace UI with the cloud memory graph. The local UI shows local markdown files directly, while graph links open iditor.com pages.",
@@ -168,7 +169,7 @@ export default {
         const { action, actionArgs } = parseCommandArgs(ctx.args);
         const commandLabel = resolveCommandLabel(ctx.channel);
 
-        if (action === "setup" || action === "view") {
+        if (action === "view") {
           const { url, openedInBrowser } = await ensureLocalUi({
             openInBrowser: true,
             trigger: "command",
@@ -181,6 +182,7 @@ export default {
                 : "Open the URL manually if the browser did not launch automatically.",
               "",
               "This local UI reads your markdown files directly on localhost. All files stay local until you choose to sync.",
+              `For EchoMemory account signup or plugin onboarding, run ${commandLabel} onboard.`,
             ].join("\n"),
           };
         }
@@ -190,13 +192,13 @@ export default {
             text: [
               "Echo Memory commands:",
               "",
+              `${commandLabel} onboard`,
+              `${commandLabel} onboard <topic>`,
               `${commandLabel} view`,
-              `${commandLabel} setup`,
               `${commandLabel} status`,
               `${commandLabel} search <query>`,
               `${commandLabel} graph`,
               `${commandLabel} graph public`,
-              `${commandLabel} onboard`,
               `${commandLabel} sync`,
               `${commandLabel} whoami`,
               `${commandLabel} help`,

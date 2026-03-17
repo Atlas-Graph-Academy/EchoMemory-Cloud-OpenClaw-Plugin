@@ -208,7 +208,6 @@ After changing Slack auth config, restart `openclaw gateway`.
 
 - `/echo-memory status`
 - `/echo-memory view`
-- `/echo-memory setup`
 - `/echo-memory sync`
 - `/echo-memory whoami`
 - `/echo-memory search <query>`
@@ -225,7 +224,6 @@ The plugin starts a localhost workspace UI during gateway startup and can auto-o
 - first run can automatically trigger `npm install` and `npm run build` under `lib/local-ui`
 - browser auto-open is skipped automatically for SSH, CI, and headless Linux sessions
 - `/echo-memory view` returns the current localhost URL for the local markdown workspace UI and also tries to open the browser
-- `/echo-memory setup` is a compatibility alias for `/echo-memory view`
 - natural-language requests can use the `echo_memory_local_ui` tool to get the exact live URL instead of guessing the port
 - the local markdown archive stays fully browsable even when no Echo Cloud API key is configured
 - a left-side hover rail in the local UI shows setup instructions, masked current values, and can save updated credentials into your local `.env` file
@@ -241,7 +239,7 @@ Onboarding behavior:
 
 - `/echo-memory onboard` returns the full setup and usage guide
 - `/echo-memory onboard signup|setup|commands|graph|operations|troubleshooting` returns focused help
-- natural-language setup questions can also trigger the onboarding tool during normal chat
+- natural-language signup, account setup, API key, and plugin setup questions should trigger the onboarding tool during normal chat instead of generic model knowledge
 
 Recommended Slack smoke test order:
 
