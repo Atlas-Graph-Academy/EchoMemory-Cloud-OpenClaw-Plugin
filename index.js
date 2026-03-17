@@ -100,9 +100,12 @@ export default {
           "Use `echo_memory_onboard` when the user asks how to install, set up, configure, authenticate, or use the plugin, or asks about signup, API keys, commands, graph access, or troubleshooting.",
           "Treat any question about becoming a new EchoMemory user, signing up, creating an account, receiving OTP, referral code, API key creation, or configuring the plugin as an onboarding question for `echo_memory_onboard`.",
           "Do not answer Echo Memory signup, account setup, or plugin setup from generic prior knowledge. Call `echo_memory_onboard` so the OpenClaw-specific signup URL, OTP step, referral code, API key flow, command names, and config details stay exact.",
-          "Use `echo_memory_graph_link` when the user asks to open, see, view, or visit their cloud memory graph or the public memory page at iditor.com.",
-          "Use `echo_memory_local_ui` when the user asks to open, view, browse, launch, or get the URL for the local workspace UI, local memory UI, or markdown workspace viewer that reads local markdown files directly on localhost.",
+          "There is only one onboarding path. Do not try to choose between signup/setup onboarding variants; call `echo_memory_onboard` and return the full authoritative guide.",
+          "Use `echo_memory_graph_link` when the user explicitly asks for the memory graph, cloud graph, graph view, public memories page, or an iditor.com page.",
+          "Use `echo_memory_local_ui` when the user asks to open, view, browse, launch, or get the URL for local memories, markdown files, the workspace viewer, the local UI, or the localhost view.",
+          "Treat `/echo-memory view` as the local localhost markdown viewer command.",
           "Do not confuse the localhost local workspace UI with the cloud memory graph. The local UI shows local markdown files directly, while graph links open iditor.com pages.",
+          "If the user says 'view my memories' or similar without saying graph/iditor/public, prefer the local workspace UI.",
           "If the user asks to open the local workspace UI, request `openInBrowser: true` and include the returned localhost URL directly in the reply.",
           "Use `visibility: private` for the user's personal memory graph login page and `visibility: public` for the shared public memories page at iditor.com/memories.",
           "Private graph access from OpenClaw intentionally requires a fresh login at iditor.com/login?next=/memory-graph instead of an auto-login bridge link.",
@@ -194,7 +197,6 @@ export default {
               "Echo Memory commands:",
               "",
               `${commandLabel} onboard`,
-              `${commandLabel} onboard <topic>`,
               `${commandLabel} view`,
               `${commandLabel} status`,
               `${commandLabel} search <query>`,
@@ -221,7 +223,6 @@ export default {
 
         if (action === "onboard") {
           const guide = buildOnboardingText({
-            topic: actionArgs,
             commandLabel,
             cfg,
           });

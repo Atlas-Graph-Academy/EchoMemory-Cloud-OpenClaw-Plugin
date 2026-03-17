@@ -221,7 +221,6 @@ After changing Slack auth config, restart `openclaw gateway`.
 - `/echo-memory graph`
 - `/echo-memory graph public`
 - `/echo-memory onboard`
-- `/echo-memory onboard <topic>`
 - `/echo-memory help`
 
 ## Local UI
@@ -241,11 +240,11 @@ Graph link behavior:
 - `/echo-memory graph` opens `https://www.iditor.com/login?next=/memory-graph` so you log in again before accessing your private personal memory graph
 - `/echo-memory graph public` opens the shared public memories page at `https://www.iditor.com/memories`
 - the local workspace UI and the cloud memory graph are different surfaces: the local UI reads local markdown files on localhost, while graph commands open iditor.com pages
+- if the user asks to "view memories" without saying graph, public page, or iditor.com, prefer `/echo-memory view`
 
 Onboarding behavior:
 
 - `/echo-memory onboard` returns the full setup and usage guide
-- `/echo-memory onboard signup|setup|commands|graph|operations|troubleshooting` returns focused help
 - natural-language signup, account setup, API key, and plugin setup questions should trigger the onboarding tool during normal chat instead of generic model knowledge
 - if the plugin seems blocked by permission or privacy restrictions, check that `tools.profile` is set to `"full"` in `openclaw.json`
 
