@@ -20,6 +20,25 @@
         "type": "string",
         "description": "Your API Key for Echo Memory Cloud (e.g. from .env ECHOMEM_API_KEY)"
       },
+      "memoryDir": {
+        "type": "string",
+        "description": "Absolute path to the markdown memory directory. Falls back to ECHOMEM_MEMORY_DIR, then ~/.clawdbot/workspace/memory."
+      },
+      "localOnlyMode": {
+        "type": "boolean",
+        "default": false,
+        "description": "When true, disables cloud sync and API key requirement. Local UI and markdown browsing still work."
+      },
+      "localUiAutoOpenOnGatewayStart": {
+        "type": "boolean",
+        "default": true,
+        "description": "Automatically open the local workspace viewer in the default browser when the gateway starts."
+      },
+      "localUiAutoInstall": {
+        "type": "boolean",
+        "default": true,
+        "description": "Automatically run npm install and build for the local UI when assets are missing."
+      },
       "autoSync": {
         "type": "boolean",
         "default": true

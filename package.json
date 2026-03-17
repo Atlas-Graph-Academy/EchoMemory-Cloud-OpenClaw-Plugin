@@ -3,8 +3,28 @@
   "version": "0.1.0",
   "description": "OpenClaw plugin for syncing local markdown memory files to Echo cloud",
   "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js"
+  },
+  "files": [
+    "index.js",
+    "lib/",
+    "openclaw.plugin.json",
+    "moltbot.plugin.json",
+    "clawdbot.plugin.json",
+    "README.md",
+    "LICENSE"
+  ],
   "license": "MIT",
   "author": "EchoMem",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Atlas-Graph-Academy/EchoMemory-Cloud-OpenClaw-Plugin.git"
+  },
+  "engines": {
+    "node": ">=18"
+  },
   "keywords": [
     "echomem",
     "openclaw",
