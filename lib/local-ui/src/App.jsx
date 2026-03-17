@@ -313,7 +313,9 @@ export default function App() {
             <p className="setup-card__title">Quick setup</p>
             <ol className="setup-steps">
               <li>Create an EchoMemory account.</li>
-              <li>Generate an API key at `https://www.iditor.com/api`.</li>
+              <li>Enter the 6-digit OTP sent to your email to complete login.</li>
+              <li>If this is your first login, enter referral code `openclawyay` and choose a user name to finish registration.</li>
+              <li>Open `https://www.iditor.com/api`, click `API Keys` in the upper-left area, and create a named API key.</li>
               <li>Paste the values below and save. The plugin writes to your local `.env` file.</li>
             </ol>
             <p className="setup-copy">
