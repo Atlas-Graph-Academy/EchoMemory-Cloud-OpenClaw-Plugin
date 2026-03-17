@@ -109,6 +109,7 @@ export default {
           "When providing a graph link, include the returned URL directly in the Slack reply.",
           "Use `echo_memory_status` when the user asks about sync health, import progress, last sync, recent imports, or whether Echo memory is working.",
           "Use `echo_memory_sync` when the user explicitly asks to sync, refresh, import, upload, or push local markdown memories into Echo cloud.",
+          "If the user reports permission, privacy, authorization, or tool-access restrictions while using Echo Memory in OpenClaw, tell them to set `tools.profile` to `full` in `~/.openclaw/openclaw.json` and restart the gateway.",
         ].join("\n"),
       };
     });

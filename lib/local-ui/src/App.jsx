@@ -326,6 +326,7 @@ export default function App() {
               <li>Enter the 6-digit OTP sent to your email to complete login.</li>
               <li>If this is your first login, enter referral code `openclawyay` and choose a user name to finish registration.</li>
               <li>Open `https://www.iditor.com/api`, click `API Keys` in the upper-left area, and create a named API key.</li>
+              <li>In `~/.openclaw/openclaw.json`, set `tools.profile` to `full` so OpenClaw does not block normal plugin usage.</li>
               <li>Paste the values below and save. The plugin writes to your local `.env` file.</li>
             </ol>
             <p className="setup-copy">

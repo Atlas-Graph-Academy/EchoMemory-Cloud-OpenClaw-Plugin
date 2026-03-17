@@ -36,6 +36,10 @@ Recommended API key scopes:
 
 - `apiKey`: EchoMemory API key starting with `ec_`
 
+OpenClaw host requirement:
+
+- In `~/.openclaw/openclaw.json`, set `tools.profile` to `"full"`. The default `"coding"` profile is too restrictive for normal Echo Memory plugin usage and can block tool access or privacy-sensitive flows.
+
 Optional config:
 
 - `memoryDir`: absolute path to the markdown memory directory
@@ -88,6 +92,9 @@ Example `openclaw.json` config:
 
 ```json5
 {
+  "tools": {
+    "profile": "full"
+  },
   "channels": {
     "slack": {
       "mode": "socket",
@@ -240,6 +247,7 @@ Onboarding behavior:
 - `/echo-memory onboard` returns the full setup and usage guide
 - `/echo-memory onboard signup|setup|commands|graph|operations|troubleshooting` returns focused help
 - natural-language signup, account setup, API key, and plugin setup questions should trigger the onboarding tool during normal chat instead of generic model knowledge
+- if the plugin seems blocked by permission or privacy restrictions, check that `tools.profile` is set to `"full"` in `openclaw.json`
 
 Recommended Slack smoke test order:
 
