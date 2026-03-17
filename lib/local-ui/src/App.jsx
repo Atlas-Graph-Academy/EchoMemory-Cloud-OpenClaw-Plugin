@@ -335,8 +335,8 @@ export default function App() {
       setSyncResult({ ok: true, msg: parts.join(' | ') || 'Sync complete' });
       loadSyncStatus();
       loadBackendSources();
-    } catch {
-      setSyncResult({ ok: false, msg: 'Sync failed' });
+    } catch (error) {
+      setSyncResult({ ok: false, msg: String(error?.message || 'Sync failed') });
     } finally {
       setSyncing(false);
     }
