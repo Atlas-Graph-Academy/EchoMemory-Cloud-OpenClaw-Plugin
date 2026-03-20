@@ -5,6 +5,8 @@ const STATUS_PALETTE = {
   sealed: { bg: '#fdf2f2', border: '#c9a0a0', text: '#8b4c4c', content: '#7a4040' },
   new: { bg: '#fefcf6', border: '#d4b882', text: '#7a6230', content: '#6b5228' },
   modified: { bg: '#fefcf6', border: '#d4b882', text: '#7a6230', content: '#6b5228' },
+  failed: { bg: '#fff5f5', border: '#d48b8b', text: '#9b4545', content: '#7c3d3d' },
+  local: { bg: '#f5f4f0', border: '#bbb1a2', text: '#756b5c', content: '#5f574d' },
   synced: { bg: '#f3f3f5', border: '#c0c0c8', text: '#888890', content: '#6e6e78' },
   none: { bg: '#eaeaed', border: '#b8b8c0', text: '#808088', content: '#606068' },
 };
@@ -16,6 +18,8 @@ function getPalette(syncStatus, tier) {
   if (syncStatus === 'sealed') return STATUS_PALETTE.sealed;
   if (syncStatus === 'new') return STATUS_PALETTE.new;
   if (syncStatus === 'modified') return STATUS_PALETTE.modified;
+  if (syncStatus === 'failed') return STATUS_PALETTE.failed;
+  if (syncStatus === 'local') return STATUS_PALETTE.local;
   if (syncStatus === 'synced') return STATUS_PALETTE.synced;
   return STATUS_PALETTE[TIER_DEFAULTS[tier] || 'none'];
 }
@@ -49,6 +53,8 @@ const STAMP_CONFIG = {
   sealed: { label: 'SENSITIVE', cls: 'stamp-sealed' },
   new: { label: 'NEW', cls: 'stamp-new' },
   modified: { label: 'MOD', cls: 'stamp-mod' },
+  failed: { label: 'FAILED', cls: 'stamp-failed' },
+  local: { label: 'LOCAL', cls: 'stamp-local' },
   synced: { label: 'OK', cls: 'stamp-synced' },
 };
 
@@ -77,6 +83,7 @@ function TransientStamp({ status }) {
 export const Card = React.memo(function Card({
   card,
   syncStatus,
+  syncMeta,
   transientStatus,
   content,
   zoom = 1,
@@ -84,6 +91,7 @@ export const Card = React.memo(function Card({
   dimmed,
   selectMode,
   checked,
+  selectable,
 }) {
   const { file, x, y, w, h } = card;
   const tier = file._tier || 3;
@@ -144,6 +152,7 @@ export const Card = React.memo(function Card({
     effectiveStatus === 'sealed' ? 'card-sealed' : '',
     selected ? 'card-selected' : '',
     dimmed ? 'card-dimmed' : '',
+    selectMode && selectable === false ? 'card-unselectable' : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -163,7 +172,7 @@ export const Card = React.memo(function Card({
     >
       <div className="card-header">
         {selectMode && (
-          <span className={`card-checkbox ${checked ? 'card-checkbox-on' : ''}`} data-checkbox="true">
+          <span className={`card-checkbox ${checked ? 'card-checkbox-on' : ''} ${selectable === false ? 'card-checkbox-disabled' : ''}`} data-checkbox="true">
             {checked ? '[x]' : '[ ]'}
           </span>
         )}

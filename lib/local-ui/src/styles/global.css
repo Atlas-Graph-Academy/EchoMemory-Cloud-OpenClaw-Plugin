@@ -445,6 +445,14 @@ body {
   transition: width 0.18s ease;
 }
 
+.sync-progress-detail {
+  color: #f3b2b2;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .empty-state {
   flex: 1;
   display: flex;

@@ -177,6 +177,11 @@
   background: rgba(144, 144, 160, 0.06);
   opacity: 0.5;
 }
+.stamp-local {
+  color: #8d7e67;
+  border-color: #8d7e67;
+  background: rgba(141, 126, 103, 0.08);
+}
 
 .stamp-transient {
   opacity: 0.92;
@@ -204,6 +209,14 @@
   color: #e58a8a;
   border-color: #e58a8a;
   background: rgba(229, 138, 138, 0.14);
+}
+
+.card-unselectable {
+  opacity: 0.88;
+}
+
+.card-checkbox-disabled {
+  opacity: 0.35;
 }
 
 /* Sealed: centered overlay stamp — red ink chop style */
