@@ -305,6 +305,9 @@ export default function App() {
         file.fileName,
         file.relativePath,
         file.fileType,
+        file.clusterLabel,
+        file.dominantCluster,
+        file.baseClass,
         content,
       ]
         .filter(Boolean)
@@ -388,13 +391,9 @@ export default function App() {
     }));
   }, []);
 
-  const stats = useMemo(() => {
-    const t1 = filteredAnnotated.filter((file) => file._tier === 1).length;
-    const t2 = filteredAnnotated.filter((file) => file._tier === 2).length;
-    return { t1, t2, total: filteredAnnotated.length };
-  }, [filteredAnnotated]);
-
   const systemFileCount = layout.systemFileCount || 0;
+  const visibleFileCount = layout.visibleFileCount || 0;
+  const visibleSectionCount = layout.visibleSectionCount || 0;
 
   const pendingCount = useMemo(() => {
     let count = 0;
@@ -570,7 +569,7 @@ export default function App() {
             </span>
           </>
         ) : view === 'memories' ? (
-          <span className="hdr-title">OpenClaw Memory Archive</span>
+          <span className="hdr-title">OpenClaw Smart Clusters</span>
         ) : (
           <>
             <span className="hdr-back" onClick={() => setView('memories')}>Back</span>
@@ -739,7 +738,7 @@ export default function App() {
         ) : view === 'memories' ? (
           <>
             <span>
-              <b>{stats.t1}</b> memories | <b>{stats.t2}</b> knowledge | <b>{stats.total}</b> total
+              <b>{visibleSectionCount}</b> smart clusters | <b>{visibleFileCount}</b> visible files | <b>{filteredAnnotated.length}</b> total
             </span>
             {systemFileCount > 0 && (
               <span className="ftr-system" onClick={() => setView('system')} title="View system files">
@@ -749,7 +748,7 @@ export default function App() {
           </>
         ) : (
           <span>
-            <b>{systemFileCount}</b> system files | not processed into memories
+            <b>{systemFileCount}</b> system files | hidden from smart clusters
           </span>
         )}
         <span className="ftr-spacer" />

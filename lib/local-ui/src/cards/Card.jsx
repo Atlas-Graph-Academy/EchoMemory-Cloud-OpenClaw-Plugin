@@ -86,6 +86,20 @@ function formatFindingCount(finding) {
   return `${finding.count} ${label}`;
 }
 
+function ClusterBadge({ file }) {
+  if (!file?.clusterLabel) return null;
+  const sectionKey = file._clusterSectionKey || file.clusterSectionKey || 'knowledge';
+  const confidence = file.clusterConfidence || 'medium';
+  return (
+    <span
+      className={`card-cluster-badge card-cluster-badge-${sectionKey}`}
+      title={`Smart cluster: ${file.clusterLabel} (${confidence})`}
+    >
+      {String(file.clusterLabel).toUpperCase()}
+    </span>
+  );
+}
+
 function WarningBadge({ file }) {
   if (!file?.hasSensitiveContent) return null;
   const warningText = file.sensitiveSummary || 'Sensitive content';
@@ -183,6 +197,7 @@ export const Card = React.memo(function Card({
           <div className="card-name" style={{ color: isLog ? '#999' : pal.text }}>
             {displayName}
           </div>
+          <ClusterBadge file={file} />
           <PrivateBadge file={file} />
           <WarningBadge file={file} />
           {transientStatus && effectiveStatus !== 'sealed' && <TransientStamp status={transientStatus} />}
@@ -227,6 +242,7 @@ export const Card = React.memo(function Card({
         <div className="card-name" style={{ color: isLog ? '#999' : pal.text }}>
           {displayName}
         </div>
+        <ClusterBadge file={file} />
         <PrivateBadge file={file} />
         <WarningBadge file={file} />
         {transientStatus && effectiveStatus !== 'sealed' && <TransientStamp status={transientStatus} />}
