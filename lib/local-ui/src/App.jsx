@@ -88,6 +88,10 @@ function formatStageLabel(stage) {
   return normalized.replace(/[_-]+/g, ' ');
 }
 
+function isViewerBlocked(file) {
+  return file?.privacyLevel === 'private';
+}
+
 function buildSyncResultState(result) {
   const summary = result?.summary || {};
   const runResults = Array.isArray(result?.run_results) ? result.run_results : [];
@@ -137,6 +141,7 @@ export default function App() {
   const [readingContent, setReadingContent] = useState(null);
   const [selectMode, setSelectMode] = useState(false);
   const [syncSelection, setSyncSelection] = useState(new Set());
+  const [expandedWarnings, setExpandedWarnings] = useState({});
   const now = useClock();
 
   const loadFiles = useCallback(async () => {
@@ -270,6 +275,17 @@ export default function App() {
     return cleanup;
   }, [loadAuthStatus, loadBackendSources, loadFiles, loadSetupStatus, loadSyncStatus]);
 
+  useEffect(() => {
+    setExpandedWarnings((prev) => {
+      const next = {};
+      const validPaths = new Set(files.map((file) => file.relativePath));
+      for (const [key, value] of Object.entries(prev)) {
+        if (value && validPaths.has(key)) next[key] = true;
+      }
+      return next;
+    });
+  }, [files]);
+
   const annotated = useMemo(
     () =>
       files.map((file) => ({
@@ -364,6 +380,14 @@ export default function App() {
     [syncStatus],
   );
 
+  const toggleWarningExpansion = useCallback((filePath) => {
+    if (!filePath) return;
+    setExpandedWarnings((prev) => ({
+      ...prev,
+      [filePath]: !prev[filePath],
+    }));
+  }, []);
+
   const stats = useMemo(() => {
     const t1 = filteredAnnotated.filter((file) => file._tier === 1).length;
     const t2 = filteredAnnotated.filter((file) => file._tier === 2).length;
@@ -384,6 +408,11 @@ export default function App() {
     if (!syncProgress?.totalFiles) return 0;
     return Math.max(0, Math.min(100, Math.round((syncProgress.completedFiles / syncProgress.totalFiles) * 100)));
   }, [syncProgress]);
+
+  const readingFile = useMemo(
+    () => files.find((file) => file.relativePath === readingPath) || null,
+    [files, readingPath],
+  );
 
   useEffect(() => {
     setSyncSelection((prev) => {
@@ -537,7 +566,7 @@ export default function App() {
               Back to archive
             </span>
             <span className="hdr-title">
-              {(files.find((file) => file.relativePath === readingPath)?.fileName || '').replace(/\.md$/i, '')}
+              {(readingFile?.fileName || '').replace(/\.md$/i, '')}
             </span>
           </>
         ) : view === 'memories' ? (
@@ -570,7 +599,8 @@ export default function App() {
         <ReadingPanel
           path={readingPath}
           content={readingContent ?? contentMap?.get(readingPath) ?? 'Loading...'}
-          file={files.find((file) => file.relativePath === readingPath)}
+          file={readingFile}
+          blocked={isViewerBlocked(readingFile)}
           onClose={() => {
             setReadingPath(null);
             setSelectedPath(null);
@@ -591,10 +621,12 @@ export default function App() {
           syncMetaByPath={syncMetaByPath}
           transientStatusMap={cardSyncState}
           contentMap={contentMap}
+          expandedWarnings={expandedWarnings}
           selectedPath={selectedPath}
           selectMode={selectMode}
           syncSelection={syncSelection}
           selectablePaths={selectablePaths}
+          onWarningToggle={toggleWarningExpansion}
           onCardClick={(path) => {
             if (selectMode) {
               if (path && selectablePaths.has(path)) toggleFileSelection(path);
@@ -607,7 +639,12 @@ export default function App() {
             setSelectedPath((prev) => (prev === path ? null : path));
           }}
           onCardExpand={(path) => {
+            const file = files.find((entry) => entry.relativePath === path) || null;
             setReadingPath(path);
+            if (isViewerBlocked(file)) {
+              setReadingContent('');
+              return;
+            }
             const existing = contentMap?.get(path);
             if (existing) {
               setReadingContent(existing);
@@ -615,6 +652,10 @@ export default function App() {
             }
             setReadingContent(null);
             fetchFileContent(path).then((result) => {
+              if (result?.blocked) {
+                setReadingContent('');
+                return;
+              }
               const content = result?.content ?? '';
               setReadingContent(content);
               setContentMap((prev) => {

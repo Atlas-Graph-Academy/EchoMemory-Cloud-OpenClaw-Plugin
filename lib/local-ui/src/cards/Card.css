@@ -101,6 +101,80 @@
   min-width: 0;
 }
 
+.card-warning-toggle {
+  flex-shrink: 0;
+  max-width: 48%;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid rgba(160, 112, 48, 0.35);
+  border-radius: 999px;
+  background: rgba(160, 112, 48, 0.1);
+  color: #8b6128;
+  padding: 2px 6px;
+  font: 600 8px/1.1 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.card-warning-toggle-high {
+  border-color: rgba(176, 64, 64, 0.42);
+  background: rgba(176, 64, 64, 0.1);
+  color: #9c3d3d;
+}
+
+.card-warning-toggle__icon {
+  flex-shrink: 0;
+}
+
+.card-warning-toggle__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-private-badge {
+  flex-shrink: 0;
+  border: 1px solid rgba(156, 61, 61, 0.35);
+  border-radius: 999px;
+  background: rgba(156, 61, 61, 0.08);
+  color: #9c3d3d;
+  padding: 2px 6px;
+  font: 700 8px/1.1 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.card-warning-panel {
+  margin-bottom: 6px;
+  border: 1px solid rgba(176, 64, 64, 0.2);
+  border-radius: 4px;
+  background: rgba(255, 248, 244, 0.92);
+  padding: 6px 8px;
+  font: 500 9px/1.35 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: #6b443d;
+  pointer-events: none;
+}
+
+.card-warning-panel__header,
+.card-warning-panel__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.card-warning-panel__header {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.card-warning-panel__privacy {
+  color: #9c3d3d;
+}
+
+.card-warning-panel__row + .card-warning-panel__row {
+  margin-top: 2px;
+}
+
 /* Content preview — fills remaining card space, fades out */
 .card-content {
   flex: 1;

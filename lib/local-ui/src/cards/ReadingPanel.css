@@ -172,6 +172,42 @@
   opacity: 0.5;
 }
 
+.rp-private {
+  max-width: 640px;
+  margin: 24px auto 0;
+  border: 1px solid #e3c8c1;
+  border-radius: 10px;
+  background: #fff8f5;
+  padding: 24px 26px;
+  box-shadow: 0 10px 30px rgba(130, 70, 60, 0.08);
+}
+
+.rp-private__title {
+  font: 700 22px/1.25 'Georgia', 'Noto Serif', serif;
+  color: #7a2f2f;
+  margin-bottom: 10px;
+}
+
+.rp-private__copy {
+  margin: 0 0 14px;
+}
+
+.rp-private__privacy {
+  font: 600 13px/1.4 -apple-system, sans-serif;
+  color: #9c3d3d;
+  margin-bottom: 12px;
+}
+
+.rp-private__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0;
+  border-top: 1px solid rgba(156, 61, 61, 0.12);
+  font: 600 13px/1.4 -apple-system, sans-serif;
+}
+
 /* Scrollbar */
 .rp-body::-webkit-scrollbar {
   width: 6px;

@@ -80,12 +80,57 @@ function TransientStamp({ status }) {
   return <span className={`stamp stamp-transient ${cfg.cls}`}>{cfg.label}</span>;
 }
 
+function formatFindingCount(finding) {
+  if (!finding) return '';
+  const label = finding.count === 1 ? finding.singular : finding.plural;
+  return `${finding.count} ${label}`;
+}
+
+function WarningBadge({ file }) {
+  if (!file?.hasSensitiveContent) return null;
+  const warningText = file.sensitiveSummary || 'Sensitive content';
+  return (
+    <button
+      type="button"
+      className={`card-warning-toggle${file.hasHighRiskSensitiveContent ? ' card-warning-toggle-high' : ''}`}
+      title="Show sensitive field summary"
+    >
+      <span className="card-warning-toggle__icon">{file.hasHighRiskSensitiveContent ? '🚨' : '⚠'}</span>
+      <span className="card-warning-toggle__text">{warningText}</span>
+    </button>
+  );
+}
+
+function WarningPanel({ file }) {
+  if (!file?.hasSensitiveContent) return null;
+  return (
+    <div className="card-warning-panel">
+      <div className="card-warning-panel__header">
+        <span>{file.hasHighRiskSensitiveContent ? '🚨 Sensitive scan' : '⚠ Sensitive scan'}</span>
+        {file.privacyAutoUpgraded && <span className="card-warning-panel__privacy">🔴 Private</span>}
+      </div>
+      {(file.sensitiveFindings || []).map((finding) => (
+        <div key={finding.id} className="card-warning-panel__row">
+          <span>{finding.label}</span>
+          <span>{formatFindingCount(finding)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PrivateBadge({ file }) {
+  if (!file?.privacyAutoUpgraded) return null;
+  return <span className="card-private-badge">🔴 PRIVATE</span>;
+}
+
 export const Card = React.memo(function Card({
   card,
   syncStatus,
   syncMeta,
   transientStatus,
   content,
+  warningExpanded,
   zoom = 1,
   selected,
   dimmed,
@@ -138,6 +183,8 @@ export const Card = React.memo(function Card({
           <div className="card-name" style={{ color: isLog ? '#999' : pal.text }}>
             {displayName}
           </div>
+          <PrivateBadge file={file} />
+          <WarningBadge file={file} />
           {transientStatus && effectiveStatus !== 'sealed' && <TransientStamp status={transientStatus} />}
           <Stamp status={effectiveStatus} />
         </div>
@@ -180,6 +227,8 @@ export const Card = React.memo(function Card({
         <div className="card-name" style={{ color: isLog ? '#999' : pal.text }}>
           {displayName}
         </div>
+        <PrivateBadge file={file} />
+        <WarningBadge file={file} />
         {transientStatus && effectiveStatus !== 'sealed' && <TransientStamp status={transientStatus} />}
         {effectiveStatus !== 'sealed' && <Stamp status={effectiveStatus} />}
         {selected && !selectMode && (
@@ -188,6 +237,7 @@ export const Card = React.memo(function Card({
           </button>
         )}
       </div>
+      {warningExpanded && <WarningPanel file={file} />}
       {preview && !isLog && (
         <div className="card-content" style={{ color: pal.content }}>
           {preview}

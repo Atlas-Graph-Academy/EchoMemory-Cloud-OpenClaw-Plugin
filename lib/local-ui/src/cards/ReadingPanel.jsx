@@ -117,7 +117,13 @@ function inlineFormat(text) {
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
 }
 
-export function ReadingPanel({ path, content, file, onClose }) {
+function formatFindingCount(finding) {
+  if (!finding) return '';
+  const label = finding.count === 1 ? finding.singular : finding.plural;
+  return `${finding.count} ${label}`;
+}
+
+export function ReadingPanel({ path, content, file, blocked = false, onClose }) {
   const displayName = (file?.fileName || path.split('/').pop()).replace(/\.md$/i, '');
   const htmlContent = useMemo(() => renderMarkdown(content), [content]);
 
@@ -129,7 +135,35 @@ export function ReadingPanel({ path, content, file, onClose }) {
           <div className="rp-title">{displayName}</div>
         </div>
         <div className="rp-path">{path}</div>
-        <div className="rp-body" dangerouslySetInnerHTML={{ __html: htmlContent }} />
+        {blocked ? (
+          <div className="rp-body">
+            <div className="rp-private">
+              <div className="rp-private__title">
+                {file?.hasSensitiveContent
+                  ? file?.hasHighRiskSensitiveContent
+                    ? '🚨 Sensitive content hidden'
+                    : '⚠ Sensitive content hidden'
+                  : '🔒 Private file hidden'}
+              </div>
+              <p className="rp-private__copy">
+                {file?.hasSensitiveContent
+                  ? 'This file is marked private in the local viewer. Detected values are never shown here.'
+                  : 'This file is marked private in the local viewer. Its contents are not displayed here.'}
+              </p>
+              {file?.privacyAutoUpgraded && (
+                <div className="rp-private__privacy">🔴 Privacy auto-upgraded to private</div>
+              )}
+              {(file?.sensitiveFindings || []).map((finding) => (
+                <div key={finding.id} className="rp-private__row">
+                  <span>{finding.label}</span>
+                  <span>{formatFindingCount(finding)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="rp-body" dangerouslySetInnerHTML={{ __html: htmlContent }} />
+        )}
       </div>
     </div>
   );
