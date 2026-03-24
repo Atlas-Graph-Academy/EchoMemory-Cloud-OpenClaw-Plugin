@@ -22,7 +22,7 @@
       },
       "memoryDir": {
         "type": "string",
-        "description": "Absolute path to the markdown memory directory. Falls back to ECHOMEM_MEMORY_DIR, then ~/.moltbot/workspace/memory."
+        "description": "Absolute path to the markdown memory directory. Falls back to ECHOMEM_MEMORY_DIR, then ~/.openclaw/workspace/memory."
       },
       "localOnlyMode": {
         "type": "boolean",

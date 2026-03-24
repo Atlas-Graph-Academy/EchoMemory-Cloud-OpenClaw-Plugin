@@ -143,6 +143,17 @@ export default {
     }
 
     const envStatus = getEnvFileStatus();
+    if (envStatus.usingLegacyBridge) {
+      api.logger?.warn?.(
+        `[echo-memory] Legacy env file detected (${envStatus.legacyPaths.join(", ")}). ` +
+        `EchoMemory is using a one-release migration bridge and will write future changes to ${envStatus.primaryPath}.`,
+      );
+    } else if (envStatus.legacyPaths.length > 0) {
+      api.logger?.info?.(
+        `[echo-memory] Legacy env file still present (${envStatus.legacyPaths.join(", ")}). ` +
+        `Current settings should be kept in ${envStatus.primaryPath}.`,
+      );
+    }
     if (!envStatus.found) {
       api.logger?.warn?.(
         `[echo-memory] No .env file found in ${envStatus.searchPaths.join(", ")}. Using plugin config or process env.`,

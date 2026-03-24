@@ -59,8 +59,11 @@ Path resolution order for `memoryDir`:
 Supported runtime `.env` locations:
 
 - `~/.openclaw/.env`
-- `~/.moltbot/.env`
-- `~/.clawdbot/.env`
+
+Legacy one-release migration bridge:
+
+- if `~/.openclaw/.env` is missing, EchoMemory can still read `~/.moltbot/.env` or `~/.clawdbot/.env`
+- new saves and updated setup should go to `~/.openclaw/.env`
 
 Supported environment variables:
 
@@ -131,6 +134,11 @@ Older configs may still include `baseUrl` or `webBaseUrl`. Those keys are deprec
 ## Installation
 
 ### Install from a local path
+
+Version note:
+
+- on OpenClaw `2026.3.22+`, avoid bare plugin names during install because plugin source precedence changed
+- use an exact local path, `--link`, or the exact scoped npm package
 
 On Windows, quote the path if your username or folders contain spaces:
 
