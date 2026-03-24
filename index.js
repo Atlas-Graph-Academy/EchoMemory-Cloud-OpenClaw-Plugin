@@ -25,6 +25,25 @@ import {
 
 const LOCAL_UI_RECONNECT_GRACE_MS = 4000;
 const LOCAL_UI_PRESENCE_GRACE_MS = 75000;
+const COMPAT_STARTUP_DELAY_MS = 1500;
+const PROCESS_STATE_KEY = Symbol.for("echo-memory-cloud-openclaw-plugin.process-state");
+
+function getProcessState() {
+  const globalState = globalThis;
+  if (!globalState[PROCESS_STATE_KEY]) {
+    globalState[PROCESS_STATE_KEY] = {
+      backgroundActive: false,
+      backgroundOwnerId: null,
+      backgroundStartPromise: null,
+      browserOpenAttempted: false,
+      browserOpenPromise: null,
+      compatFallbackScheduled: false,
+      serviceStartObserved: false,
+      stopBackground: null,
+    };
+  }
+  return globalState[PROCESS_STATE_KEY];
+}
 
 function resolveCommandLabel(channel) {
   return channel === "discord" ? "/echomemory" : "/echo-memory";
@@ -53,6 +72,8 @@ export default {
   kind: "lifecycle",
 
   register(api) {
+    const processState = getProcessState();
+    const registrationId = Symbol("echo-memory-cloud-openclaw-plugin.register");
     const cfg = buildConfig(api.pluginConfig);
     const client = createApiClient(cfg);
     const workspaceDir = path.resolve(path.dirname(cfg.memoryDir), "..");
@@ -66,12 +87,50 @@ export default {
       fallbackStateDir: legacyPluginStateDir,
       stableStateDir,
     });
-    let startupBrowserOpenAttempted = false;
-    let backgroundStarted = false;
-    let serviceStartObserved = false;
 
     if (!workspaceDir || workspaceDir === "." || workspaceDir === path.sep) {
       api.logger?.warn?.("[echo-memory] workspace resolution looks unusual; compatibility fallback may be limited");
+    }
+
+    async function maybeAutoOpenLocalUi(url, { trigger = "manual" } = {}) {
+      const existingPageDetected = trigger === "gateway-start"
+        ? await hasRecentLocalUiPresence(syncRunner, { maxAgeMs: LOCAL_UI_PRESENCE_GRACE_MS })
+        : false;
+      const existingClientDetected = existingPageDetected || (
+        trigger === "gateway-start"
+          ? await waitForLocalUiClient({ timeoutMs: LOCAL_UI_RECONNECT_GRACE_MS })
+          : false
+      );
+      return existingClientDetected
+        ? { opened: false, reason: existingPageDetected ? "existing_page_detected" : "existing_client_reconnected" }
+        : openUrlInDefaultBrowser(url, {
+            logger: api.logger,
+            force: trigger !== "gateway-start",
+          });
+    }
+
+    async function maybeAutoOpenStartupBrowser(url) {
+      if (!cfg.localUiAutoOpenOnGatewayStart || processState.browserOpenAttempted) {
+        return { attempted: false, opened: false, reason: "disabled_or_already_attempted" };
+      }
+      if (processState.browserOpenPromise) {
+        const result = await processState.browserOpenPromise;
+        return { attempted: false, ...result };
+      }
+
+      const openPromise = maybeAutoOpenLocalUi(url, { trigger: "gateway-start" })
+        .then((result) => {
+          processState.browserOpenAttempted = true;
+          return result;
+        })
+        .finally(() => {
+          if (processState.browserOpenPromise === openPromise) {
+            processState.browserOpenPromise = null;
+          }
+        });
+      processState.browserOpenPromise = openPromise;
+      const result = await openPromise;
+      return { attempted: true, ...result };
     }
 
     async function ensureLocalUi({ openInBrowser = false, trigger = "manual" } = {}) {
@@ -86,20 +145,7 @@ export default {
       let openedInBrowser = false;
       let openReason = "not_requested";
       if (openInBrowser) {
-        const existingPageDetected = trigger === "gateway-start"
-          ? await hasRecentLocalUiPresence(syncRunner, { maxAgeMs: LOCAL_UI_PRESENCE_GRACE_MS })
-          : false;
-        const existingClientDetected = existingPageDetected || (
-          trigger === "gateway-start"
-            ? await waitForLocalUiClient({ timeoutMs: LOCAL_UI_RECONNECT_GRACE_MS })
-            : false
-        );
-        const openResult = existingClientDetected
-          ? { opened: false, reason: existingPageDetected ? "existing_page_detected" : "existing_client_reconnected" }
-          : await openUrlInDefaultBrowser(url, {
-              logger: api.logger,
-              force: trigger !== "gateway-start",
-            });
+        const openResult = await maybeAutoOpenLocalUi(url, { trigger });
         openedInBrowser = openResult.opened;
         openReason = openResult.reason;
       }
@@ -170,68 +216,150 @@ export default {
     }
 
     async function startBackgroundFeatures({ stateDir = null, trigger = "service" } = {}) {
-      if (backgroundStarted) {
-        return;
-      }
-      backgroundStarted = true;
-      await syncRunner.initialize(stateDir || legacyPluginStateDir);
+      const effectiveTrigger = trigger === "service" ? "gateway-start" : trigger;
 
-      try {
-        const shouldOpenBrowser = cfg.localUiAutoOpenOnGatewayStart && !startupBrowserOpenAttempted;
-        const { url, openedInBrowser, openReason } = await ensureLocalUi({
-          openInBrowser: shouldOpenBrowser,
-          trigger: trigger === "service" ? "gateway-start" : trigger,
-        });
-        api.logger?.info?.(`[echo-memory] Local workspace viewer: ${url}`);
-        if (shouldOpenBrowser) {
-          startupBrowserOpenAttempted = true;
-          if (openedInBrowser) {
-            api.logger?.info?.("[echo-memory] Opened local workspace viewer in the default browser");
-          } else {
-            api.logger?.info?.(`[echo-memory] Skipped browser auto-open (${openReason})`);
+      if (processState.backgroundActive) {
+        if (effectiveTrigger === "gateway-start") {
+          const { attempted, opened, reason } = await maybeAutoOpenStartupBrowser(
+            await startLocalServer(workspaceDir, {
+              apiClient: client,
+              syncRunner,
+              cfg,
+              logger: api.logger,
+              pluginConfig: api.pluginConfig,
+            }),
+          );
+          if (attempted) {
+            if (opened) {
+              api.logger?.info?.("[echo-memory] Opened local workspace viewer in the default browser");
+            } else {
+              api.logger?.info?.(`[echo-memory] Skipped browser auto-open (${reason})`);
+            }
           }
         }
-      } catch (error) {
-        api.logger?.warn?.(`[echo-memory] local server failed: ${String(error?.message ?? error)}`);
-      }
-
-      if (!cfg.autoSync) {
-        api.logger?.info?.("[echo-memory] autoSync disabled");
         return;
       }
 
-      await syncRunner.runSync(trigger === "service" ? "startup" : trigger).catch((error) => {
-        api.logger?.warn?.(`[echo-memory] startup sync failed: ${String(error?.message ?? error)}`);
-      });
+      if (processState.backgroundStartPromise) {
+        await processState.backgroundStartPromise;
+        if (effectiveTrigger === "gateway-start") {
+          const { attempted, opened, reason } = await maybeAutoOpenStartupBrowser(
+            await startLocalServer(workspaceDir, {
+              apiClient: client,
+              syncRunner,
+              cfg,
+              logger: api.logger,
+              pluginConfig: api.pluginConfig,
+            }),
+          );
+          if (attempted) {
+            if (opened) {
+              api.logger?.info?.("[echo-memory] Opened local workspace viewer in the default browser");
+            } else {
+              api.logger?.info?.(`[echo-memory] Skipped browser auto-open (${reason})`);
+            }
+          }
+        }
+        return;
+      }
 
-      syncRunner.startInterval();
+      const startPromise = (async () => {
+        processState.backgroundOwnerId = registrationId;
+        processState.stopBackground = () => {
+          syncRunner.stopInterval();
+          stopLocalServer();
+        };
+        await syncRunner.initialize(stateDir || legacyPluginStateDir);
+
+        let url = null;
+        try {
+          const localUi = await ensureLocalUi({
+            openInBrowser: false,
+            trigger: effectiveTrigger,
+          });
+          url = localUi.url;
+          api.logger?.info?.(`[echo-memory] Local workspace viewer: ${url}`);
+        } catch (error) {
+          api.logger?.warn?.(`[echo-memory] local server failed: ${String(error?.message ?? error)}`);
+        }
+
+        processState.backgroundActive = true;
+
+        if (effectiveTrigger === "gateway-start" && url) {
+          const { attempted, opened, reason } = await maybeAutoOpenStartupBrowser(url);
+          if (attempted) {
+            if (opened) {
+              api.logger?.info?.("[echo-memory] Opened local workspace viewer in the default browser");
+            } else {
+              api.logger?.info?.(`[echo-memory] Skipped browser auto-open (${reason})`);
+            }
+          }
+        }
+
+        if (!cfg.autoSync) {
+          api.logger?.info?.("[echo-memory] autoSync disabled");
+          return;
+        }
+
+        await syncRunner.runSync(trigger === "service" ? "startup" : trigger).catch((error) => {
+          api.logger?.warn?.(`[echo-memory] startup sync failed: ${String(error?.message ?? error)}`);
+        });
+
+        syncRunner.startInterval();
+      })()
+        .catch((error) => {
+          if (processState.backgroundOwnerId === registrationId) {
+            processState.backgroundActive = false;
+            processState.backgroundOwnerId = null;
+            processState.stopBackground = null;
+          }
+          throw error;
+        })
+        .finally(() => {
+          if (processState.backgroundStartPromise === startPromise) {
+            processState.backgroundStartPromise = null;
+          }
+        });
+
+      processState.backgroundStartPromise = startPromise;
+      await startPromise;
     }
 
     if (typeof api.registerService === "function") {
       api.registerService({
         id: "echo-memory-cloud-openclaw-sync",
         start: async (ctx) => {
-          serviceStartObserved = true;
+          processState.serviceStartObserved = true;
           await startBackgroundFeatures({ stateDir: ctx?.stateDir || null, trigger: "service" });
         },
         stop: async () => {
-          syncRunner.stopInterval();
-          stopLocalServer();
-          backgroundStarted = false;
+          processState.stopBackground?.();
+          processState.backgroundActive = false;
+          processState.backgroundOwnerId = null;
+          processState.backgroundStartPromise = null;
+          processState.browserOpenAttempted = false;
+          processState.browserOpenPromise = null;
+          processState.compatFallbackScheduled = false;
+          processState.serviceStartObserved = false;
+          processState.stopBackground = null;
         },
       });
     }
 
     // Compatibility fallback for older hosts that discover the plugin but do not
     // reliably auto-start registered background services.
-    queueMicrotask(() => {
-      if (serviceStartObserved) {
-        return;
-      }
-      startBackgroundFeatures({ stateDir: legacyPluginStateDir, trigger: "compat-startup" }).catch((error) => {
-        api.logger?.warn?.(`[echo-memory] compatibility startup failed: ${String(error?.message ?? error)}`);
-      });
-    });
+    if (!processState.compatFallbackScheduled) {
+      processState.compatFallbackScheduled = true;
+      setTimeout(() => {
+        processState.compatFallbackScheduled = false;
+        if (processState.serviceStartObserved || processState.backgroundActive || processState.backgroundStartPromise) {
+          return;
+        }
+        startBackgroundFeatures({ stateDir: legacyPluginStateDir, trigger: "compat-startup" }).catch((error) => {
+          api.logger?.warn?.(`[echo-memory] compatibility startup failed: ${String(error?.message ?? error)}`);
+        });
+      }, COMPAT_STARTUP_DELAY_MS);
+    }
 
     if (typeof api.registerCommand === "function") {
       api.registerCommand({
