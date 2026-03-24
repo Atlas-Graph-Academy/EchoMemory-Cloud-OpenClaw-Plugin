@@ -54,3 +54,51 @@
   pointer-events: none;
   z-index: 50;
 }
+
+.viewport-controls {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 60;
+}
+
+.viewport-control-pad {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.viewport-control-pad__row {
+  display: flex;
+  gap: 6px;
+}
+
+.viewport-control {
+  min-width: 64px;
+  height: 34px;
+  border: 1px solid rgba(90, 86, 78, 0.24);
+  border-radius: 8px;
+  background: rgba(250, 248, 243, 0.92);
+  color: #3a342d;
+  font: 600 12px/1 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(45, 40, 32, 0.12);
+  transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+}
+
+.viewport-control:hover {
+  background: rgba(255, 252, 245, 0.98);
+  border-color: rgba(122, 98, 48, 0.4);
+  transform: translateY(-1px);
+}
+
+.viewport-control:active {
+  transform: translateY(0);
+}
+
+.viewport-control-fit {
+  min-width: 70px;
+}

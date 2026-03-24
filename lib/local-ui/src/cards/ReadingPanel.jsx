@@ -123,7 +123,37 @@ function formatFindingCount(finding) {
   return `${finding.count} ${label}`;
 }
 
-export function ReadingPanel({ path, content, file, blocked = false, onClose }) {
+function WarningNotice({ file }) {
+  if (!file?.hasSensitiveContent && file?.privacyLevel !== 'private') {
+    return null;
+  }
+
+  return (
+    <div className="rp-warning">
+      <div className="rp-warning__title">
+        {file?.hasSensitiveContent
+          ? file?.hasHighRiskSensitiveContent
+            ? 'Sensitive content warning'
+            : 'Sensitive field warning'
+          : 'Private file warning'}
+      </div>
+      <p className="rp-warning__copy">
+        This local viewer is reading your markdown file directly from disk. Sensitive content is flagged here as a warning only and is still shown below.
+      </p>
+      {file?.privacyAutoUpgraded && (
+        <div className="rp-warning__privacy">Privacy auto-upgraded this file to private for cloud-sync decisions.</div>
+      )}
+      {(file?.sensitiveFindings || []).map((finding) => (
+        <div key={finding.id} className="rp-warning__row">
+          <span>{finding.label}</span>
+          <span>{formatFindingCount(finding)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function ReadingPanel({ path, content, file, onClose }) {
   const displayName = (file?.fileName || path.split('/').pop()).replace(/\.md$/i, '');
   const htmlContent = useMemo(() => renderMarkdown(content), [content]);
 
@@ -135,35 +165,10 @@ export function ReadingPanel({ path, content, file, blocked = false, onClose }) 
           <div className="rp-title">{displayName}</div>
         </div>
         <div className="rp-path">{path}</div>
-        {blocked ? (
-          <div className="rp-body">
-            <div className="rp-private">
-              <div className="rp-private__title">
-                {file?.hasSensitiveContent
-                  ? file?.hasHighRiskSensitiveContent
-                    ? '🚨 Sensitive content hidden'
-                    : '⚠ Sensitive content hidden'
-                  : '🔒 Private file hidden'}
-              </div>
-              <p className="rp-private__copy">
-                {file?.hasSensitiveContent
-                  ? 'This file is marked private in the local viewer. Detected values are never shown here.'
-                  : 'This file is marked private in the local viewer. Its contents are not displayed here.'}
-              </p>
-              {file?.privacyAutoUpgraded && (
-                <div className="rp-private__privacy">🔴 Privacy auto-upgraded to private</div>
-              )}
-              {(file?.sensitiveFindings || []).map((finding) => (
-                <div key={finding.id} className="rp-private__row">
-                  <span>{finding.label}</span>
-                  <span>{formatFindingCount(finding)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="rp-body" dangerouslySetInnerHTML={{ __html: htmlContent }} />
-        )}
+        <div className="rp-body">
+          <WarningNotice file={file} />
+          <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
+        </div>
       </div>
     </div>
   );

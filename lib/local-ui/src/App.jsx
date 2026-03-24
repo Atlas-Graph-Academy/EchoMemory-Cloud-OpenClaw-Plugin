@@ -13,9 +13,19 @@ import {
   triggerSyncSelected,
   connectSSE,
   fetchSetupStatus,
+  reportUiPresence,
   saveSetupConfig,
 } from './sync/api';
 import './styles/global.css';
+
+const UI_HEARTBEAT_INTERVAL_MS = 15000;
+
+function buildLocalUiClientId() {
+  if (typeof window !== 'undefined' && window.crypto?.randomUUID) {
+    return window.crypto.randomUUID();
+  }
+  return `local-ui-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
 
 function useClock() {
   const [now, setNow] = useState(new Date());
@@ -88,10 +98,6 @@ function formatStageLabel(stage) {
   return normalized.replace(/[_-]+/g, ' ');
 }
 
-function isViewerBlocked(file) {
-  return file?.privacyLevel === 'private';
-}
-
 function buildSyncResultState(result) {
   const summary = result?.summary || {};
   const runResults = Array.isArray(result?.run_results) ? result.run_results : [];
@@ -144,6 +150,7 @@ export default function App() {
   const [expandedWarnings, setExpandedWarnings] = useState({});
   const now = useClock();
   const serverInstanceIdRef = useRef(null);
+  const clientIdRef = useRef(buildLocalUiClientId());
 
   const loadFiles = useCallback(async () => {
     try {
@@ -184,6 +191,39 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const sendPresence = (active = true) => reportUiPresence({
+      clientId: clientIdRef.current,
+      serverInstanceId: serverInstanceIdRef.current,
+      active,
+    });
+
+    const sendInactivePresence = () => {
+      const payload = JSON.stringify({
+        clientId: clientIdRef.current,
+        serverInstanceId: serverInstanceIdRef.current,
+        active: false,
+      });
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon('/api/ui-presence', new Blob([payload], { type: 'application/json' }));
+        return;
+      }
+      sendPresence(false);
+    };
+
+    sendPresence(true);
+    const intervalId = window.setInterval(() => {
+      sendPresence(true);
+    }, UI_HEARTBEAT_INTERVAL_MS);
+    window.addEventListener('beforeunload', sendInactivePresence);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('beforeunload', sendInactivePresence);
+      sendPresence(false);
+    };
+  }, []);
+
+  useEffect(() => {
     loadFiles();
     loadAuthStatus();
     loadSyncStatus();
@@ -198,6 +238,11 @@ export default function App() {
           return;
         }
         serverInstanceIdRef.current = nextServerInstanceId;
+        reportUiPresence({
+          clientId: clientIdRef.current,
+          serverInstanceId: nextServerInstanceId,
+          active: true,
+        });
       },
       onFilesChanged: () => {
         loadFiles();
@@ -609,7 +654,6 @@ export default function App() {
           path={readingPath}
           content={readingContent ?? contentMap?.get(readingPath) ?? 'Loading...'}
           file={readingFile}
-          blocked={isViewerBlocked(readingFile)}
           onClose={() => {
             setReadingPath(null);
             setSelectedPath(null);
@@ -648,12 +692,7 @@ export default function App() {
             setSelectedPath((prev) => (prev === path ? null : path));
           }}
           onCardExpand={(path) => {
-            const file = files.find((entry) => entry.relativePath === path) || null;
             setReadingPath(path);
-            if (isViewerBlocked(file)) {
-              setReadingContent('');
-              return;
-            }
             const existing = contentMap?.get(path);
             if (existing) {
               setReadingContent(existing);
@@ -661,10 +700,6 @@ export default function App() {
             }
             setReadingContent(null);
             fetchFileContent(path).then((result) => {
-              if (result?.blocked) {
-                setReadingContent('');
-                return;
-              }
               const content = result?.content ?? '';
               setReadingContent(content);
               setContentMap((prev) => {

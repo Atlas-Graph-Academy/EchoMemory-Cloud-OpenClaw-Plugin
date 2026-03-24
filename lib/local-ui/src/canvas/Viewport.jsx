@@ -1,7 +1,7 @@
 /**
- * Viewport — infinite canvas + minimap.
+ * Viewport - infinite canvas + minimap.
  *
- * Performance: viewport culling — only cards visible on screen are mounted
+ * Performance: viewport culling - only cards visible on screen are mounted
  * in the DOM. Off-screen cards are skipped entirely. A generous margin
  * ensures cards pop in before they're visible during fast panning.
  */
@@ -13,22 +13,41 @@ import { CardPlaceholder } from '../cards/CardPlaceholder';
 import { Minimap } from './Minimap';
 import './Viewport.css';
 
-// Cards within this margin get fully rendered (content visible)
-const RENDER_MARGIN = 600; // px in screen space
-// Cards within this outer margin get placeholder (colored blur block)
-// Cards beyond this are not in DOM at all
-const PLACEHOLDER_MARGIN = 2000; // px in screen space
+const RENDER_MARGIN = 600;
+const PLACEHOLDER_MARGIN = 2000;
 
-export function Viewport({ cards, sections, bounds, syncStatus, syncMetaByPath, transientStatusMap, contentMap, expandedWarnings, selectedPath, selectMode, syncSelection, selectablePaths, onCardClick, onCardExpand, onWarningToggle }) {
+export function Viewport({
+  cards,
+  sections,
+  bounds,
+  syncStatus,
+  syncMetaByPath,
+  transientStatusMap,
+  contentMap,
+  expandedWarnings,
+  selectedPath,
+  selectMode,
+  syncSelection,
+  selectablePaths,
+  onCardClick,
+  onCardExpand,
+  onWarningToggle,
+}) {
   const vpRef = useRef(null);
   const canvasRef = useRef(null);
-  const { viewState, ready, panMoved, focusCard, animateTo, handlers } =
-    useCanvasTransform(vpRef, canvasRef, bounds);
+  const {
+    viewState,
+    ready,
+    panMoved,
+    focusCard,
+    animateTo,
+    zoomIn,
+    zoomOut,
+    panBy,
+    fitToCanvas,
+    handlers,
+  } = useCanvasTransform(vpRef, canvasRef, bounds);
 
-  // ── Two-tier viewport culling ──
-  // Inner zone (RENDER_MARGIN): full card with content
-  // Outer zone (PLACEHOLDER_MARGIN): lightweight colored placeholder
-  // Beyond: not in DOM at all
   const { renderCards, placeholderCards } = useMemo(() => {
     const vp = vpRef.current;
     if (!vp || !ready) return { renderCards: cards, placeholderCards: [] };
@@ -36,36 +55,42 @@ export function Viewport({ cards, sections, bounds, syncStatus, syncMetaByPath, 
     const vpW = vp.clientWidth;
     const vpH = vp.clientHeight;
 
-    // Inner rect (full render)
-    const rL = (-panX - RENDER_MARGIN) / zoom;
-    const rT = (-panY - RENDER_MARGIN) / zoom;
-    const rR = (-panX + vpW + RENDER_MARGIN) / zoom;
-    const rB = (-panY + vpH + RENDER_MARGIN) / zoom;
+    const renderLeft = (-panX - RENDER_MARGIN) / zoom;
+    const renderTop = (-panY - RENDER_MARGIN) / zoom;
+    const renderRight = (-panX + vpW + RENDER_MARGIN) / zoom;
+    const renderBottom = (-panY + vpH + RENDER_MARGIN) / zoom;
 
-    // Outer rect (placeholder)
-    const pL = (-panX - PLACEHOLDER_MARGIN) / zoom;
-    const pT = (-panY - PLACEHOLDER_MARGIN) / zoom;
-    const pR = (-panX + vpW + PLACEHOLDER_MARGIN) / zoom;
-    const pB = (-panY + vpH + PLACEHOLDER_MARGIN) / zoom;
+    const placeholderLeft = (-panX - PLACEHOLDER_MARGIN) / zoom;
+    const placeholderTop = (-panY - PLACEHOLDER_MARGIN) / zoom;
+    const placeholderRight = (-panX + vpW + PLACEHOLDER_MARGIN) / zoom;
+    const placeholderBottom = (-panY + vpH + PLACEHOLDER_MARGIN) / zoom;
 
     const render = [];
     const placeholder = [];
 
-    for (const c of cards) {
-      const inOuter = c.x + c.w > pL && c.x < pR && c.y + c.h > pT && c.y < pB;
-      if (!inOuter) continue; // completely off-screen, skip
+    for (const card of cards) {
+      const inOuter =
+        card.x + card.w > placeholderLeft &&
+        card.x < placeholderRight &&
+        card.y + card.h > placeholderTop &&
+        card.y < placeholderBottom;
+      if (!inOuter) continue;
 
-      const inInner = c.x + c.w > rL && c.x < rR && c.y + c.h > rT && c.y < rB;
+      const inInner =
+        card.x + card.w > renderLeft &&
+        card.x < renderRight &&
+        card.y + card.h > renderTop &&
+        card.y < renderBottom;
       if (inInner) {
-        render.push(c);
+        render.push(card);
       } else {
-        placeholder.push(c);
+        placeholder.push(card);
       }
     }
+
     return { renderCards: render, placeholderCards: placeholder };
   }, [cards, viewState, ready]);
 
-  // ── Visible sections ──
   const visibleSections = useMemo(() => {
     const vp = vpRef.current;
     if (!vp || !ready) return sections;
@@ -77,18 +102,14 @@ export function Viewport({ cards, sections, bounds, syncStatus, syncMetaByPath, 
     const worldRight = (-panX + vpW + PLACEHOLDER_MARGIN) / zoom;
     const worldBottom = (-panY + vpH + PLACEHOLDER_MARGIN) / zoom;
 
-    return sections.filter(s =>
-      s.x + (s.w || 2000) > worldLeft &&
-      s.x < worldRight &&
-      s.y + 60 > worldTop &&
-      s.y < worldBottom
+    return sections.filter((section) =>
+      section.x + (section.w || 2000) > worldLeft &&
+      section.x < worldRight &&
+      section.y + 60 > worldTop &&
+      section.y < worldBottom
     );
   }, [sections, viewState, ready]);
 
-  // ── Unified click handling ──
-  // ALL click logic lives here in the pointer event system.
-  // Card components are pure display — no onClick handlers.
-  // This eliminates pointer vs React event conflicts.
   const lastClickRef = useRef({ path: null, time: 0 });
 
   const handlePointerUp = (e) => {
@@ -96,7 +117,6 @@ export function Viewport({ cards, sections, bounds, syncStatus, syncMetaByPath, 
     if (!panMoved.current) {
       const el = document.elementFromPoint(e.clientX, e.clientY);
 
-      // Expand button click → go to reading mode
       if (el?.closest('.card-expand-btn')) {
         const cardEl = el.closest('[data-card-path]');
         if (cardEl && onCardExpand) onCardExpand(cardEl.dataset.cardPath);
@@ -116,30 +136,27 @@ export function Viewport({ cards, sections, bounds, syncStatus, syncMetaByPath, 
       const cardEl = el?.closest('[data-card-path]');
       if (cardEl) {
         const path = cardEl.dataset.cardPath;
-        const card = cards.find(c => c.key === path);
+        const card = cards.find((item) => item.key === path);
         if (card) {
           const now = Date.now();
           const last = lastClickRef.current;
-          
-          // Double-click on same card → expand to reading mode
+
           if (last.path === path && now - last.time < 400) {
             lastClickRef.current = { path: null, time: 0 };
             if (onCardExpand) onCardExpand(path);
             return;
           }
-          
+
           lastClickRef.current = { path, time: now };
           focusCard(card);
           if (onCardClick) onCardClick(path);
         }
-      } else {
-        // Clicked on empty canvas → deselect
-        if (onCardClick) onCardClick(null);
+      } else if (onCardClick) {
+        onCardClick(null);
       }
     }
   };
 
-  // Minimap navigation: center viewport on clicked canvas coordinate
   const handleMinimapNav = useCallback((cx, cy) => {
     const vp = vpRef.current;
     if (!vp) return;
@@ -169,22 +186,22 @@ export function Viewport({ cards, sections, bounds, syncStatus, syncMetaByPath, 
         >
           {ready && (
             <>
-              {visibleSections.map(sec => (
+              {visibleSections.map((section) => (
                 <div
-                  key={sec.id}
+                  key={section.id}
                   className="section-label"
-                  style={{ left: sec.x, top: sec.y, color: sec.color }}
+                  style={{ left: section.x, top: section.y, color: section.color }}
                 >
-                  {sec.label}
-                  <span className="section-count">{sec.count}</span>
+                  {section.label}
+                  <span className="section-count">{section.count}</span>
                 </div>
               ))}
 
-              {placeholderCards.map(card => (
+              {placeholderCards.map((card) => (
                 <CardPlaceholder key={card.key} card={card} />
               ))}
 
-              {renderCards.map(card => (
+              {renderCards.map((card) => (
                 <Card
                   key={card.key}
                   card={card}
@@ -214,7 +231,35 @@ export function Viewport({ cards, sections, bounds, syncStatus, syncMetaByPath, 
         onNavigate={handleMinimapNav}
       />
 
-      <div className="zoom-indicator">{zoomPct}% · {renderCards.length}/{cards.length}</div>
+      <div className="viewport-controls">
+        <button type="button" className="viewport-control viewport-control-fit" onClick={fitToCanvas} title="Fit canvas">
+          Fit
+        </button>
+        <button type="button" className="viewport-control" onClick={zoomIn} title="Zoom in">
+          +
+        </button>
+        <button type="button" className="viewport-control" onClick={zoomOut} title="Zoom out">
+          -
+        </button>
+        <div className="viewport-control-pad">
+          <button type="button" className="viewport-control" onClick={() => panBy(0, 160)} title="Pan up">
+            Up
+          </button>
+          <div className="viewport-control-pad__row">
+            <button type="button" className="viewport-control" onClick={() => panBy(160, 0)} title="Pan left">
+              Left
+            </button>
+            <button type="button" className="viewport-control" onClick={() => panBy(-160, 0)} title="Pan right">
+              Right
+            </button>
+          </div>
+          <button type="button" className="viewport-control" onClick={() => panBy(0, -160)} title="Pan down">
+            Down
+          </button>
+        </div>
+      </div>
+
+      <div className="zoom-indicator">{zoomPct}% | {renderCards.length}/{cards.length}</div>
     </div>
   );
 }

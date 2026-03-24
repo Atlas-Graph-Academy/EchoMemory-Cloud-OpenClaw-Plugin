@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import path from "node:path";
-import { buildConfig, getEnvFileStatus } from "./lib/config.js";
+import { buildConfig, getEnvFileStatus, getOpenClawHome } from "./lib/config.js";
 import { createApiClient } from "./lib/api-client.js";
 import { formatSearchResultsText } from "./lib/echo-memory-search.js";
 import {
@@ -16,13 +16,15 @@ import { buildOnboardingText } from "./lib/onboarding.js";
 import { createSyncRunner, formatStatusText } from "./lib/sync.js";
 import { readLastSyncState } from "./lib/state.js";
 import {
+  hasRecentLocalUiPresence,
   openUrlInDefaultBrowser,
   startLocalServer,
   stopLocalServer,
   waitForLocalUiClient,
 } from "./lib/local-server.js";
 
-const LOCAL_UI_RECONNECT_GRACE_MS = 1500;
+const LOCAL_UI_RECONNECT_GRACE_MS = 4000;
+const LOCAL_UI_PRESENCE_GRACE_MS = 75000;
 
 function resolveCommandLabel(channel) {
   return channel === "discord" ? "/echomemory" : "/echo-memory";
@@ -54,13 +56,15 @@ export default {
     const cfg = buildConfig(api.pluginConfig);
     const client = createApiClient(cfg);
     const workspaceDir = path.resolve(path.dirname(cfg.memoryDir), "..");
-    const openclawHome = path.resolve(workspaceDir, "..");
-    const fallbackStateDir = path.join(openclawHome, "state", "plugins", "echo-memory-cloud-openclaw-plugin");
+    const openclawHome = getOpenClawHome();
+    const legacyPluginStateDir = path.join(openclawHome, "state", "plugins", "echo-memory-cloud-openclaw-plugin");
+    const stableStateDir = path.join(openclawHome, "state", "echo-memory-cloud-openclaw-plugin");
     const syncRunner = createSyncRunner({
       api,
       cfg,
       client,
-      fallbackStateDir,
+      fallbackStateDir: legacyPluginStateDir,
+      stableStateDir,
     });
     let startupBrowserOpenAttempted = false;
     let backgroundStarted = false;
@@ -82,11 +86,16 @@ export default {
       let openedInBrowser = false;
       let openReason = "not_requested";
       if (openInBrowser) {
-        const existingClientDetected = trigger === "gateway-start"
-          ? await waitForLocalUiClient({ timeoutMs: LOCAL_UI_RECONNECT_GRACE_MS })
+        const existingPageDetected = trigger === "gateway-start"
+          ? await hasRecentLocalUiPresence(syncRunner, { maxAgeMs: LOCAL_UI_PRESENCE_GRACE_MS })
           : false;
+        const existingClientDetected = existingPageDetected || (
+          trigger === "gateway-start"
+            ? await waitForLocalUiClient({ timeoutMs: LOCAL_UI_RECONNECT_GRACE_MS })
+            : false
+        );
         const openResult = existingClientDetected
-          ? { opened: false, reason: "existing_client_reconnected" }
+          ? { opened: false, reason: existingPageDetected ? "existing_page_detected" : "existing_client_reconnected" }
           : await openUrlInDefaultBrowser(url, {
               logger: api.logger,
               force: trigger !== "gateway-start",
@@ -165,7 +174,7 @@ export default {
         return;
       }
       backgroundStarted = true;
-      await syncRunner.initialize(stateDir || fallbackStateDir);
+      await syncRunner.initialize(stateDir || legacyPluginStateDir);
 
       try {
         const shouldOpenBrowser = cfg.localUiAutoOpenOnGatewayStart && !startupBrowserOpenAttempted;
@@ -219,7 +228,7 @@ export default {
       if (serviceStartObserved) {
         return;
       }
-      startBackgroundFeatures({ stateDir: fallbackStateDir, trigger: "compat-startup" }).catch((error) => {
+      startBackgroundFeatures({ stateDir: legacyPluginStateDir, trigger: "compat-startup" }).catch((error) => {
         api.logger?.warn?.(`[echo-memory] compatibility startup failed: ${String(error?.message ?? error)}`);
       });
     });
