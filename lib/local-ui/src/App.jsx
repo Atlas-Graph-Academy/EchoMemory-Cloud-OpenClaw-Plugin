@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Viewport } from './canvas/Viewport';
 import { ReadingPanel } from './cards/ReadingPanel';
 import { computeLayout, computeSystemLayout, getTier, isSessionLog } from './layout/masonry';
@@ -143,6 +143,7 @@ export default function App() {
   const [syncSelection, setSyncSelection] = useState(new Set());
   const [expandedWarnings, setExpandedWarnings] = useState({});
   const now = useClock();
+  const serverInstanceIdRef = useRef(null);
 
   const loadFiles = useCallback(async () => {
     try {
@@ -189,6 +190,15 @@ export default function App() {
     loadBackendSources();
     loadSetupStatus();
     const cleanup = connectSSE({
+      onServerConnected: (event) => {
+        const nextServerInstanceId = event?.serverInstanceId;
+        if (!nextServerInstanceId) return;
+        if (serverInstanceIdRef.current && serverInstanceIdRef.current !== nextServerInstanceId) {
+          window.location.reload();
+          return;
+        }
+        serverInstanceIdRef.current = nextServerInstanceId;
+      },
       onFilesChanged: () => {
         loadFiles();
         loadSyncStatus();

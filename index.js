@@ -15,7 +15,14 @@ import {
 import { buildOnboardingText } from "./lib/onboarding.js";
 import { createSyncRunner, formatStatusText } from "./lib/sync.js";
 import { readLastSyncState } from "./lib/state.js";
-import { openUrlInDefaultBrowser, startLocalServer, stopLocalServer } from "./lib/local-server.js";
+import {
+  openUrlInDefaultBrowser,
+  startLocalServer,
+  stopLocalServer,
+  waitForLocalUiClient,
+} from "./lib/local-server.js";
+
+const LOCAL_UI_RECONNECT_GRACE_MS = 1500;
 
 function resolveCommandLabel(channel) {
   return channel === "discord" ? "/echomemory" : "/echo-memory";
@@ -75,10 +82,15 @@ export default {
       let openedInBrowser = false;
       let openReason = "not_requested";
       if (openInBrowser) {
-        const openResult = await openUrlInDefaultBrowser(url, {
-          logger: api.logger,
-          force: trigger !== "gateway-start",
-        });
+        const existingClientDetected = trigger === "gateway-start"
+          ? await waitForLocalUiClient({ timeoutMs: LOCAL_UI_RECONNECT_GRACE_MS })
+          : false;
+        const openResult = existingClientDetected
+          ? { opened: false, reason: "existing_client_reconnected" }
+          : await openUrlInDefaultBrowser(url, {
+              logger: api.logger,
+              force: trigger !== "gateway-start",
+            });
         openedInBrowser = openResult.opened;
         openReason = openResult.reason;
       }

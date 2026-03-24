@@ -229,6 +229,7 @@ The plugin starts a localhost workspace UI during gateway startup and can auto-o
 
 - first run can automatically trigger `npm install` and `npm run build` under `lib/local-ui`
 - browser auto-open is skipped automatically for SSH, CI, and headless Linux sessions
+- when the gateway restarts, an already-open local UI tab reconnects and refreshes itself instead of spawning a redundant new tab
 - `/echo-memory view` returns the current localhost URL for the local markdown workspace UI and also tries to open the browser
 - natural-language requests can use the `echo_memory_local_ui` tool to get the exact live URL instead of guessing the port
 - the local markdown archive stays fully browsable even when no Echo Cloud API key is configured
