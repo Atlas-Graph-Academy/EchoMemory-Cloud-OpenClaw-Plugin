@@ -109,7 +109,7 @@ function WarningBadge({ file }) {
       className={`card-warning-toggle${file.hasHighRiskSensitiveContent ? ' card-warning-toggle-high' : ''}`}
       title="Show sensitive field summary"
     >
-      <span className="card-warning-toggle__icon">{file.hasHighRiskSensitiveContent ? '🚨' : '⚠'}</span>
+      <span className="card-warning-toggle__icon">{file.hasHighRiskSensitiveContent ? '!!' : '!'}</span>
       <span className="card-warning-toggle__text">{warningText}</span>
     </button>
   );
@@ -120,8 +120,8 @@ function WarningPanel({ file }) {
   return (
     <div className="card-warning-panel">
       <div className="card-warning-panel__header">
-        <span>{file.hasHighRiskSensitiveContent ? '🚨 Sensitive scan' : '⚠ Sensitive scan'}</span>
-        {file.privacyAutoUpgraded && <span className="card-warning-panel__privacy">🔴 Private</span>}
+        <span>{file.hasHighRiskSensitiveContent ? 'Sensitive scan: high risk' : 'Sensitive scan'}</span>
+        {file.privacyAutoUpgraded && <span className="card-warning-panel__privacy">PRIVATE</span>}
       </div>
       {(file.sensitiveFindings || []).map((finding) => (
         <div key={finding.id} className="card-warning-panel__row">
@@ -135,7 +135,43 @@ function WarningPanel({ file }) {
 
 function PrivateBadge({ file }) {
   if (!file?.privacyAutoUpgraded) return null;
-  return <span className="card-private-badge">🔴 PRIVATE</span>;
+  return <span className="card-private-badge">PRIVATE</span>;
+}
+
+function JournalGroupCard({ file, selected, selectMode }) {
+  const modeLabel = file._journalGroupMode === 'week' ? 'WEEK' : 'MONTH';
+  const countLabel = `${file._journalGroupCount} file${file._journalGroupCount === 1 ? '' : 's'}`;
+  const previewNames = Array.isArray(file._journalGroupPreviewNames) ? file._journalGroupPreviewNames : [];
+  const hint = file._journalGroupExpanded
+    ? `Expanded. Other ${file._journalGroupMode}s stay folded.`
+    : `Open to focus this ${file._journalGroupMode} only.`;
+
+  return (
+    <>
+      <div className="card-header">
+        <span className="card-journal-mode-badge">{modeLabel}</span>
+        <div className="card-name">{file._journalGroupLabel || file.fileName}</div>
+        <span className="card-journal-count">{countLabel}</span>
+        {selected && !selectMode && (
+          <button className="card-expand-btn" title={file._journalGroupExpanded ? 'Collapse group' : 'Expand group'}>
+            {file._journalGroupExpanded ? '-' : '+'}
+          </button>
+        )}
+      </div>
+      <div className="card-journal-meta">
+        <span>{file._journalGroupRangeLabel}</span>
+        <span>Latest {file._journalGroupLatestLabel}</span>
+      </div>
+      {previewNames.length > 0 && (
+        <div className="card-journal-preview">
+          {previewNames.map((name) => (
+            <span key={name} className="card-journal-preview__item">{name}</span>
+          ))}
+        </div>
+      )}
+      <div className="card-journal-hint">{hint}</div>
+    </>
+  );
 }
 
 export const Card = React.memo(function Card({
@@ -155,9 +191,12 @@ export const Card = React.memo(function Card({
   const { file, x, y, w, h } = card;
   const tier = file._tier || 3;
   const isLog = file._isSessionLog;
+  const isJournalGroup = file.isJournalGroup === true;
   const effectiveStatus = syncStatus || null;
   const pal = isLog ? STATUS_PALETTE.none : getPalette(effectiveStatus, tier);
   const lod = zoom < 0.08 ? 0 : zoom < 0.18 ? 1 : 2;
+
+  void syncMeta;
 
   if (lod === 0) {
     return (
@@ -181,7 +220,7 @@ export const Card = React.memo(function Card({
   if (lod === 1) {
     return (
       <div
-        className={`card${isLog ? ' card-session-log' : ''}`}
+        className={`card${isLog ? ' card-session-log' : ''}${isJournalGroup ? ' card-journal-group' : ''}`}
         data-card-path={file.relativePath}
         style={{
           left: x,
@@ -193,15 +232,22 @@ export const Card = React.memo(function Card({
         }}
       >
         <div className="card-header">
+          {isJournalGroup && <span className="card-journal-mode-badge">{file._journalGroupMode === 'week' ? 'WEEK' : 'MONTH'}</span>}
           {isLog && <span className="session-badge">LOG</span>}
           <div className="card-name" style={{ color: isLog ? '#999' : pal.text }}>
-            {displayName}
+            {isJournalGroup ? file._journalGroupLabel || displayName : displayName}
           </div>
-          <ClusterBadge file={file} />
-          <PrivateBadge file={file} />
-          <WarningBadge file={file} />
-          {transientStatus && effectiveStatus !== 'sealed' && <TransientStamp status={transientStatus} />}
-          <Stamp status={effectiveStatus} />
+          {isJournalGroup ? (
+            <span className="card-journal-count">{file._journalGroupCount} file{file._journalGroupCount === 1 ? '' : 's'}</span>
+          ) : (
+            <>
+              <ClusterBadge file={file} />
+              <PrivateBadge file={file} />
+              <WarningBadge file={file} />
+              {transientStatus && effectiveStatus !== 'sealed' && <TransientStamp status={transientStatus} />}
+              <Stamp status={effectiveStatus} />
+            </>
+          )}
         </div>
       </div>
     );
@@ -211,6 +257,7 @@ export const Card = React.memo(function Card({
   const classNames = [
     'card',
     isLog ? 'card-session-log' : '',
+    isJournalGroup ? 'card-journal-group' : '',
     effectiveStatus === 'sealed' ? 'card-sealed' : '',
     selected ? 'card-selected' : '',
     dimmed ? 'card-dimmed' : '',
@@ -232,34 +279,40 @@ export const Card = React.memo(function Card({
         borderLeft: `3px solid ${pal.border}`,
       }}
     >
-      <div className="card-header">
-        {selectMode && (
-          <span className={`card-checkbox ${checked ? 'card-checkbox-on' : ''} ${selectable === false ? 'card-checkbox-disabled' : ''}`} data-checkbox="true">
-            {checked ? '[x]' : '[ ]'}
-          </span>
-        )}
-        {isLog && <span className="session-badge">LOG</span>}
-        <div className="card-name" style={{ color: isLog ? '#999' : pal.text }}>
-          {displayName}
-        </div>
-        <ClusterBadge file={file} />
-        <PrivateBadge file={file} />
-        <WarningBadge file={file} />
-        {transientStatus && effectiveStatus !== 'sealed' && <TransientStamp status={transientStatus} />}
-        {effectiveStatus !== 'sealed' && <Stamp status={effectiveStatus} />}
-        {selected && !selectMode && (
-          <button className="card-expand-btn" title="Read full document">
-            {'->'}
-          </button>
-        )}
-      </div>
-      {warningExpanded && <WarningPanel file={file} />}
-      {preview && !isLog && (
-        <div className="card-content" style={{ color: pal.content }}>
-          {preview}
-        </div>
+      {isJournalGroup ? (
+        <JournalGroupCard file={file} selected={selected} selectMode={selectMode} />
+      ) : (
+        <>
+          <div className="card-header">
+            {selectMode && (
+              <span className={`card-checkbox ${checked ? 'card-checkbox-on' : ''} ${selectable === false ? 'card-checkbox-disabled' : ''}`} data-checkbox="true">
+                {checked ? '[x]' : '[ ]'}
+              </span>
+            )}
+            {isLog && <span className="session-badge">LOG</span>}
+            <div className="card-name" style={{ color: isLog ? '#999' : pal.text }}>
+              {displayName}
+            </div>
+            <ClusterBadge file={file} />
+            <PrivateBadge file={file} />
+            <WarningBadge file={file} />
+            {transientStatus && effectiveStatus !== 'sealed' && <TransientStamp status={transientStatus} />}
+            {effectiveStatus !== 'sealed' && <Stamp status={effectiveStatus} />}
+            {selected && !selectMode && (
+              <button className="card-expand-btn" title="Read full document">
+                {'->'}
+              </button>
+            )}
+          </div>
+          {warningExpanded && <WarningPanel file={file} />}
+          {preview && !isLog && (
+            <div className="card-content" style={{ color: pal.content }}>
+              {preview}
+            </div>
+          )}
+          {isLog && preview && <div className="card-content card-content-log">{preview}</div>}
+        </>
       )}
-      {isLog && preview && <div className="card-content card-content-log">{preview}</div>}
       {effectiveStatus === 'sealed' && <Stamp status="sealed" />}
     </div>
   );

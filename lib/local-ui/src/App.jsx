@@ -19,6 +19,7 @@ import {
 import './styles/global.css';
 
 const UI_HEARTBEAT_INTERVAL_MS = 15000;
+const JOURNAL_GROUP_PATH_PREFIX = '__journal_group__/';
 
 function buildLocalUiClientId() {
   if (typeof window !== 'undefined' && window.crypto?.randomUUID) {
@@ -91,6 +92,174 @@ function basenameFromPath(relativePath) {
   return parts[parts.length - 1] || relativePath;
 }
 
+function parseDateInput(value, endOfDay = false) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))) return null;
+  const [year, month, day] = String(value).split('-').map(Number);
+  return new Date(year, month - 1, day, endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0, endOfDay ? 999 : 0);
+}
+
+function formatShortDate(value) {
+  if (!value) return 'Unknown date';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Unknown date';
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function formatDateRangeLabel(start, end) {
+  if (!start || !end) return '';
+  const startLabel = formatShortDate(start);
+  const endLabel = formatShortDate(end);
+  return startLabel === endLabel ? startLabel : `${startLabel} - ${endLabel}`;
+}
+
+function startOfIsoWeek(date) {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  const day = next.getDay();
+  next.setDate(next.getDate() + (day === 0 ? -6 : 1 - day));
+  return next;
+}
+
+function getIsoWeekData(date) {
+  const start = startOfIsoWeek(date);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+  end.setHours(23, 59, 59, 999);
+
+  const referenceThursday = new Date(start);
+  referenceThursday.setDate(referenceThursday.getDate() + 3);
+  const firstWeekReference = new Date(referenceThursday.getFullYear(), 0, 4);
+  const firstWeekStart = startOfIsoWeek(firstWeekReference);
+  const weekNumber = 1 + Math.round((start - firstWeekStart) / (7 * 24 * 60 * 60 * 1000));
+
+  return {
+    key: `${referenceThursday.getFullYear()}-W${String(weekNumber).padStart(2, '0')}`,
+    label: `Week of ${formatShortDate(start)}`,
+    start,
+    end,
+  };
+}
+
+function getMonthData(date) {
+  return {
+    key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`,
+    label: date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+    start: new Date(date.getFullYear(), date.getMonth(), 1),
+    end: new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999),
+  };
+}
+
+function getFileAnchorDate(file) {
+  const dailyMatch = String(file?.fileName || '').match(/^(\d{4}-\d{2}-\d{2})(?:-.+)?\.md$/i);
+  if (dailyMatch) {
+    const [year, month, day] = dailyMatch[1].split('-').map(Number);
+    return new Date(year, month - 1, day, 12, 0, 0, 0);
+  }
+  const modified = new Date(file?.modifiedTime || 0);
+  return Number.isNaN(modified.getTime()) ? null : modified;
+}
+
+function compareJournalFiles(left, right) {
+  if (left.fileType === 'daily' && right.fileType === 'daily') {
+    return right.fileName.localeCompare(left.fileName);
+  }
+  if (left.dominantCluster !== right.dominantCluster) {
+    return left.dominantCluster === 'timeline' ? -1 : 1;
+  }
+  return new Date(right.modifiedTime) - new Date(left.modifiedTime);
+}
+
+function isJournalArchiveFile(file) {
+  if (!file || file._isSessionLog) return false;
+  if (file.clusterSectionKey) return file.clusterSectionKey === 'journal';
+  return file.fileType === 'daily' || file.fileType === 'memory';
+}
+
+function buildJournalGroupPath(mode, groupKey) {
+  return `${JOURNAL_GROUP_PATH_PREFIX}${mode}/${groupKey}`;
+}
+
+function isJournalGroupPath(path) {
+  return typeof path === 'string' && path.startsWith(JOURNAL_GROUP_PATH_PREFIX);
+}
+
+function buildJournalDisplayFiles(files, mode, expandedGroupKey) {
+  if (mode === 'all') {
+    return { items: files, groups: [] };
+  }
+
+  const groups = new Map();
+  for (const file of files) {
+    const anchorDate = getFileAnchorDate(file) || new Date(file.modifiedTime);
+    if (Number.isNaN(anchorDate.getTime())) continue;
+    const meta = mode === 'week' ? getIsoWeekData(anchorDate) : getMonthData(anchorDate);
+    if (!groups.has(meta.key)) {
+      groups.set(meta.key, {
+        ...meta,
+        files: [],
+        latestModifiedTime: file.modifiedTime,
+      });
+    }
+    const group = groups.get(meta.key);
+    group.files.push(file);
+    if (new Date(file.modifiedTime) > new Date(group.latestModifiedTime)) {
+      group.latestModifiedTime = file.modifiedTime;
+    }
+  }
+
+  const orderedGroups = [...groups.values()].sort((left, right) => {
+    const delta = right.start - left.start;
+    if (delta !== 0) return delta;
+    return String(right.key).localeCompare(String(left.key));
+  });
+
+  let journalSortOrder = 0;
+  const items = [];
+
+  for (const group of orderedGroups) {
+    const expanded = expandedGroupKey === group.key;
+    const groupFiles = [...group.files].sort(compareJournalFiles);
+    const previewNames = groupFiles.slice(0, 3).map((file) => file.fileName.replace(/\.md$/i, ''));
+    items.push({
+      fileName: group.label,
+      relativePath: buildJournalGroupPath(mode, group.key),
+      fileType: 'journal-group',
+      privacyLevel: 'safe',
+      baseClass: 'journal-group',
+      dominantCluster: 'timeline',
+      clusterLabel: mode === 'week' ? 'weekly digest' : 'monthly digest',
+      clusterSectionKey: 'journal',
+      clusterConfidence: 'high',
+      sizeBytes: groupFiles.reduce((total, file) => total + (file.sizeBytes || 0), 0),
+      modifiedTime: group.latestModifiedTime,
+      isJournalGroup: true,
+      _journalGroupKey: group.key,
+      _journalGroupLabel: group.label,
+      _journalGroupMode: mode,
+      _journalGroupExpanded: expanded,
+      _journalGroupCount: groupFiles.length,
+      _journalGroupPreviewNames: previewNames,
+      _journalGroupRangeLabel: formatDateRangeLabel(group.start, group.end),
+      _journalGroupLatestLabel: formatShortDate(group.latestModifiedTime),
+      _journalSortOrder: journalSortOrder++,
+      _visibleCount: expanded ? 0 : groupFiles.length,
+    });
+
+    if (expanded) {
+      for (const file of groupFiles) {
+        items.push({
+          ...file,
+          _journalGroupKey: group.key,
+          _journalSortOrder: journalSortOrder++,
+          _visibleCount: 1,
+        });
+      }
+    }
+  }
+
+  return { items, groups: orderedGroups };
+}
+
 function formatStageLabel(stage) {
   if (!stage) return null;
   const normalized = String(stage).trim().toLowerCase();
@@ -127,6 +296,8 @@ export default function App() {
   const [files, setFiles] = useState([]);
   const [contentMap, setContentMap] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [authStatus, setAuthStatus] = useState(null);
   const [syncStatus, setSyncStatus] = useState(null);
   const [syncResult, setSyncResult] = useState(null);
@@ -142,6 +313,8 @@ export default function App() {
   const [setupSaving, setSetupSaving] = useState(false);
   const [setupMessage, setSetupMessage] = useState(null);
   const [view, setView] = useState('memories');
+  const [journalViewMode, setJournalViewMode] = useState('all');
+  const [expandedJournalGroup, setExpandedJournalGroup] = useState(null);
   const [selectedPath, setSelectedPath] = useState(null);
   const [readingPath, setReadingPath] = useState(null);
   const [readingContent, setReadingContent] = useState(null);
@@ -353,8 +526,17 @@ export default function App() {
 
   const filteredAnnotated = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    if (!query) return annotated;
     return annotated.filter((file) => {
+      const modified = new Date(file.modifiedTime || 0);
+      if (dateFrom) {
+        const start = parseDateInput(dateFrom, false);
+        if (start && modified < start) return false;
+      }
+      if (dateTo) {
+        const end = parseDateInput(dateTo, true);
+        if (end && modified > end) return false;
+      }
+      if (!query) return true;
       const content = contentMap?.get(file.relativePath) || '';
       const haystack = [
         file.fileName,
@@ -370,7 +552,38 @@ export default function App() {
         .toLowerCase();
       return haystack.includes(query);
     });
-  }, [annotated, contentMap, searchQuery]);
+  }, [annotated, contentMap, dateFrom, dateTo, searchQuery]);
+
+  const journalDisplay = useMemo(() => {
+    const journalFiles = [];
+    const nonJournalFiles = [];
+    for (const file of filteredAnnotated) {
+      if (isJournalArchiveFile(file)) {
+        journalFiles.push(file);
+      } else {
+        nonJournalFiles.push(file);
+      }
+    }
+
+    const compactJournal = buildJournalDisplayFiles(journalFiles, journalViewMode, expandedJournalGroup);
+    return {
+      files: [...nonJournalFiles, ...compactJournal.items],
+      journalMatchCount: journalFiles.length,
+      journalGroupCount: compactJournal.groups.length,
+      groups: compactJournal.groups,
+    };
+  }, [expandedJournalGroup, filteredAnnotated, journalViewMode]);
+
+  const journalGroupPaths = useMemo(
+    () =>
+      new Map(
+        journalDisplay.groups.map((group) => [
+          buildJournalGroupPath(journalViewMode, group.key),
+          group,
+        ]),
+      ),
+    [journalDisplay.groups, journalViewMode],
+  );
 
   const [vpWidth, setVpWidth] = useState(window.innerWidth);
   useEffect(() => {
@@ -379,7 +592,7 @@ export default function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const layout = useMemo(() => computeLayout(filteredAnnotated, vpWidth, contentMap), [filteredAnnotated, vpWidth, contentMap]);
+  const layout = useMemo(() => computeLayout(journalDisplay.files, vpWidth, contentMap), [journalDisplay.files, vpWidth, contentMap]);
 
   const systemLayout = useMemo(() => {
     if (view !== 'system') return null;
@@ -448,6 +661,7 @@ export default function App() {
 
   const systemFileCount = layout.systemFileCount || 0;
   const visibleFileCount = layout.visibleFileCount || 0;
+  const visibleCardCount = layout.visibleCardCount || layout.cards.length || 0;
   const visibleSectionCount = layout.visibleSectionCount || 0;
 
   const pendingCount = useMemo(() => {
@@ -467,6 +681,18 @@ export default function App() {
     () => files.find((file) => file.relativePath === readingPath) || null,
     [files, readingPath],
   );
+
+  useEffect(() => {
+    if (journalViewMode === 'all' && expandedJournalGroup) {
+      setExpandedJournalGroup(null);
+    }
+  }, [expandedJournalGroup, journalViewMode]);
+
+  useEffect(() => {
+    if (!expandedJournalGroup) return;
+    if (journalDisplay.groups.some((group) => group.key === expandedJournalGroup)) return;
+    setExpandedJournalGroup(null);
+  }, [expandedJournalGroup, journalDisplay.groups]);
 
   useEffect(() => {
     setSyncSelection((prev) => {
@@ -534,6 +760,27 @@ export default function App() {
   const isConnected = authStatus?.connected === true;
   const authLabel = buildAuthLabel(authStatus, hasApiKey);
   const activeLayout = view === 'system' && systemLayout ? systemLayout : layout;
+  const activeCardKeys = useMemo(
+    () => new Set((activeLayout?.cards || []).map((card) => card.key)),
+    [activeLayout],
+  );
+  const hasDateFilter = Boolean(dateFrom || dateTo);
+  const hasSearchFilter = searchQuery.trim().length > 0;
+  const compactJournalEnabled = journalViewMode !== 'all';
+  const emptyStateMessage = hasSearchFilter && hasDateFilter
+    ? 'No files match the current search and time range.'
+    : hasSearchFilter
+      ? `No files match "${searchQuery.trim()}"`
+        : hasDateFilter
+          ? 'No files fall inside the selected time range.'
+          : 'No files available.';
+  const compactModeLabel = journalViewMode === 'week' ? 'Week view' : journalViewMode === 'month' ? 'Month view' : 'View all';
+
+  useEffect(() => {
+    if (!selectedPath || readingPath) return;
+    if (activeCardKeys.has(selectedPath)) return;
+    setSelectedPath(null);
+  }, [activeCardKeys, readingPath, selectedPath]);
 
   return (
     <>
@@ -638,6 +885,57 @@ export default function App() {
           placeholder="Search files and content"
           onChange={(event) => setSearchQuery(event.target.value)}
         />
+        <input
+          className="hdr-date"
+          type="date"
+          value={dateFrom}
+          title="Only show files modified on or after this date"
+          aria-label="Filter files from date"
+          onChange={(event) => setDateFrom(event.target.value)}
+        />
+        <input
+          className="hdr-date"
+          type="date"
+          value={dateTo}
+          title="Only show files modified on or before this date"
+          aria-label="Filter files to date"
+          onChange={(event) => setDateTo(event.target.value)}
+        />
+        {hasDateFilter && (
+          <button
+            type="button"
+            className="hdr-inline-btn"
+            onClick={() => {
+              setDateFrom('');
+              setDateTo('');
+            }}
+          >
+            Clear dates
+          </button>
+        )}
+        {view === 'memories' && (
+          <>
+            <select
+              className="hdr-select"
+              value={journalViewMode}
+              title="Control how the journal section is grouped"
+              aria-label="Journal compact view"
+              onChange={(event) => {
+                setJournalViewMode(event.target.value);
+                setExpandedJournalGroup(null);
+              }}
+            >
+              <option value="all">View All</option>
+              <option value="month">By Month</option>
+              <option value="week">By Week</option>
+            </select>
+            {compactJournalEnabled && expandedJournalGroup && (
+              <button type="button" className="hdr-inline-btn" onClick={() => setExpandedJournalGroup(null)}>
+                Collapse {journalViewMode}
+              </button>
+            )}
+          </>
+        )}
         <span className="hdr-spacer" />
         <span className="hdr-meta"><b>{dateStr}</b> {timeStr}</span>
         <span className="hdr-meta">|</span>
@@ -663,7 +961,7 @@ export default function App() {
       ) : files.length === 0 ? (
         <div className="empty-state">Loading files...</div>
       ) : filteredAnnotated.length === 0 ? (
-        <div className="empty-state">No files match "{searchQuery.trim()}"</div>
+        <div className="empty-state">{emptyStateMessage}</div>
       ) : (
         <Viewport
           key={view}
@@ -692,6 +990,13 @@ export default function App() {
             setSelectedPath((prev) => (prev === path ? null : path));
           }}
           onCardExpand={(path) => {
+            const journalGroup = journalGroupPaths.get(path);
+            if (journalGroup) {
+              setExpandedJournalGroup((prev) => (prev === journalGroup.key ? null : journalGroup.key));
+              setSelectedPath(path);
+              return;
+            }
+            if (isJournalGroupPath(path)) return;
             setReadingPath(path);
             const existing = contentMap?.get(path);
             if (existing) {
@@ -783,8 +1088,13 @@ export default function App() {
         ) : view === 'memories' ? (
           <>
             <span>
-              <b>{visibleSectionCount}</b> smart clusters | <b>{visibleFileCount}</b> visible files | <b>{filteredAnnotated.length}</b> total
+              <b>{visibleSectionCount}</b> smart clusters | <b>{visibleCardCount}</b> visible cards | <b>{filteredAnnotated.length}</b> matching files
             </span>
+            {compactJournalEnabled && journalDisplay.journalMatchCount > 0 && (
+              <span>
+                <b>{compactModeLabel}</b> | <b>{journalDisplay.journalGroupCount}</b> journal groups | {expandedJournalGroup ? '1 expanded' : 'all folded'}
+              </span>
+            )}
             {systemFileCount > 0 && (
               <span className="ftr-system" onClick={() => setView('system')} title="View system files">
                 {systemFileCount} system files

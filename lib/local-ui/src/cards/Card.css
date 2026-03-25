@@ -75,6 +75,10 @@
   color: #a78bfa;
 }
 
+.card-checkbox-disabled {
+  opacity: 0.35;
+}
+
 /* LOD 0: pure rectangle, no interactivity overhead */
 .card-lod0 {
   position: absolute;
@@ -279,6 +283,66 @@
   -webkit-mask-image: linear-gradient(to bottom, #000 40%, transparent 90%);
   mask-image: linear-gradient(to bottom, #000 40%, transparent 90%);
   opacity: 0.5;
+}
+
+.card-journal-group {
+  background:
+    linear-gradient(180deg, rgba(253, 239, 186, 0.2), rgba(245, 236, 200, 0.05)),
+    rgba(234, 234, 237, 0.98);
+}
+
+.card-journal-mode-badge,
+.card-journal-count {
+  flex-shrink: 0;
+  border: 1px solid rgba(160, 112, 48, 0.28);
+  border-radius: 999px;
+  background: rgba(160, 112, 48, 0.08);
+  color: #8a6b2d;
+  padding: 2px 6px;
+  font: 700 8px/1.1 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  letter-spacing: 0.04em;
+}
+
+.card-journal-count {
+  color: #73624b;
+  border-color: rgba(115, 98, 75, 0.22);
+  background: rgba(115, 98, 75, 0.08);
+}
+
+.card-journal-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 4px 0 8px;
+  font: 600 9px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: #76684f;
+}
+
+.card-journal-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.card-journal-preview__item {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.45);
+  border: 1px solid rgba(118, 104, 79, 0.16);
+  color: #5f543f;
+  padding: 3px 7px;
+  font: 500 8.5px/1.2 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-journal-hint {
+  margin-top: auto;
+  font: 500 9px/1.45 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: #6d6049;
+  opacity: 0.85;
 }
 
 /* ── Stamp system — 国画印章风格 ──
