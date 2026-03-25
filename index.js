@@ -27,6 +27,8 @@ const LOCAL_UI_RECONNECT_GRACE_MS = 4000;
 const LOCAL_UI_PRESENCE_GRACE_MS = 75000;
 const COMPAT_STARTUP_DELAY_MS = 1500;
 const PROCESS_STATE_KEY = Symbol.for("echo-memory-cloud-openclaw-plugin.process-state");
+const OPENCLAW_MEMORY_TOOL_NAMES = new Set(["memory_search", "memory_get"]);
+const ECHO_ONLY_MEMORY_AUTH_TTL_MS = 60000;
 
 function getProcessState() {
   const globalState = globalThis;
@@ -76,6 +78,12 @@ export default {
     const registrationId = Symbol("echo-memory-cloud-openclaw-plugin.register");
     const cfg = buildConfig(api.pluginConfig);
     const client = createApiClient(cfg);
+    const cloudAccessState = {
+      apiKey: null,
+      checkedAt: 0,
+      connected: false,
+      inFlight: null,
+    };
     const workspaceDir = path.resolve(path.dirname(cfg.memoryDir), "..");
     const openclawHome = getOpenClawHome();
     const legacyPluginStateDir = path.join(openclawHome, "state", "plugins", "echo-memory-cloud-openclaw-plugin");
@@ -153,6 +161,63 @@ export default {
       return { url, openedInBrowser, openReason };
     }
 
+    function isEchoOnlyMemoryToggleEnabled() {
+      return cfg.disableOpenClawMemoryToolsWhenConnected === true;
+    }
+
+    function hasEchoCloudConfiguration() {
+      return isEchoOnlyMemoryToggleEnabled()
+        && cfg.localOnlyMode !== true
+        && String(cfg.apiKey || "").trim().length > 0;
+    }
+
+    async function isEchoCloudReadyForEchoOnlyMemoryMode() {
+      if (!hasEchoCloudConfiguration()) {
+        cloudAccessState.apiKey = null;
+        cloudAccessState.checkedAt = 0;
+        cloudAccessState.connected = false;
+        return false;
+      }
+
+      const apiKey = String(cfg.apiKey || "").trim();
+      if (cloudAccessState.apiKey !== apiKey) {
+        cloudAccessState.apiKey = apiKey;
+        cloudAccessState.checkedAt = 0;
+        cloudAccessState.connected = false;
+      }
+
+      if (cloudAccessState.inFlight) {
+        return cloudAccessState.inFlight;
+      }
+
+      if (
+        cloudAccessState.checkedAt > 0
+        && (Date.now() - cloudAccessState.checkedAt) < ECHO_ONLY_MEMORY_AUTH_TTL_MS
+      ) {
+        return cloudAccessState.connected;
+      }
+
+      const verifyPromise = client.whoami()
+        .then(() => {
+          cloudAccessState.connected = true;
+          cloudAccessState.checkedAt = Date.now();
+          return true;
+        })
+        .catch((error) => {
+          cloudAccessState.connected = false;
+          cloudAccessState.checkedAt = Date.now();
+          api.logger?.warn?.(
+            `[echo-memory] Echo-only memory mode verification failed; leaving OpenClaw memory tools enabled (${String(error?.message ?? error)})`,
+          );
+          return false;
+        })
+        .finally(() => {
+          cloudAccessState.inFlight = null;
+        });
+      cloudAccessState.inFlight = verifyPromise;
+      return verifyPromise;
+    }
+
     if (typeof api.registerTool === "function") {
       api.registerTool(createEchoMemorySearchTool(client));
       api.registerTool(createEchoMemoryOnboardTool(cfg, resolveCommandLabel("slack")));
@@ -166,33 +231,51 @@ export default {
     }
     if (typeof api.on === "function") {
       api.on("before_prompt_build", (_event, _ctx) => {
+        const appendSystemContext = [
+          "EchoMem cloud retrieval is available through the `echo_memory_search` tool.",
+          "Echo Memory setup and usage guidance is available through the `echo_memory_onboard` tool.",
+          "Echo memory graph links are available through the `echo_memory_graph_link` tool.",
+          "Echo memory local workspace UI links are available through the `echo_memory_local_ui` tool.",
+          "Echo sync inspection is available through the `echo_memory_status` tool.",
+          "Echo markdown-to-cloud sync is available through the `echo_memory_sync` tool.",
+          "Use it when the conversation asks about prior facts, plans, decisions, dates, preferences, people, or when memory context would improve accuracy.",
+          "Prefer it before answering memory-dependent questions instead of guessing.",
+          "Use `echo_memory_onboard` when the user asks how to install, set up, configure, authenticate, or use the plugin, or asks about signup, API keys, commands, graph access, or troubleshooting.",
+          "Treat any question about becoming a new EchoMemory user, signing up, creating an account, receiving OTP, referral code, API key creation, or configuring the plugin as an onboarding question for `echo_memory_onboard`.",
+          "Do not answer Echo Memory signup, account setup, or plugin setup from generic prior knowledge. Call `echo_memory_onboard` so the OpenClaw-specific signup URL, OTP step, referral code, API key flow, command names, and config details stay exact.",
+          "There is only one onboarding path. Do not try to choose between signup/setup onboarding variants; call `echo_memory_onboard` and return the full authoritative guide.",
+          "Use `echo_memory_graph_link` when the user explicitly asks for the memory graph, cloud graph, graph view, public memories page, or an iditor.com page.",
+          "Use `echo_memory_local_ui` when the user asks to open, view, browse, launch, or get the URL for local memories, markdown files, the workspace viewer, the local UI, or the localhost view.",
+          "Treat `/echo-memory view` as the local localhost markdown viewer command.",
+          "Do not confuse the localhost local workspace UI with the cloud memory graph. The local UI shows local markdown files directly, while graph links open iditor.com pages.",
+          "If the user says 'view my memories' or similar without saying graph/iditor/public, prefer the local workspace UI.",
+          "If the user asks to open the local workspace UI, request `openInBrowser: true` and include the returned localhost URL directly in the reply.",
+          "Use `visibility: private` for the user's personal memory graph login page and `visibility: public` for the shared public memories page at iditor.com/memories.",
+          "Private graph access from OpenClaw intentionally requires a fresh login at iditor.com/login?next=/memory-graph instead of an auto-login bridge link.",
+          "When providing a graph link, include the returned URL directly in the Slack reply.",
+          "Use `echo_memory_status` when the user asks about sync health, import progress, last sync, recent imports, or whether Echo memory is working.",
+          "Use `echo_memory_sync` when the user explicitly asks to sync, refresh, import, upload, or push local markdown memories into Echo cloud.",
+          "If the user reports permission, privacy, authorization, or tool-access restrictions while using Echo Memory in OpenClaw, tell them to set `tools.profile` to `full` in `~/.openclaw/openclaw.json` and restart the gateway.",
+        ];
+        if (isEchoOnlyMemoryToggleEnabled()) {
+          appendSystemContext.push(
+            "When Echo-only memory retrieval is enabled and Echo cloud access is available, do not call `memory_search` or `memory_get`; use `echo_memory_search` instead.",
+          );
+        }
         return {
-          appendSystemContext: [
-            "EchoMem cloud retrieval is available through the `echo_memory_search` tool.",
-            "Echo Memory setup and usage guidance is available through the `echo_memory_onboard` tool.",
-            "Echo memory graph links are available through the `echo_memory_graph_link` tool.",
-            "Echo memory local workspace UI links are available through the `echo_memory_local_ui` tool.",
-            "Echo sync inspection is available through the `echo_memory_status` tool.",
-            "Echo markdown-to-cloud sync is available through the `echo_memory_sync` tool.",
-            "Use it when the conversation asks about prior facts, plans, decisions, dates, preferences, people, or when memory context would improve accuracy.",
-            "Prefer it before answering memory-dependent questions instead of guessing.",
-            "Use `echo_memory_onboard` when the user asks how to install, set up, configure, authenticate, or use the plugin, or asks about signup, API keys, commands, graph access, or troubleshooting.",
-            "Treat any question about becoming a new EchoMemory user, signing up, creating an account, receiving OTP, referral code, API key creation, or configuring the plugin as an onboarding question for `echo_memory_onboard`.",
-            "Do not answer Echo Memory signup, account setup, or plugin setup from generic prior knowledge. Call `echo_memory_onboard` so the OpenClaw-specific signup URL, OTP step, referral code, API key flow, command names, and config details stay exact.",
-            "There is only one onboarding path. Do not try to choose between signup/setup onboarding variants; call `echo_memory_onboard` and return the full authoritative guide.",
-            "Use `echo_memory_graph_link` when the user explicitly asks for the memory graph, cloud graph, graph view, public memories page, or an iditor.com page.",
-            "Use `echo_memory_local_ui` when the user asks to open, view, browse, launch, or get the URL for local memories, markdown files, the workspace viewer, the local UI, or the localhost view.",
-            "Treat `/echo-memory view` as the local localhost markdown viewer command.",
-            "Do not confuse the localhost local workspace UI with the cloud memory graph. The local UI shows local markdown files directly, while graph links open iditor.com pages.",
-            "If the user says 'view my memories' or similar without saying graph/iditor/public, prefer the local workspace UI.",
-            "If the user asks to open the local workspace UI, request `openInBrowser: true` and include the returned localhost URL directly in the reply.",
-            "Use `visibility: private` for the user's personal memory graph login page and `visibility: public` for the shared public memories page at iditor.com/memories.",
-            "Private graph access from OpenClaw intentionally requires a fresh login at iditor.com/login?next=/memory-graph instead of an auto-login bridge link.",
-            "When providing a graph link, include the returned URL directly in the Slack reply.",
-            "Use `echo_memory_status` when the user asks about sync health, import progress, last sync, recent imports, or whether Echo memory is working.",
-            "Use `echo_memory_sync` when the user explicitly asks to sync, refresh, import, upload, or push local markdown memories into Echo cloud.",
-            "If the user reports permission, privacy, authorization, or tool-access restrictions while using Echo Memory in OpenClaw, tell them to set `tools.profile` to `full` in `~/.openclaw/openclaw.json` and restart the gateway.",
-          ].join("\n"),
+          appendSystemContext: appendSystemContext.join("\n"),
+        };
+      });
+      api.on("before_tool_call", async (event, _ctx) => {
+        if (!OPENCLAW_MEMORY_TOOL_NAMES.has(event?.toolName)) {
+          return undefined;
+        }
+        if (!(await isEchoCloudReadyForEchoOnlyMemoryMode())) {
+          return undefined;
+        }
+        return {
+          block: true,
+          blockReason: "Echo-only memory retrieval is active. Use `echo_memory_search` instead of OpenClaw's local memory tools.",
         };
       });
     }

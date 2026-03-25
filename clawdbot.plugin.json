@@ -29,6 +29,11 @@
         "default": false,
         "description": "When true, disables cloud sync and API key requirement. Local UI and markdown browsing still work."
       },
+      "disableOpenClawMemoryToolsWhenConnected": {
+        "type": "boolean",
+        "default": false,
+        "description": "When true, blocks OpenClaw's default memory_search and memory_get tools after Echo cloud access is verified, so memory retrieval relies on EchoMemory instead."
+      },
       "localUiAutoOpenOnGatewayStart": {
         "type": "boolean",
         "default": true,

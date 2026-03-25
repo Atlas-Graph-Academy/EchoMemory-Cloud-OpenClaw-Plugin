@@ -309,6 +309,7 @@ export default function App() {
   const [setupDraft, setSetupDraft] = useState({
     apiKey: '',
     memoryDir: '',
+    disableOpenClawMemoryToolsWhenConnected: false,
   });
   const [setupSaving, setSetupSaving] = useState(false);
   const [setupMessage, setSetupMessage] = useState(null);
@@ -359,6 +360,7 @@ export default function App() {
       setSetupDraft({
         apiKey: data.fields.apiKey?.value || '',
         memoryDir: data.fields.memoryDir?.value || '',
+        disableOpenClawMemoryToolsWhenConnected: data.fields.disableOpenClawMemoryToolsWhenConnected?.value === true,
       });
     }
   }, []);
@@ -759,6 +761,7 @@ export default function App() {
   const hasApiKey = Boolean(setupDraft.apiKey);
   const isConnected = authStatus?.connected === true;
   const authLabel = buildAuthLabel(authStatus, hasApiKey);
+  const echoOnlyMemoryModeEnabled = setupDraft.disableOpenClawMemoryToolsWhenConnected === true;
   const activeLayout = view === 'system' && systemLayout ? systemLayout : layout;
   const activeCardKeys = useMemo(
     () => new Set((activeLayout?.cards || []).map((card) => card.key)),
@@ -797,11 +800,15 @@ export default function App() {
 
           <div className="setup-card">
             <p className="setup-card__title">Current mode</p>
-            <p className="setup-copy">
+              <p className="setup-copy">
               {isConnected
-                ? 'Cloud sync, graph links, and import status are active.'
+                ? (echoOnlyMemoryModeEnabled
+                    ? 'Cloud sync, graph links, and import status are active. OpenClaw default memory retrieval is suppressed for Echo-only recall.'
+                    : 'Cloud sync, graph links, and import status are active.')
                 : hasApiKey
-                  ? 'The local UI is ready. Save or verify your key to re-enable cloud features.'
+                  ? (echoOnlyMemoryModeEnabled
+                      ? 'The local UI is ready. Echo-only recall will take effect after cloud access is verified.'
+                      : 'The local UI is ready. Save or verify your key to re-enable cloud features.')
                   : 'The local UI is running in local-only mode. Files remain fully viewable without an Echo API key.'}
             </p>
           </div>
@@ -846,6 +853,23 @@ export default function App() {
               {(setupDraft.memoryDir || setupState?.fields?.memoryDir?.value) && (
                 <small>Current path: {setupDraft.memoryDir || setupState?.fields?.memoryDir?.value}</small>
               )}
+            </label>
+            <label className="setup-field setup-checkbox-field">
+              <span>Echo-only memory retrieval</span>
+              <div className="setup-checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={echoOnlyMemoryModeEnabled}
+                  onChange={(e) => handleSetupFieldChange('disableOpenClawMemoryToolsWhenConnected', e.target.checked)}
+                />
+                <p>
+                  Block OpenClaw `memory_search` and `memory_get` when Echo cloud mode is available, and steer retrieval to `echo_memory_search` instead.
+                </p>
+              </div>
+              <small>Source: {formatSourceLabel(setupState?.fields?.disableOpenClawMemoryToolsWhenConnected, setupState)}</small>
+              <small>
+                This only applies after cloud access is configured. Local-only mode keeps OpenClaw's default memory tools available.
+              </small>
             </label>
             <button className="setup-save-btn" disabled={setupSaving} onClick={handleSetupSave}>
               {setupSaving ? 'Saving...' : 'Save local settings'}

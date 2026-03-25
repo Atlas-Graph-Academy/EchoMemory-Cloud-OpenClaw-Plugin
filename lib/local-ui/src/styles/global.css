@@ -181,6 +181,31 @@ body {
   font-size: 10px;
 }
 
+.setup-checkbox-field {
+  gap: 8px;
+}
+
+.setup-checkbox-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: rgba(9, 9, 15, 0.55);
+  border: 1px solid #3a3450;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.setup-checkbox-row input {
+  margin: 2px 0 0;
+}
+
+.setup-checkbox-row p {
+  margin: 0;
+  color: #d9d1f0;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
 .setup-save-btn {
   width: 100%;
   border: 1px solid #3d2f69;
