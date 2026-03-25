@@ -10,6 +10,7 @@
   "files": [
     "index.js",
     "lib/*.js",
+    "lib/local-ui.html",
     "lib/local-ui/dist/",
     "openclaw.plugin.json",
     "moltbot.plugin.json",
