@@ -1,7 +1,7 @@
 .minimap {
   position: absolute;
   bottom: 40px;
-  right: 12px;
+  right: calc(var(--cloud-sidebar-rail-width, 24px) + 12px);
   border-radius: 6px;
   overflow: hidden;
   border: 1px solid #2a2a36;
@@ -11,6 +11,11 @@
   opacity: 0.85;
   transition: opacity 0.15s;
 }
+
+.app-shell--cloud-open .minimap {
+  right: calc(var(--cloud-sidebar-width) + 12px);
+}
+
 .minimap:hover {
   opacity: 1;
 }

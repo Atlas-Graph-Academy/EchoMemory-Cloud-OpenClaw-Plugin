@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Viewport } from './canvas/Viewport';
 import { ReadingPanel } from './cards/ReadingPanel';
+import { CloudSidebar } from './cloud/CloudSidebar';
 import { computeLayout, computeSystemLayout, getTier, isSessionLog } from './layout/masonry';
 import {
   fetchFiles,
@@ -311,6 +312,10 @@ export default function App() {
     memoryDir: '',
     disableOpenClawMemoryToolsWhenConnected: false,
   });
+  const [setupPanelsOpen, setSetupPanelsOpen] = useState({
+    quickSetup: true,
+    configuration: true,
+  });
   const [setupSaving, setSetupSaving] = useState(false);
   const [setupMessage, setSetupMessage] = useState(null);
   const [view, setView] = useState('memories');
@@ -322,6 +327,7 @@ export default function App() {
   const [selectMode, setSelectMode] = useState(false);
   const [syncSelection, setSyncSelection] = useState(new Set());
   const [expandedWarnings, setExpandedWarnings] = useState({});
+  const [cloudSidebarOpen, setCloudSidebarOpen] = useState(false);
   const now = useClock();
   const serverInstanceIdRef = useRef(null);
   const clientIdRef = useRef(buildLocalUiClientId());
@@ -741,6 +747,10 @@ export default function App() {
     setSetupDraft((prev) => ({ ...prev, [key]: value }));
   }, []);
 
+  const toggleSetupPanel = useCallback((key) => {
+    setSetupPanelsOpen((prev) => ({ ...prev, [key]: !prev[key] }));
+  }, []);
+
   const handleSetupSave = useCallback(async () => {
     setSetupSaving(true);
     setSetupMessage(null);
@@ -786,7 +796,7 @@ export default function App() {
   }, [activeCardKeys, readingPath, selectedPath]);
 
   return (
-    <>
+    <div className={`app-shell ${cloudSidebarOpen ? 'app-shell--cloud-open' : ''}`}>
       <aside className="setup-sidebar" aria-label="Echo setup">
         <div className="setup-sidebar__rail">Setup</div>
         <div className="setup-sidebar__panel">
@@ -813,71 +823,93 @@ export default function App() {
             </p>
           </div>
 
-          <div className="setup-card">
-            <p className="setup-card__title">Quick setup</p>
-            <ol className="setup-steps">
-              <li>Create an EchoMemory account.</li>
-              <li>Enter the 6-digit OTP sent to your email to complete login.</li>
-              <li>If this is your first login, enter referral code `openclawyay` and choose a user name to finish registration.</li>
-              <li>Open `https://www.iditor.com/api`, click `API Keys` in the upper-left area, and create a named API key.</li>
-              <li>In `~/.openclaw/openclaw.json`, set `tools.profile` to `full` so OpenClaw does not block normal plugin usage.</li>
-              <li>Paste the values below and save. The plugin writes to your local `.env` file.</li>
-            </ol>
-            <p className="setup-copy">
-              Target env file: <code>{setupState?.envFile?.targetPath || 'Loading...'}</code>
-            </p>
-          </div>
-
-          <div className="setup-card">
-            <p className="setup-card__title">Configuration</p>
-            <label className="setup-field">
-              <span>Echo API key</span>
-              <input
-                type="password"
-                value={setupDraft.apiKey}
-                placeholder={setupState?.fields?.apiKey?.maskedValue || 'ec_...'}
-                autoComplete="new-password"
-                onChange={(e) => handleSetupFieldChange('apiKey', e.target.value)}
-              />
-              <small>Source: {formatSourceLabel(setupState?.fields?.apiKey, setupState)}</small>
-            </label>
-            <label className="setup-field">
-              <span>Memory directory</span>
-              <input
-                type="text"
-                value={setupDraft.memoryDir || setupState?.fields?.memoryDir?.value || ''}
-                placeholder={setupState?.fields?.memoryDir?.value || ''}
-                onChange={(e) => handleSetupFieldChange('memoryDir', e.target.value)}
-              />
-              <small>Source: {formatSourceLabel(setupState?.fields?.memoryDir, setupState)}</small>
-              {(setupDraft.memoryDir || setupState?.fields?.memoryDir?.value) && (
-                <small>Current path: {setupDraft.memoryDir || setupState?.fields?.memoryDir?.value}</small>
-              )}
-            </label>
-            <label className="setup-field setup-checkbox-field">
-              <span>Echo-only memory retrieval</span>
-              <div className="setup-checkbox-row">
-                <input
-                  type="checkbox"
-                  checked={echoOnlyMemoryModeEnabled}
-                  onChange={(e) => handleSetupFieldChange('disableOpenClawMemoryToolsWhenConnected', e.target.checked)}
-                />
-                <p>
-                  Block OpenClaw `memory_search` and `memory_get` when Echo cloud mode is available, and steer retrieval to `echo_memory_search` instead.
+          <div className="setup-card setup-card--collapsible">
+            <button
+              type="button"
+              className="setup-card__summary"
+              aria-expanded={setupPanelsOpen.quickSetup}
+              onClick={() => toggleSetupPanel('quickSetup')}
+            >
+              <span className="setup-card__title">Quick setup</span>
+            </button>
+            {setupPanelsOpen.quickSetup && (
+              <div className="setup-card__content">
+                <ol className="setup-steps">
+                  <li>Create an EchoMemory account.</li>
+                  <li>Enter the 6-digit OTP sent to your email to complete login.</li>
+                  <li>If this is your first login, enter referral code `openclawyay` and choose a user name to finish registration.</li>
+                  <li>Open `https://www.iditor.com/api`, click `API Keys` in the upper-left area, and create a named API key.</li>
+                  <li>In `~/.openclaw/openclaw.json`, set `tools.profile` to `full` so OpenClaw does not block normal plugin usage.</li>
+                  <li>Paste the values below and save. The plugin writes to your local `.env` file.</li>
+                </ol>
+                <p className="setup-copy">
+                  Target env file: <code>{setupState?.envFile?.targetPath || 'Loading...'}</code>
                 </p>
               </div>
-              <small>Source: {formatSourceLabel(setupState?.fields?.disableOpenClawMemoryToolsWhenConnected, setupState)}</small>
-              <small>
-                This only applies after cloud access is configured. Local-only mode keeps OpenClaw's default memory tools available.
-              </small>
-            </label>
-            <button className="setup-save-btn" disabled={setupSaving} onClick={handleSetupSave}>
-              {setupSaving ? 'Saving...' : 'Save local settings'}
+            )}
+          </div>
+
+          <div className="setup-card setup-card--collapsible">
+            <button
+              type="button"
+              className="setup-card__summary"
+              aria-expanded={setupPanelsOpen.configuration}
+              onClick={() => toggleSetupPanel('configuration')}
+            >
+              <span className="setup-card__title">Configuration</span>
             </button>
-            {setupMessage && (
-              <p className={setupMessage.ok ? 'setup-msg setup-msg--ok' : 'setup-msg setup-msg--error'}>
-                {setupMessage.text}
-              </p>
+            {setupPanelsOpen.configuration && (
+              <div className="setup-card__content">
+                <label className="setup-field">
+                  <span>Echo API key</span>
+                  <input
+                    type="password"
+                    value={setupDraft.apiKey}
+                    placeholder={setupState?.fields?.apiKey?.maskedValue || 'ec_...'}
+                    autoComplete="new-password"
+                    onChange={(e) => handleSetupFieldChange('apiKey', e.target.value)}
+                  />
+                  <small>Source: {formatSourceLabel(setupState?.fields?.apiKey, setupState)}</small>
+                </label>
+                <label className="setup-field">
+                  <span>Memory directory</span>
+                  <input
+                    type="text"
+                    value={setupDraft.memoryDir || setupState?.fields?.memoryDir?.value || ''}
+                    placeholder={setupState?.fields?.memoryDir?.value || ''}
+                    onChange={(e) => handleSetupFieldChange('memoryDir', e.target.value)}
+                  />
+                  <small>Source: {formatSourceLabel(setupState?.fields?.memoryDir, setupState)}</small>
+                  {(setupDraft.memoryDir || setupState?.fields?.memoryDir?.value) && (
+                    <small>Current path: {setupDraft.memoryDir || setupState?.fields?.memoryDir?.value}</small>
+                  )}
+                </label>
+                <label className="setup-field setup-checkbox-field">
+                  <span>Echo-only memory retrieval</span>
+                  <div className="setup-checkbox-row">
+                    <input
+                      type="checkbox"
+                      checked={echoOnlyMemoryModeEnabled}
+                      onChange={(e) => handleSetupFieldChange('disableOpenClawMemoryToolsWhenConnected', e.target.checked)}
+                    />
+                    <p>
+                      Block OpenClaw `memory_search` and `memory_get` when Echo cloud mode is available, and steer retrieval to `echo_memory_search` instead.
+                    </p>
+                  </div>
+                  <small>Source: {formatSourceLabel(setupState?.fields?.disableOpenClawMemoryToolsWhenConnected, setupState)}</small>
+                  <small>
+                    This only applies after cloud access is configured. Local-only mode keeps OpenClaw&apos;s default memory tools available.
+                  </small>
+                </label>
+                <button className="setup-save-btn" disabled={setupSaving} onClick={handleSetupSave}>
+                  {setupSaving ? 'Saving...' : 'Save local settings'}
+                </button>
+                {setupMessage && (
+                  <p className={setupMessage.ok ? 'setup-msg setup-msg--ok' : 'setup-msg setup-msg--error'}>
+                    {setupMessage.text}
+                  </p>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -1168,6 +1200,12 @@ export default function App() {
           </a>
         )}
       </div>
-    </>
+      <CloudSidebar
+        isConnected={isConnected}
+        apiKey={setupDraft.apiKey}
+        localApiAvailable={setupState?.capabilities?.cloudSidebarApi === true}
+        onOpenChange={setCloudSidebarOpen}
+      />
+    </div>
   );
 }

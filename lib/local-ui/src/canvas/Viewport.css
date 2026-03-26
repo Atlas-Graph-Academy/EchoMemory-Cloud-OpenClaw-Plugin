@@ -45,7 +45,7 @@
 .zoom-indicator {
   position: absolute;
   bottom: 8px;
-  right: 8px;
+  right: calc(var(--cloud-sidebar-rail-width, 24px) + 8px);
   font-size: 11px;
   color: #555;
   background: rgba(10, 10, 15, 0.8);
@@ -55,14 +55,22 @@
   z-index: 50;
 }
 
+.app-shell--cloud-open .zoom-indicator {
+  right: calc(var(--cloud-sidebar-width) + 8px);
+}
+
 .viewport-controls {
   position: absolute;
-  right: 12px;
+  right: calc(var(--cloud-sidebar-rail-width, 24px) + 12px);
   top: 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
   z-index: 60;
+}
+
+.app-shell--cloud-open .viewport-controls {
+  right: calc(var(--cloud-sidebar-width) + 12px);
 }
 
 .viewport-control-pad {
