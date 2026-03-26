@@ -231,6 +231,7 @@ export default {
     }
     if (typeof api.on === "function") {
       api.on("before_prompt_build", (_event, _ctx) => {
+        const prependSystemContext = [];
         const appendSystemContext = [
           "EchoMem cloud retrieval is available through the `echo_memory_search` tool.",
           "Echo Memory setup and usage guidance is available through the `echo_memory_onboard` tool.",
@@ -256,13 +257,20 @@ export default {
           "Use `echo_memory_status` when the user asks about sync health, import progress, last sync, recent imports, or whether Echo memory is working.",
           "Use `echo_memory_sync` when the user explicitly asks to sync, refresh, import, upload, or push local markdown memories into Echo cloud.",
           "If the user reports permission, privacy, authorization, or tool-access restrictions while using Echo Memory in OpenClaw, tell them to set `tools.profile` to `full` in `~/.openclaw/openclaw.json` and restart the gateway.",
+          "If the user asks how to make EchoMemory fully replace OpenClaw default memory retrieval, tell them to add `\"tools\": { \"deny\": [\"memory_search\", \"memory_get\"] }` to `~/.openclaw/openclaw.json` and restart the gateway.",
         ];
         if (isEchoOnlyMemoryToggleEnabled()) {
+          prependSystemContext.push(
+            "When Echo-only memory retrieval is enabled, NEVER call `memory_search` or `memory_get`. They are blocked and will fail.",
+            "For any request about prior facts, plans, decisions, dates, people, preferences, or past work, ALWAYS call `echo_memory_search` first.",
+            "Use `echo_memory_search` for time-based recall too, including inputs like `October 2025`, `2025 October`, `last year`, `this year`, `last month`, or `2025-10-01 to 2025-10-31`.",
+          );
           appendSystemContext.push(
             "When Echo-only memory retrieval is enabled and Echo cloud access is available, do not call `memory_search` or `memory_get`; use `echo_memory_search` instead.",
           );
         }
         return {
+          prependSystemContext: prependSystemContext.join("\n"),
           appendSystemContext: appendSystemContext.join("\n"),
         };
       });

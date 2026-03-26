@@ -757,7 +757,13 @@ export default function App() {
     try {
       const result = await saveSetupConfig(setupDraft);
       setSetupState(result.setup || null);
-      setSetupMessage({ ok: true, text: `Saved to ${result.targetPath}` });
+      const nextMessage = setupDraft.disableOpenClawMemoryToolsWhenConnected
+        ? [
+            `Saved to ${result.targetPath}`,
+            'To fully replace OpenClaw core memory retrieval, also add `"tools": {"deny": ["memory_search", "memory_get"]}` to `~/.openclaw/openclaw.json`, then restart `openclaw gateway`.',
+          ].join(' ')
+        : `Saved to ${result.targetPath}`;
+      setSetupMessage({ ok: true, text: nextMessage });
       await Promise.all([loadAuthStatus(), loadSyncStatus(), loadBackendSources(), loadSetupStatus()]);
     } catch (error) {
       setSetupMessage({ ok: false, text: String(error?.message ?? error) });
@@ -840,6 +846,7 @@ export default function App() {
                   <li>If this is your first login, enter referral code `openclawyay` and choose a user name to finish registration.</li>
                   <li>Open `https://www.iditor.com/api`, click `API Keys` in the upper-left area, and create a named API key.</li>
                   <li>In `~/.openclaw/openclaw.json`, set `tools.profile` to `full` so OpenClaw does not block normal plugin usage.</li>
+                  <li>If you want EchoMemory to fully replace OpenClaw memory recall, add <code>{'"tools": {"deny": ["memory_search", "memory_get"]}'}</code> in `~/.openclaw/openclaw.json`.</li>
                   <li>Paste the values below and save. The plugin writes to your local `.env` file.</li>
                 </ol>
                 <p className="setup-copy">
@@ -898,7 +905,10 @@ export default function App() {
                   </div>
                   <small>Source: {formatSourceLabel(setupState?.fields?.disableOpenClawMemoryToolsWhenConnected, setupState)}</small>
                   <small>
-                    This only applies after cloud access is configured. Local-only mode keeps OpenClaw&apos;s default memory tools available.
+                    This only applies after cloud access is configured. For a stronger and more reliable swap, also add <code>{'"tools": {"deny": ["memory_search", "memory_get"]}'}</code> to `~/.openclaw/openclaw.json` and restart the gateway.
+                  </small>
+                  <small>
+                    Local-only mode keeps OpenClaw&apos;s default memory tools available.
                   </small>
                 </label>
                 <button className="setup-save-btn" disabled={setupSaving} onClick={handleSetupSave}>
