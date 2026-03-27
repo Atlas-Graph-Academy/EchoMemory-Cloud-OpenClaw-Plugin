@@ -311,6 +311,10 @@ export default function App() {
   const [setupDraft, setSetupDraft] = useState({
     apiKey: '',
     memoryDir: '',
+    autoSync: true,
+    syncIntervalMinutes: '15',
+    batchSize: '10',
+    requestTimeoutMs: '300000',
     disableOpenClawMemoryToolsWhenConnected: false,
   });
   const [setupPanelsOpen, setSetupPanelsOpen] = useState({
@@ -367,6 +371,10 @@ export default function App() {
       setSetupDraft({
         apiKey: data.fields.apiKey?.value || '',
         memoryDir: data.fields.memoryDir?.value || '',
+        autoSync: data.fields.autoSync?.value !== false,
+        syncIntervalMinutes: String(data.fields.syncIntervalMinutes?.value ?? 15),
+        batchSize: String(data.fields.batchSize?.value ?? 10),
+        requestTimeoutMs: String(data.fields.requestTimeoutMs?.value ?? 300000),
         disableOpenClawMemoryToolsWhenConnected: data.fields.disableOpenClawMemoryToolsWhenConnected?.value === true,
       });
     }
@@ -806,6 +814,7 @@ export default function App() {
   const hasApiKey = Boolean(setupDraft.apiKey);
   const isConnected = authStatus?.connected === true;
   const authLabel = buildAuthLabel(authStatus, hasApiKey);
+  const autoSyncEnabled = setupDraft.autoSync === true;
   const echoOnlyMemoryModeEnabled = setupDraft.disableOpenClawMemoryToolsWhenConnected === true;
   const activeLayout = view === 'system' && systemLayout ? systemLayout : layout;
   const activeCardKeys = useMemo(
@@ -919,6 +928,58 @@ export default function App() {
                   {(setupDraft.memoryDir || setupState?.fields?.memoryDir?.value) && (
                     <small>Current path: {setupDraft.memoryDir || setupState?.fields?.memoryDir?.value}</small>
                   )}
+                </label>
+                <label className="setup-field setup-checkbox-field">
+                  <span>Autosync</span>
+                  <div className="setup-checkbox-row">
+                    <input
+                      type="checkbox"
+                      checked={autoSyncEnabled}
+                      onChange={(e) => handleSetupFieldChange('autoSync', e.target.checked)}
+                    />
+                    <p>
+                      Automatically scan the memory directory and sync changed files to Echo on the configured schedule.
+                    </p>
+                  </div>
+                  <small>Source: {formatSourceLabel(setupState?.fields?.autoSync, setupState)}</small>
+                </label>
+                <label className="setup-field">
+                  <span>Autosync interval (minutes)</span>
+                  <input
+                    type="number"
+                    min="15"
+                    step="1"
+                    value={setupDraft.syncIntervalMinutes}
+                    onChange={(e) => handleSetupFieldChange('syncIntervalMinutes', e.target.value)}
+                  />
+                  <small>Source: {formatSourceLabel(setupState?.fields?.syncIntervalMinutes, setupState)}</small>
+                  <small>Minimum 15 minutes. Lower values are clamped when saved.</small>
+                </label>
+                <label className="setup-field">
+                  <span>Sync batch size</span>
+                  <input
+                    type="number"
+                    min="1"
+                    max="25"
+                    step="1"
+                    value={setupDraft.batchSize}
+                    onChange={(e) => handleSetupFieldChange('batchSize', e.target.value)}
+                  />
+                  <small>Source: {formatSourceLabel(setupState?.fields?.batchSize, setupState)}</small>
+                  <small>Controls how many changed files are sent per sync request. Valid range: 1 to 25.</small>
+                </label>
+                <label className="setup-field">
+                  <span>Request timeout (ms)</span>
+                  <input
+                    type="number"
+                    min="1000"
+                    max="900000"
+                    step="1000"
+                    value={setupDraft.requestTimeoutMs}
+                    onChange={(e) => handleSetupFieldChange('requestTimeoutMs', e.target.value)}
+                  />
+                  <small>Source: {formatSourceLabel(setupState?.fields?.requestTimeoutMs, setupState)}</small>
+                  <small>Applies to Echo API requests. Valid range: 1,000 to 900,000 ms.</small>
                 </label>
                 <label className="setup-field setup-checkbox-field">
                   <span>Echo-only memory retrieval</span>
