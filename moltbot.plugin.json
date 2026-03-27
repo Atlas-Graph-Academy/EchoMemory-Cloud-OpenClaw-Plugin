@@ -51,7 +51,7 @@
       "syncIntervalMinutes": {
         "type": "integer",
         "default": 15,
-        "minimum": 1
+        "minimum": 15
       },
       "batchSize": {
         "type": "integer",

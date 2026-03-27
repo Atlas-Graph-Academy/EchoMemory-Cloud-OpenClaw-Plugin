@@ -46,7 +46,7 @@ Optional config:
 - `autoSync`: default `true`
 - `localUiAutoOpenOnGatewayStart`: default `true` on local desktop runs, but browser launch is skipped automatically for SSH/CI/headless sessions
 - `localUiAutoInstall`: default `true`; automatically runs `npm install` and `npm run build` for `lib/local-ui` when assets are missing
-- `syncIntervalMinutes`: default `15`
+- `syncIntervalMinutes`: default `15`, minimum `15`
 - `batchSize`: default `10`
 - `requestTimeoutMs`: default `300000`
 

@@ -90,8 +90,19 @@ function extractSourceTitleFromContent(content) {
   return truncateSourceTitle(flattened);
 }
 
+function extractFileNameStem(filePath) {
+  const normalized = normalizeText(filePath).replace(/\\/g, '/');
+  if (!normalized) return '';
+  const fileName = normalized.split('/').pop() || '';
+  return fileName.replace(/\.[^.]+$/, '').trim();
+}
+
 function sourceDisplayTitle(source) {
   const sourceKey = normalizeText(source?.source).toLowerCase();
+  const fileStem = extractFileNameStem(source?.file_path || source?.filePath);
+  if (sourceKey.includes('openclaw') && fileStem) {
+    return fileStem;
+  }
   if (sourceKey.includes('mcp') && normalizeText(source?.section_title)) {
     return normalizeText(source.section_title).split(/\s+/).slice(0, 10).join(' ');
   }
@@ -100,6 +111,7 @@ function sourceDisplayTitle(source) {
   const contentTitle = extractSourceTitleFromContent(source?.content || '');
   if (contentTitle) return contentTitle;
   if (doorTitle) return doorTitle;
+  if (fileStem) return fileStem;
   if (isSyntheticSource(source)) return 'Conversation Source';
   return 'Untitled source';
 }
