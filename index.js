@@ -67,6 +67,52 @@ function parseCommandArgs(rawArgs) {
   };
 }
 
+function formatCommandErrorText(action, error, commandLabel) {
+  const message = String(error?.message ?? error);
+
+  switch (action) {
+    case "view":
+      return [
+        "Echo memory local UI unavailable.",
+        message,
+        `Fallback: run \`${commandLabel} view\` after fixing the local-ui install/build issue.`,
+      ].join("\n");
+    case "whoami":
+      return [
+        "Echo identity unavailable.",
+        message,
+        "Ensure the API key is configured and valid.",
+      ].join("\n");
+    case "search":
+      return [
+        "Echo memory search unavailable.",
+        message,
+        "Ensure the API key includes memory read access, such as `memory:read` or `mcp:tools`.",
+      ].join("\n");
+    case "sync":
+      return [
+        "Echo memory sync unavailable.",
+        message,
+      ].join("\n");
+    case "graph":
+      return [
+        "Echo memory graph link unavailable.",
+        message,
+      ].join("\n");
+    case "status":
+      return [
+        "Echo memory status unavailable.",
+        message,
+      ].join("\n");
+    default:
+      return [
+        "Echo memory command unavailable.",
+        message,
+        `Run \`${commandLabel} help\` for available commands.`,
+      ].join("\n");
+  }
+}
+
 export default {
   id: "echo-memory-cloud-openclaw-plugin",
   name: "Echo Memory Cloud OpenClaw Plugin",
@@ -171,6 +217,13 @@ export default {
         && String(cfg.apiKey || "").trim().length > 0;
     }
 
+    function isEchoCloudVerifiedForEchoOnlyMemoryMode() {
+      return hasEchoCloudConfiguration()
+        && cloudAccessState.connected === true
+        && cloudAccessState.checkedAt > 0
+        && (Date.now() - cloudAccessState.checkedAt) < ECHO_ONLY_MEMORY_AUTH_TTL_MS;
+    }
+
     async function isEchoCloudReadyForEchoOnlyMemoryMode() {
       if (!hasEchoCloudConfiguration()) {
         cloudAccessState.apiKey = null;
@@ -259,14 +312,22 @@ export default {
           "If the user reports permission, privacy, authorization, or tool-access restrictions while using Echo Memory in OpenClaw, tell them to set `tools.profile` to `full` in `~/.openclaw/openclaw.json` and restart the gateway.",
           "If the user asks how to make EchoMemory fully replace OpenClaw default memory retrieval, tell them to add `\"tools\": { \"deny\": [\"memory_search\", \"memory_get\"] }` to `~/.openclaw/openclaw.json` and restart the gateway.",
         ];
-        if (isEchoOnlyMemoryToggleEnabled()) {
+        if (isEchoCloudVerifiedForEchoOnlyMemoryMode()) {
           prependSystemContext.push(
-            "When Echo-only memory retrieval is enabled, NEVER call `memory_search` or `memory_get`. They are blocked and will fail.",
+            "Echo-only memory retrieval is active and verified. NEVER call `memory_search` or `memory_get`. They are blocked and will fail.",
             "For any request about prior facts, plans, decisions, dates, people, preferences, or past work, ALWAYS call `echo_memory_search` first.",
             "Use `echo_memory_search` for time-based recall too, including inputs like `October 2025`, `2025 October`, `last year`, `this year`, `last month`, or `2025-10-01 to 2025-10-31`.",
           );
           appendSystemContext.push(
-            "When Echo-only memory retrieval is enabled and Echo cloud access is available, do not call `memory_search` or `memory_get`; use `echo_memory_search` instead.",
+            "Echo-only memory retrieval is currently active because Echo cloud access is verified. Do not call `memory_search` or `memory_get`; use `echo_memory_search` instead.",
+          );
+        } else if (hasEchoCloudConfiguration()) {
+          prependSystemContext.push(
+            "Echo-only memory retrieval is configured. Prefer `echo_memory_search` first for memory-dependent requests.",
+            "If Echo cloud access is not currently verified or `echo_memory_search` is unavailable, local memory tools may still remain available until verification succeeds.",
+          );
+          appendSystemContext.push(
+            "Prefer `echo_memory_search` for memory-dependent requests when Echo-only retrieval is configured, but do not assume `memory_search` or `memory_get` are blocked unless Echo cloud access is verified.",
           );
         }
         return {
@@ -460,127 +521,132 @@ export default {
         handler: async (ctx) => {
           const { action, actionArgs } = parseCommandArgs(ctx.args);
           const commandLabel = resolveCommandLabel(ctx.channel);
-
-          if (action === "view") {
-            const { url, openedInBrowser } = await ensureLocalUi({
-              openInBrowser: true,
-              trigger: "command",
-            });
-            return {
-              text: [
-                `Open your workspace: ${url}`,
-                openedInBrowser
-                  ? "The default browser was opened on this machine."
-                  : "Open the URL manually if the browser did not launch automatically.",
-                "",
-                "This local UI reads your markdown files directly on localhost. All files stay local until you choose to sync.",
-                `For EchoMemory account signup or plugin onboarding, run ${commandLabel} onboard.`,
-              ].join("\n"),
-            };
-          }
-
-          if (action === "help") {
-            return {
-              text: [
-                "Echo Memory commands:",
-                "",
-                `${commandLabel} onboard`,
-                `${commandLabel} view`,
-                `${commandLabel} status`,
-                `${commandLabel} search <query>`,
-                `${commandLabel} graph`,
-                `${commandLabel} graph public`,
-                `${commandLabel} sync`,
-                `${commandLabel} whoami`,
-                `${commandLabel} help`,
-              ].join("\n"),
-            };
-          }
-
-          if (action === "whoami") {
-            const whoami = await client.whoami();
-            return {
-              text: [
-                "Echo identity:",
-                `- user_id: ${whoami.user_id}`,
-                `- token_type: ${whoami.token_type}`,
-                `- scopes: ${Array.isArray(whoami.scopes) ? whoami.scopes.join(", ") : "(none)"}`,
-              ].join("\n"),
-            };
-          }
-
-          if (action === "onboard") {
-            const guide = buildOnboardingText({
-              commandLabel,
-              cfg,
-            });
-            return { text: guide.text };
-          }
-
-          if (action === "sync") {
-            const result = await syncRunner.runSync("manual");
-            return { text: formatStatusText(result) };
-          }
-
-          if (action === "search") {
-            if (!actionArgs) {
+          try {
+            if (action === "view") {
+              const { url, openedInBrowser } = await ensureLocalUi({
+                openInBrowser: true,
+                trigger: "command",
+              });
               return {
                 text: [
-                  "Missing search query.",
-                  `Usage: ${commandLabel} search <query>`,
+                  `Open your workspace: ${url}`,
+                  openedInBrowser
+                    ? "The default browser was opened on this machine."
+                    : "Open the URL manually if the browser did not launch automatically.",
+                  "",
+                  "This local UI reads your markdown files directly on localhost. All files stay local until you choose to sync.",
+                  `For EchoMemory account signup or plugin onboarding, run ${commandLabel} onboard.`,
                 ].join("\n"),
               };
             }
 
-            const payload = await client.searchMemories({
-              query: actionArgs,
-              similarityThreshold: 0.3,
-            });
-            return {
-              text: formatSearchResultsText(actionArgs, payload),
-            };
-          }
-
-          if (action === "graph") {
-            const graphMode = String(actionArgs || "").trim().toLowerCase();
-
-            if (!graphMode || graphMode === "private") {
-              const url = buildPrivateGraphLoginUrl(cfg);
+            if (action === "help") {
               return {
                 text: [
-                  "Log in again to open your private memory graph:",
-                  url,
-                  "This intentionally requires a fresh web login for security.",
-                ].filter(Boolean).join("\n"),
-              };
-            }
-
-            if (graphMode === "public") {
-              return {
-                text: [
-                  "Open the public memory page:",
-                  `${cfg.webBaseUrl}/memories`,
+                  "Echo Memory commands:",
+                  "",
+                  `${commandLabel} onboard`,
+                  `${commandLabel} view`,
+                  `${commandLabel} status`,
+                  `${commandLabel} search <query>`,
+                  `${commandLabel} graph`,
+                  `${commandLabel} graph public`,
+                  `${commandLabel} sync`,
+                  `${commandLabel} whoami`,
+                  `${commandLabel} help`,
                 ].join("\n"),
               };
             }
 
+            if (action === "whoami") {
+              const whoami = await client.whoami();
+              return {
+                text: [
+                  "Echo identity:",
+                  `- user_id: ${whoami.user_id}`,
+                  `- token_type: ${whoami.token_type}`,
+                  `- scopes: ${Array.isArray(whoami.scopes) ? whoami.scopes.join(", ") : "(none)"}`,
+                ].join("\n"),
+              };
+            }
+
+            if (action === "onboard") {
+              const guide = buildOnboardingText({
+                commandLabel,
+                cfg,
+              });
+              return { text: guide.text };
+            }
+
+            if (action === "sync") {
+              const result = await syncRunner.runSync("manual");
+              return { text: formatStatusText(result) };
+            }
+
+            if (action === "search") {
+              if (!actionArgs) {
+                return {
+                  text: [
+                    "Missing search query.",
+                    `Usage: ${commandLabel} search <query>`,
+                  ].join("\n"),
+                };
+              }
+
+              const payload = await client.searchMemories({
+                query: actionArgs,
+                similarityThreshold: 0.3,
+              });
+              return {
+                text: formatSearchResultsText(actionArgs, payload),
+              };
+            }
+
+            if (action === "graph") {
+              const graphMode = String(actionArgs || "").trim().toLowerCase();
+
+              if (!graphMode || graphMode === "private") {
+                const url = buildPrivateGraphLoginUrl(cfg);
+                return {
+                  text: [
+                    "Log in again to open your private memory graph:",
+                    url,
+                    "This intentionally requires a fresh web login for security.",
+                  ].filter(Boolean).join("\n"),
+                };
+              }
+
+              if (graphMode === "public") {
+                return {
+                  text: [
+                    "Open the public memory page:",
+                    `${cfg.webBaseUrl}/memories`,
+                  ].join("\n"),
+                };
+              }
+
+              return {
+                text: [
+                  "Unknown graph mode.",
+                  `Usage: ${commandLabel} graph`,
+                  `Usage: ${commandLabel} graph public`,
+                ].join("\n"),
+              };
+            }
+
+            const [localState, remoteStatus] = await Promise.all([
+              readLastSyncState(syncRunner.getStatePath()),
+              client.getImportStatus().catch(() => null),
+            ]);
+
             return {
-              text: [
-                "Unknown graph mode.",
-                `Usage: ${commandLabel} graph`,
-                `Usage: ${commandLabel} graph public`,
-              ].join("\n"),
+              text: formatStatusText(localState, remoteStatus),
+            };
+          } catch (error) {
+            return {
+              text: formatCommandErrorText(action, error, commandLabel),
             };
           }
-
-          const [localState, remoteStatus] = await Promise.all([
-            readLastSyncState(syncRunner.getStatePath()),
-            client.getImportStatus().catch(() => null),
-          ]);
-
-          return {
-            text: formatStatusText(localState, remoteStatus),
-          };
         },
       });
     }
