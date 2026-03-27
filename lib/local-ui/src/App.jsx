@@ -7,6 +7,7 @@ import {
   fetchFiles,
   fetchAllContents,
   fetchFileContent,
+  saveFileContent,
   fetchAuthStatus,
   fetchSyncStatus,
   fetchBackendSources,
@@ -690,6 +691,34 @@ export default function App() {
     [files, readingPath],
   );
 
+  const handleReadingSave = useCallback(async (nextContent) => {
+    if (!readingPath) {
+      throw new Error('No file selected');
+    }
+
+    const result = await saveFileContent(readingPath, nextContent);
+    const nextFile = result?.file || null;
+    const savedContent = typeof result?.content === 'string' ? result.content : nextContent;
+
+    setReadingContent(savedContent);
+    setContentMap((prev) => {
+      const next = new Map(prev || []);
+      next.set(readingPath, savedContent);
+      return next;
+    });
+    if (nextFile?.relativePath) {
+      setFiles((prev) => prev.map((file) => (
+        file.relativePath === nextFile.relativePath ? nextFile : file
+      )));
+    }
+
+    try {
+      await loadSyncStatus();
+    } catch {
+      // The local write already succeeded; allow SSE or the next poll to refresh sync state.
+    }
+  }, [loadSyncStatus, readingPath]);
+
   useEffect(() => {
     if (journalViewMode === 'all' && expandedJournalGroup) {
       setExpandedJournalGroup(null);
@@ -1016,8 +1045,9 @@ export default function App() {
       {readingPath ? (
         <ReadingPanel
           path={readingPath}
-          content={readingContent ?? contentMap?.get(readingPath) ?? 'Loading...'}
+          content={readingContent ?? contentMap?.get(readingPath) ?? null}
           file={readingFile}
+          onSave={handleReadingSave}
           onClose={() => {
             setReadingPath(null);
             setSelectedPath(null);
