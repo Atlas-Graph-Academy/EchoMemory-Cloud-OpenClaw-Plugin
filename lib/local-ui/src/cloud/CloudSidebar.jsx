@@ -100,6 +100,7 @@ function extractFileNameStem(filePath) {
 function sourceDisplayTitle(source) {
   const sourceKey = normalizeText(source?.source).toLowerCase();
   const fileStem = extractFileNameStem(source?.file_path || source?.filePath);
+  const sectionTitle = truncateSourceTitle(source?.section_title || '');
   if (sourceKey.includes('openclaw') && fileStem) {
     return fileStem;
   }
@@ -107,11 +108,12 @@ function sourceDisplayTitle(source) {
     return normalizeText(source.section_title).split(/\s+/).slice(0, 10).join(' ');
   }
   const doorTitle = truncateSourceTitle(source?.door_title || '');
+  if (sectionTitle) return sectionTitle;
+  if (fileStem) return fileStem;
   if (doorTitle && isSyntheticSource(source)) return doorTitle;
   const contentTitle = extractSourceTitleFromContent(source?.content || '');
   if (contentTitle) return contentTitle;
   if (doorTitle) return doorTitle;
-  if (fileStem) return fileStem;
   if (isSyntheticSource(source)) return 'Conversation Source';
   return 'Untitled source';
 }
