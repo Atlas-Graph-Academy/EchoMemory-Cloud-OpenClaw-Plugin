@@ -143,8 +143,8 @@ function JournalGroupCard({ file, selected, selectMode }) {
   const countLabel = `${file._journalGroupCount} file${file._journalGroupCount === 1 ? '' : 's'}`;
   const previewNames = Array.isArray(file._journalGroupPreviewNames) ? file._journalGroupPreviewNames : [];
   const hint = file._journalGroupExpanded
-    ? `Expanded. Other ${file._journalGroupMode}s stay folded.`
-    : `Open to focus this ${file._journalGroupMode} only.`;
+    ? `Expanded. Other ${file._journalGroupMode} groups stay folded.`
+    : `Open to focus this ${file._journalGroupMode} group only.`;
 
   return (
     <>

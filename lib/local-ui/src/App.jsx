@@ -21,7 +21,7 @@ import {
 import './styles/global.css';
 
 const UI_HEARTBEAT_INTERVAL_MS = 15000;
-const JOURNAL_GROUP_PATH_PREFIX = '__journal_group__/';
+const TIME_GROUP_PATH_PREFIX = '__time_group__/';
 
 function buildLocalUiClientId() {
   if (typeof window !== 'undefined' && window.crypto?.randomUUID) {
@@ -161,7 +161,7 @@ function getFileAnchorDate(file) {
   return Number.isNaN(modified.getTime()) ? null : modified;
 }
 
-function compareJournalFiles(left, right) {
+function compareFilesByDate(left, right) {
   if (left.fileType === 'daily' && right.fileType === 'daily') {
     return right.fileName.localeCompare(left.fileName);
   }
@@ -171,21 +171,48 @@ function compareJournalFiles(left, right) {
   return new Date(right.modifiedTime) - new Date(left.modifiedTime);
 }
 
-function isJournalArchiveFile(file) {
-  if (!file || file._isSessionLog) return false;
-  if (file.clusterSectionKey) return file.clusterSectionKey === 'journal';
-  return file.fileType === 'daily' || file.fileType === 'memory';
+function fallbackSectionKey(file) {
+  const ft = file?.fileType;
+  if (ft === 'identity') return 'identity';
+  if (ft === 'long-term') return 'long-term';
+  if (ft === 'daily' || ft === 'memory') return 'journal';
+  if (ft === 'tasks' || ft === 'projects' || ft === 'research' || ft === 'skills') return 'knowledge';
+  if (String(ft || '').startsWith('agent:')) return 'system';
+  if (ft === 'config' || ft === 'private' || ft === 'other') return 'system';
+  return 'knowledge';
 }
 
-function buildJournalGroupPath(mode, groupKey) {
-  return `${JOURNAL_GROUP_PATH_PREFIX}${mode}/${groupKey}`;
+function resolveDisplaySectionKey(file) {
+  if (!file || file._isSessionLog) return 'system';
+  return file.clusterSectionKey || fallbackSectionKey(file);
 }
 
-function isJournalGroupPath(path) {
-  return typeof path === 'string' && path.startsWith(JOURNAL_GROUP_PATH_PREFIX);
+function resolveTimeGroupBucket(file) {
+  const sectionKey = resolveDisplaySectionKey(file);
+  if (sectionKey === 'system') {
+    const systemBucket = file?.fileType || file?.baseClass || 'other';
+    return {
+      sectionKey,
+      bucketKey: `system:${systemBucket}`,
+      systemBucket,
+    };
+  }
+  return {
+    sectionKey,
+    bucketKey: `section:${sectionKey}`,
+    systemBucket: null,
+  };
 }
 
-function buildJournalDisplayFiles(files, mode, expandedGroupKey) {
+function buildTimeGroupPath(mode, bucketKey, groupKey) {
+  return `${TIME_GROUP_PATH_PREFIX}${mode}/${bucketKey}/${groupKey}`;
+}
+
+function isTimeGroupPath(path) {
+  return typeof path === 'string' && path.startsWith(TIME_GROUP_PATH_PREFIX);
+}
+
+function buildTimeGroupedDisplayFiles(files, mode, expandedGroupKey) {
   if (mode === 'all') {
     return { items: files, groups: [] };
   }
@@ -194,67 +221,86 @@ function buildJournalDisplayFiles(files, mode, expandedGroupKey) {
   for (const file of files) {
     const anchorDate = getFileAnchorDate(file) || new Date(file.modifiedTime);
     if (Number.isNaN(anchorDate.getTime())) continue;
-    const meta = mode === 'week' ? getIsoWeekData(anchorDate) : getMonthData(anchorDate);
-    if (!groups.has(meta.key)) {
-      groups.set(meta.key, {
-        ...meta,
+    const timeMeta = mode === 'week' ? getIsoWeekData(anchorDate) : getMonthData(anchorDate);
+    const bucket = resolveTimeGroupBucket(file);
+    const fullKey = `${bucket.bucketKey}/${timeMeta.key}`;
+    if (!groups.has(fullKey)) {
+      groups.set(fullKey, {
+        ...bucket,
+        key: timeMeta.key,
+        fullKey,
+        path: buildTimeGroupPath(mode, bucket.bucketKey, timeMeta.key),
+        label: timeMeta.label,
+        start: timeMeta.start,
+        end: timeMeta.end,
         files: [],
         latestModifiedTime: file.modifiedTime,
       });
     }
-    const group = groups.get(meta.key);
+    const group = groups.get(fullKey);
     group.files.push(file);
     if (new Date(file.modifiedTime) > new Date(group.latestModifiedTime)) {
       group.latestModifiedTime = file.modifiedTime;
     }
   }
 
-  const orderedGroups = [...groups.values()].sort((left, right) => {
-    const delta = right.start - left.start;
-    if (delta !== 0) return delta;
-    return String(right.key).localeCompare(String(left.key));
-  });
+  const groupsByBucket = new Map();
+  for (const group of groups.values()) {
+    if (!groupsByBucket.has(group.bucketKey)) groupsByBucket.set(group.bucketKey, []);
+    groupsByBucket.get(group.bucketKey).push(group);
+  }
 
-  let journalSortOrder = 0;
   const items = [];
+  const orderedGroups = [];
 
-  for (const group of orderedGroups) {
-    const expanded = expandedGroupKey === group.key;
-    const groupFiles = [...group.files].sort(compareJournalFiles);
-    const previewNames = groupFiles.slice(0, 3).map((file) => file.fileName.replace(/\.md$/i, ''));
-    items.push({
-      fileName: group.label,
-      relativePath: buildJournalGroupPath(mode, group.key),
-      fileType: 'journal-group',
-      privacyLevel: 'safe',
-      baseClass: 'journal-group',
-      dominantCluster: 'timeline',
-      clusterLabel: mode === 'week' ? 'weekly digest' : 'monthly digest',
-      clusterSectionKey: 'journal',
-      clusterConfidence: 'high',
-      sizeBytes: groupFiles.reduce((total, file) => total + (file.sizeBytes || 0), 0),
-      modifiedTime: group.latestModifiedTime,
-      isJournalGroup: true,
-      _journalGroupKey: group.key,
-      _journalGroupLabel: group.label,
-      _journalGroupMode: mode,
-      _journalGroupExpanded: expanded,
-      _journalGroupCount: groupFiles.length,
-      _journalGroupPreviewNames: previewNames,
-      _journalGroupRangeLabel: formatDateRangeLabel(group.start, group.end),
-      _journalGroupLatestLabel: formatShortDate(group.latestModifiedTime),
-      _journalSortOrder: journalSortOrder++,
-      _visibleCount: expanded ? 0 : groupFiles.length,
+  for (const bucketGroups of groupsByBucket.values()) {
+    bucketGroups.sort((left, right) => {
+      const delta = right.start - left.start;
+      if (delta !== 0) return delta;
+      return String(right.key).localeCompare(String(left.key));
     });
 
-    if (expanded) {
-      for (const file of groupFiles) {
-        items.push({
-          ...file,
-          _journalGroupKey: group.key,
-          _journalSortOrder: journalSortOrder++,
-          _visibleCount: 1,
-        });
+    let groupSortOrder = 0;
+    for (const group of bucketGroups) {
+      const expanded = expandedGroupKey === group.fullKey;
+      const groupFiles = [...group.files].sort(compareFilesByDate);
+      const previewNames = groupFiles.slice(0, 3).map((file) => file.fileName.replace(/\.md$/i, ''));
+
+      orderedGroups.push(group);
+      items.push({
+        fileName: group.label,
+        relativePath: group.path,
+        fileType: group.systemBucket || 'time-group',
+        privacyLevel: 'safe',
+        baseClass: group.systemBucket || 'time-group',
+        dominantCluster: groupFiles[0]?.dominantCluster || null,
+        clusterLabel: mode === 'week' ? 'weekly digest' : 'monthly digest',
+        clusterSectionKey: group.sectionKey,
+        clusterConfidence: 'high',
+        sizeBytes: groupFiles.reduce((total, file) => total + (file.sizeBytes || 0), 0),
+        modifiedTime: group.latestModifiedTime,
+        isJournalGroup: true,
+        _journalGroupKey: group.fullKey,
+        _journalGroupLabel: group.label,
+        _journalGroupMode: mode,
+        _journalGroupExpanded: expanded,
+        _journalGroupCount: groupFiles.length,
+        _journalGroupPreviewNames: previewNames,
+        _journalGroupRangeLabel: formatDateRangeLabel(group.start, group.end),
+        _journalGroupLatestLabel: formatShortDate(group.latestModifiedTime),
+        _groupSortOrder: groupSortOrder++,
+        _visibleCount: expanded ? 0 : groupFiles.length,
+      });
+
+      if (expanded) {
+        for (const file of groupFiles) {
+          items.push({
+            ...file,
+            _journalGroupKey: group.fullKey,
+            _groupSortOrder: groupSortOrder++,
+            _visibleCount: 1,
+          });
+        }
       }
     }
   }
@@ -572,22 +618,12 @@ export default function App() {
   }, [annotated, contentMap, dateFrom, dateTo, searchQuery]);
 
   const journalDisplay = useMemo(() => {
-    const journalFiles = [];
-    const nonJournalFiles = [];
-    for (const file of filteredAnnotated) {
-      if (isJournalArchiveFile(file)) {
-        journalFiles.push(file);
-      } else {
-        nonJournalFiles.push(file);
-      }
-    }
-
-    const compactJournal = buildJournalDisplayFiles(journalFiles, journalViewMode, expandedJournalGroup);
+    const compactFiles = buildTimeGroupedDisplayFiles(filteredAnnotated, journalViewMode, expandedJournalGroup);
     return {
-      files: [...nonJournalFiles, ...compactJournal.items],
-      journalMatchCount: journalFiles.length,
-      journalGroupCount: compactJournal.groups.length,
-      groups: compactJournal.groups,
+      files: compactFiles.items,
+      groupedFileCount: filteredAnnotated.length,
+      journalGroupCount: compactFiles.groups.length,
+      groups: compactFiles.groups,
     };
   }, [expandedJournalGroup, filteredAnnotated, journalViewMode]);
 
@@ -595,7 +631,7 @@ export default function App() {
     () =>
       new Map(
         journalDisplay.groups.map((group) => [
-          buildJournalGroupPath(journalViewMode, group.key),
+          group.path,
           group,
         ]),
       ),
@@ -735,7 +771,7 @@ export default function App() {
 
   useEffect(() => {
     if (!expandedJournalGroup) return;
-    if (journalDisplay.groups.some((group) => group.key === expandedJournalGroup)) return;
+    if (journalDisplay.groups.some((group) => group.fullKey === expandedJournalGroup)) return;
     setExpandedJournalGroup(null);
   }, [expandedJournalGroup, journalDisplay.groups]);
 
@@ -879,7 +915,9 @@ export default function App() {
             {setupPanelsOpen.quickSetup && (
               <div className="setup-card__content">
                 <ol className="setup-steps">
-                  <li>Create an EchoMemory account.</li>
+                  <li>
+                    Create an EchoMemory account at <a href="https://iditor.com/signup/openclaw" target="_blank" rel="noopener noreferrer">https://iditor.com/signup/openclaw</a>.
+                  </li>
                   <li>Enter the 6-digit OTP sent to your email to complete login.</li>
                   <li>If this is your first login, enter referral code `openclawyay` and choose a user name to finish registration.</li>
                   <li>Open `https://www.iditor.com/api`, click `API Keys` in the upper-left area, and create a named API key.</li>
@@ -1069,28 +1107,24 @@ export default function App() {
             Clear dates
           </button>
         )}
-        {view === 'memories' && (
-          <>
-            <select
-              className="hdr-select"
-              value={journalViewMode}
-              title="Control how the journal section is grouped"
-              aria-label="Journal compact view"
-              onChange={(event) => {
-                setJournalViewMode(event.target.value);
-                setExpandedJournalGroup(null);
-              }}
-            >
-              <option value="all">View All</option>
-              <option value="month">By Month</option>
-              <option value="week">By Week</option>
-            </select>
-            {compactJournalEnabled && expandedJournalGroup && (
-              <button type="button" className="hdr-inline-btn" onClick={() => setExpandedJournalGroup(null)}>
-                Collapse {journalViewMode}
-              </button>
-            )}
-          </>
+        <select
+          className="hdr-select"
+          value={journalViewMode}
+          title="Control how files are grouped"
+          aria-label="File grouping view"
+          onChange={(event) => {
+            setJournalViewMode(event.target.value);
+            setExpandedJournalGroup(null);
+          }}
+        >
+          <option value="all">View All</option>
+          <option value="month">By Month</option>
+          <option value="week">By Week</option>
+        </select>
+        {compactJournalEnabled && expandedJournalGroup && (
+          <button type="button" className="hdr-inline-btn" onClick={() => setExpandedJournalGroup(null)}>
+            Collapse {journalViewMode}
+          </button>
         )}
         <span className="hdr-spacer" />
         <span className="hdr-meta"><b>{dateStr}</b> {timeStr}</span>
@@ -1149,11 +1183,11 @@ export default function App() {
           onCardExpand={(path) => {
             const journalGroup = journalGroupPaths.get(path);
             if (journalGroup) {
-              setExpandedJournalGroup((prev) => (prev === journalGroup.key ? null : journalGroup.key));
+              setExpandedJournalGroup((prev) => (prev === journalGroup.fullKey ? null : journalGroup.fullKey));
               setSelectedPath(path);
               return;
             }
-            if (isJournalGroupPath(path)) return;
+            if (isTimeGroupPath(path)) return;
             setReadingPath(path);
             const existing = contentMap?.get(path);
             if (existing) {
@@ -1247,9 +1281,9 @@ export default function App() {
             <span>
               <b>{visibleSectionCount}</b> smart clusters | <b>{visibleCardCount}</b> visible cards | <b>{filteredAnnotated.length}</b> matching files
             </span>
-            {compactJournalEnabled && journalDisplay.journalMatchCount > 0 && (
+            {compactJournalEnabled && journalDisplay.groupedFileCount > 0 && (
               <span>
-                <b>{compactModeLabel}</b> | <b>{journalDisplay.journalGroupCount}</b> journal groups | {expandedJournalGroup ? '1 expanded' : 'all folded'}
+                <b>{compactModeLabel}</b> | <b>{journalDisplay.journalGroupCount}</b> time groups | {expandedJournalGroup ? '1 expanded' : 'all folded'}
               </span>
             )}
             {systemFileCount > 0 && (
@@ -1259,9 +1293,16 @@ export default function App() {
             )}
           </>
         ) : (
-          <span>
-            <b>{systemFileCount}</b> system files | hidden from smart clusters
-          </span>
+          <>
+            <span>
+              <b>{systemFileCount}</b> system files | hidden from smart clusters
+            </span>
+            {compactJournalEnabled && journalDisplay.groupedFileCount > 0 && (
+              <span>
+                <b>{compactModeLabel}</b> | <b>{journalDisplay.journalGroupCount}</b> time groups | {expandedJournalGroup ? '1 expanded' : 'all folded'}
+              </span>
+            )}
+          </>
         )}
         <span className="ftr-spacer" />
         {syncResult && (
