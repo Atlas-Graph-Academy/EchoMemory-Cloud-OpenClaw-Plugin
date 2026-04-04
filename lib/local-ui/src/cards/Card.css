@@ -1,224 +1,287 @@
 .card {
   position: absolute;
-  border-radius: 4px;
-  overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.18);
-  cursor: pointer;
   display: flex;
   flex-direction: column;
-  padding: 8px 10px;
+  padding: 12px 13px 11px;
+  border-radius: 18px;
+  overflow: hidden;
+  cursor: pointer;
   contain: layout style paint;
-  /* Fade in when entering viewport from placeholder */
-  animation: cardFadeIn 0.5s ease-out both;
+  border: 1px solid rgba(74, 89, 118, 0.16);
+  box-shadow:
+    0 14px 28px rgba(5, 10, 19, 0.16),
+    0 1px 0 rgba(255, 255, 255, 0.45) inset;
+  animation: cardFadeIn 0.42s ease-out both;
+  transition:
+    transform var(--motion-fast) ease,
+    box-shadow var(--motion-fast) ease,
+    opacity var(--motion-fast) ease,
+    border-color var(--motion-fast) ease;
 }
 
 @keyframes cardFadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
+
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent 22%);
+  pointer-events: none;
+}
+
 .card:hover {
-  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  transform: translateY(-2px);
+  box-shadow:
+    0 22px 36px rgba(5, 10, 19, 0.22),
+    0 1px 0 rgba(255, 255, 255, 0.5) inset;
   z-index: 10;
 }
 
-/* ── Selected state: enlarged + highlighted ── */
 .card-selected {
-  transform: scale(1.08);
-  transform-origin: center center;
-  box-shadow: 0 8px 32px rgba(167, 139, 250, 0.35), 0 0 0 2px rgba(167, 139, 250, 0.6);
-  z-index: 50 !important;
-  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease;
+  transform: translateY(-3px);
+  border-color: rgba(146, 184, 255, 0.5);
+  box-shadow:
+    0 24px 40px rgba(8, 15, 28, 0.28),
+    0 0 0 1px rgba(146, 184, 255, 0.24) inset,
+    0 0 0 1px rgba(146, 184, 255, 0.16);
+  z-index: 40 !important;
 }
 
-/* ── Dimmed state: other cards fade when one is selected ── */
 .card-dimmed {
-  opacity: 0.35;
-  transition: opacity 0.3s ease;
+  opacity: 0.58;
 }
+
 .card-dimmed:hover {
-  opacity: 0.7;
+  opacity: 0.82;
 }
 
-/* ── Expand button (appears on selected card) ── */
-.card-expand-btn {
-  flex-shrink: 0;
-  width: 20px;
-  height: 20px;
-  border: none;
-  border-radius: 4px;
-  background: rgba(167, 139, 250, 0.2);
-  color: #a78bfa;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.15s, transform 0.15s;
-  line-height: 1;
-}
-.card-expand-btn:hover {
-  background: rgba(167, 139, 250, 0.4);
-  transform: scale(1.15);
+.card-unselectable {
+  opacity: 0.8;
 }
 
-/* ── Sync select checkbox ── */
-.card-checkbox {
-  flex-shrink: 0;
-  font-size: 14px;
-  cursor: pointer;
-  color: #999;
-  line-height: 1;
-  transition: color 0.15s;
-}
-.card-checkbox-on {
-  color: #a78bfa;
-}
-
-.card-checkbox-disabled {
-  opacity: 0.35;
-}
-
-/* LOD 0: pure rectangle, no interactivity overhead */
 .card-lod0 {
-  position: absolute;
-  border-radius: 3px;
-  contain: strict;
+  border-radius: 14px;
   pointer-events: none;
 }
 
-/* Header: name + sync stamp on same row */
 .card-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 8px;
+  min-width: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.card-title-block {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   gap: 6px;
-  flex-shrink: 0;
-  margin-bottom: 4px;
 }
 
 .card-name {
-  font: 600 11px/1.3 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font: 700 11px/1.32 var(--font-ui);
+  letter-spacing: -0.01em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  flex: 1;
+}
+
+.card-meta-row,
+.card-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   min-width: 0;
+  flex-wrap: wrap;
+}
+
+.card-header-actions {
+  flex-shrink: 0;
+  justify-content: flex-end;
+  max-width: 45%;
+}
+
+.card-checkbox {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  border-radius: 8px;
+  border: 1px solid rgba(145, 160, 184, 0.3);
+  background: rgba(255, 255, 255, 0.28);
+  color: rgba(59, 71, 91, 0.82);
+  font: 700 9px/1 var(--font-ui);
+}
+
+.card-checkbox-on {
+  border-color: rgba(146, 184, 255, 0.36);
+  background: rgba(146, 184, 255, 0.14);
+  color: #4c6ea6;
+}
+
+.card-checkbox-disabled {
+  opacity: 0.42;
+}
+
+.card-expand-btn {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border: 1px solid rgba(146, 184, 255, 0.24);
+  border-radius: 9px;
+  background: rgba(146, 184, 255, 0.14);
+  color: #4a6ca5;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform var(--motion-fast) ease, border-color var(--motion-fast) ease, background var(--motion-fast) ease;
+}
+
+.card-expand-btn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(146, 184, 255, 0.42);
+  background: rgba(146, 184, 255, 0.22);
+}
+
+.session-badge,
+.card-cluster-badge,
+.card-private-badge,
+.stamp,
+.card-warning-toggle,
+.card-journal-mode-badge,
+.card-journal-count {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0 7px;
+  border-radius: 999px;
+  font: 700 8px/1 var(--font-ui);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.session-badge {
+  flex-shrink: 0;
+  background: rgba(67, 77, 92, 0.14);
+  border: 1px solid rgba(97, 107, 122, 0.22);
+  color: #667284;
 }
 
 .card-warning-toggle {
-  flex-shrink: 0;
-  max-width: 48%;
-  display: inline-flex;
-  align-items: center;
   gap: 4px;
-  border: 1px solid rgba(160, 112, 48, 0.35);
-  border-radius: 999px;
-  background: rgba(160, 112, 48, 0.1);
+  border: 1px solid rgba(160, 112, 48, 0.22);
+  background: rgba(160, 112, 48, 0.08);
   color: #8b6128;
-  padding: 2px 6px;
-  font: 600 8px/1.1 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   cursor: pointer;
-  min-width: 0;
+  max-width: 100%;
 }
 
 .card-warning-toggle-high {
-  border-color: rgba(176, 64, 64, 0.42);
-  background: rgba(176, 64, 64, 0.1);
+  border-color: rgba(176, 64, 64, 0.24);
+  background: rgba(176, 64, 64, 0.08);
   color: #9c3d3d;
-}
-
-.card-warning-toggle__icon {
-  flex-shrink: 0;
 }
 
 .card-warning-toggle__text {
+  max-width: 8ch;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .card-private-badge {
-  flex-shrink: 0;
-  border: 1px solid rgba(156, 61, 61, 0.35);
-  border-radius: 999px;
+  border: 1px solid rgba(156, 61, 61, 0.18);
   background: rgba(156, 61, 61, 0.08);
   color: #9c3d3d;
-  padding: 2px 6px;
-  font: 700 8px/1.1 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 .card-cluster-badge {
-  flex-shrink: 0;
-  border-radius: 999px;
-  padding: 2px 6px;
-  font: 700 8px/1.1 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  letter-spacing: 0.3px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.12);
-  color: #d6d0c6;
-  max-width: 38%;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.22);
+  color: #645d57;
 }
 
 .card-cluster-badge-identity {
-  color: #fca5a5;
-  border-color: rgba(252, 165, 165, 0.28);
-  background: rgba(252, 165, 165, 0.08);
+  color: #c05f5f;
+  border-color: rgba(192, 95, 95, 0.18);
+  background: rgba(192, 95, 95, 0.08);
 }
 
 .card-cluster-badge-long-term {
-  color: #fdba74;
-  border-color: rgba(253, 186, 116, 0.28);
-  background: rgba(253, 186, 116, 0.08);
+  color: #af7b38;
+  border-color: rgba(175, 123, 56, 0.18);
+  background: rgba(175, 123, 56, 0.08);
 }
 
 .card-cluster-badge-journal {
-  color: #fde68a;
-  border-color: rgba(253, 230, 138, 0.28);
-  background: rgba(253, 230, 138, 0.08);
+  color: #9b7f1f;
+  border-color: rgba(155, 127, 31, 0.18);
+  background: rgba(155, 127, 31, 0.08);
 }
 
 .card-cluster-badge-goals {
-  color: #d6b388;
-  border-color: rgba(214, 179, 136, 0.28);
-  background: rgba(214, 179, 136, 0.08);
+  color: #8e6e4f;
+  border-color: rgba(142, 110, 79, 0.18);
+  background: rgba(142, 110, 79, 0.08);
 }
 
 .card-cluster-badge-technical {
-  color: #93c5fd;
-  border-color: rgba(147, 197, 253, 0.28);
-  background: rgba(147, 197, 253, 0.08);
+  color: #4870a9;
+  border-color: rgba(72, 112, 169, 0.18);
+  background: rgba(72, 112, 169, 0.08);
 }
 
 .card-cluster-badge-thematic {
-  color: #d8b4fe;
-  border-color: rgba(216, 180, 254, 0.28);
-  background: rgba(216, 180, 254, 0.08);
+  color: #8161b1;
+  border-color: rgba(129, 97, 177, 0.18);
+  background: rgba(129, 97, 177, 0.08);
 }
 
 .card-cluster-badge-knowledge {
-  color: #86efac;
-  border-color: rgba(134, 239, 172, 0.28);
-  background: rgba(134, 239, 172, 0.08);
+  color: #4f8a5a;
+  border-color: rgba(79, 138, 90, 0.18);
+  background: rgba(79, 138, 90, 0.08);
 }
 
 .card-cluster-badge-system {
-  color: #cbd5e1;
-  border-color: rgba(203, 213, 225, 0.28);
-  background: rgba(203, 213, 225, 0.08);
+  color: #687387;
+  border-color: rgba(104, 115, 135, 0.18);
+  background: rgba(104, 115, 135, 0.08);
 }
 
 .card-warning-panel {
-  margin-bottom: 6px;
-  border: 1px solid rgba(176, 64, 64, 0.2);
-  border-radius: 4px;
-  background: rgba(255, 248, 244, 0.92);
-  padding: 6px 8px;
-  font: 500 9px/1.35 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  position: relative;
+  z-index: 1;
+  margin-bottom: 8px;
+  padding: 8px 9px;
+  border-radius: 12px;
+  border: 1px solid rgba(176, 64, 64, 0.16);
+  background: rgba(255, 248, 244, 0.76);
   color: #6b443d;
-  pointer-events: none;
+  font: 600 9px/1.45 var(--font-ui);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
 }
 
 .card-warning-panel__header,
@@ -230,7 +293,6 @@
 }
 
 .card-warning-panel__header {
-  font-weight: 700;
   margin-bottom: 4px;
 }
 
@@ -242,83 +304,73 @@
   margin-top: 2px;
 }
 
-/* Content preview — fills remaining card space, fades out */
-.card-content {
+.card-content,
+.card-content-log {
+  position: relative;
+  z-index: 1;
   flex: 1;
   overflow: hidden;
-  font: 400 9.5px/1.45 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  letter-spacing: 0.01em;
   white-space: pre-wrap;
   word-break: break-word;
-  -webkit-mask-image: linear-gradient(to bottom, #000 60%, transparent 100%);
-  mask-image: linear-gradient(to bottom, #000 60%, transparent 100%);
-  opacity: 0.72;
+  -webkit-mask-image: linear-gradient(to bottom, #000 66%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 66%, transparent 100%);
 }
 
-/* Session log cards — subdued, de-emphasized */
-.card-session-log {
-  animation: cardFadeInLog 0.5s ease-out both;
-}
-.card-session-log:hover {
-  opacity: 0.75;
-}
-
-@keyframes cardFadeInLog {
-  from { opacity: 0; }
-  to   { opacity: 0.5; }
-}
-
-.session-badge {
-  font-size: 9px;
-  flex-shrink: 0;
+.card-content {
+  font: 400 10px/1.55 var(--font-ui);
+  letter-spacing: 0.01em;
+  opacity: 0.82;
 }
 
 .card-content-log {
-  flex: 1;
-  overflow: hidden;
-  font: 400 8px/1.35 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  color: #aaa;
-  white-space: pre-wrap;
-  word-break: break-word;
-  -webkit-mask-image: linear-gradient(to bottom, #000 40%, transparent 90%);
-  mask-image: linear-gradient(to bottom, #000 40%, transparent 90%);
-  opacity: 0.5;
+  font: 400 8.5px/1.42 var(--font-ui);
+  color: #7b8797;
+  opacity: 0.58;
+}
+
+.card-session-log {
+  opacity: 0.66;
+}
+
+.card-session-log:hover {
+  opacity: 0.82;
 }
 
 .card-journal-group {
   background:
-    linear-gradient(180deg, rgba(253, 239, 186, 0.2), rgba(245, 236, 200, 0.05)),
-    rgba(234, 234, 237, 0.98);
+    linear-gradient(180deg, rgba(255, 246, 225, 0.82), rgba(245, 235, 209, 0.94)),
+    linear-gradient(135deg, rgba(225, 181, 138, 0.18), transparent 46%) !important;
+}
+
+.card-journal-group .card-name {
+  color: #3f3528;
 }
 
 .card-journal-mode-badge,
 .card-journal-count {
-  flex-shrink: 0;
-  border: 1px solid rgba(160, 112, 48, 0.28);
-  border-radius: 999px;
+  border: 1px solid rgba(160, 112, 48, 0.18);
   background: rgba(160, 112, 48, 0.08);
   color: #8a6b2d;
-  padding: 2px 6px;
-  font: 700 8px/1.1 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  letter-spacing: 0.04em;
 }
 
 .card-journal-count {
-  color: #73624b;
-  border-color: rgba(115, 98, 75, 0.22);
-  background: rgba(115, 98, 75, 0.08);
+  color: #6f5c45;
 }
 
 .card-journal-meta {
+  position: relative;
+  z-index: 1;
   display: flex;
   justify-content: space-between;
   gap: 8px;
-  margin: 4px 0 8px;
-  font: 600 9px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  margin: 2px 0 8px;
+  font: 600 9px/1.45 var(--font-ui);
   color: #76684f;
 }
 
 .card-journal-preview {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
@@ -326,125 +378,113 @@
 }
 
 .card-journal-preview__item {
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.45);
-  border: 1px solid rgba(118, 104, 79, 0.16);
-  color: #5f543f;
-  padding: 3px 7px;
-  font: 500 8.5px/1.2 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  border-radius: 999px;
+  border: 1px solid rgba(118, 104, 79, 0.14);
+  background: rgba(255, 255, 255, 0.45);
+  color: #5f543f;
+  padding: 4px 8px;
+  font: 600 8px/1.2 var(--font-ui);
 }
 
 .card-journal-hint {
+  position: relative;
+  z-index: 1;
   margin-top: auto;
-  font: 500 9px/1.45 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   color: #6d6049;
-  opacity: 0.85;
+  font: 600 9px/1.45 var(--font-ui);
+  opacity: 0.86;
 }
 
-/* ── Stamp system — 国画印章风格 ──
-   Square, slightly tilted, ink texture, semi-transparent */
-
-/* Inline stamps (header row) */
 .stamp {
-  flex-shrink: 0;
-  font: 700 7px/1 -apple-system, sans-serif;
-  letter-spacing: 0.5px;
-  padding: 2px 5px;
-  border-radius: 1px;
-  pointer-events: none;
-  border: 1.5px solid;
-  text-transform: uppercase;
-  transform: rotate(-2deg);
-  opacity: 0.75;
-}
-
-.stamp-new {
-  color: #a07030;
-  border-color: #a07030;
-  background: rgba(160, 112, 48, 0.08);
-}
-.stamp-mod {
-  color: #a07030;
-  border-color: #a07030;
-  background: rgba(160, 112, 48, 0.08);
-}
-.stamp-synced {
-  color: #9090a0;
-  border-color: #9090a0;
-  background: rgba(144, 144, 160, 0.06);
-  opacity: 0.5;
-}
-.stamp-local {
-  color: #8d7e67;
-  border-color: #8d7e67;
-  background: rgba(141, 126, 103, 0.08);
-}
-
-.stamp-transient {
-  opacity: 0.92;
-}
-
-.stamp-queued {
-  color: #7da2d6;
-  border-color: #7da2d6;
-  background: rgba(125, 162, 214, 0.12);
-}
-
-.stamp-syncing {
-  color: #67d5c1;
-  border-color: #67d5c1;
-  background: rgba(103, 213, 193, 0.14);
-}
-
-.stamp-done {
-  color: #74c98a;
-  border-color: #74c98a;
-  background: rgba(116, 201, 138, 0.12);
-}
-
-.stamp-failed {
-  color: #e58a8a;
-  border-color: #e58a8a;
-  background: rgba(229, 138, 138, 0.14);
-}
-
-.card-unselectable {
+  border: 1px solid;
   opacity: 0.88;
 }
 
-.card-checkbox-disabled {
-  opacity: 0.35;
+.stamp-new {
+  color: #9a7639;
+  border-color: rgba(154, 118, 57, 0.24);
+  background: rgba(154, 118, 57, 0.08);
 }
 
-/* Sealed: centered overlay stamp — red ink chop style */
+.stamp-mod {
+  color: #8a6c48;
+  border-color: rgba(138, 108, 72, 0.2);
+  background: rgba(138, 108, 72, 0.08);
+}
+
+.stamp-synced {
+  color: #687387;
+  border-color: rgba(104, 115, 135, 0.18);
+  background: rgba(104, 115, 135, 0.08);
+}
+
+.stamp-local {
+  color: #786a57;
+  border-color: rgba(120, 106, 87, 0.18);
+  background: rgba(120, 106, 87, 0.08);
+}
+
+.stamp-transient {
+  opacity: 1;
+}
+
+.stamp-queued {
+  color: #587eb6;
+  border-color: rgba(88, 126, 182, 0.2);
+  background: rgba(88, 126, 182, 0.1);
+}
+
+.stamp-syncing {
+  color: #388b85;
+  border-color: rgba(56, 139, 133, 0.2);
+  background: rgba(56, 139, 133, 0.1);
+}
+
+.stamp-done {
+  color: #4b8c65;
+  border-color: rgba(75, 140, 101, 0.18);
+  background: rgba(75, 140, 101, 0.1);
+}
+
+.stamp-failed {
+  color: #af5f5f;
+  border-color: rgba(175, 95, 95, 0.2);
+  background: rgba(175, 95, 95, 0.1);
+}
+
 .stamp-overlay {
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%) rotate(-8deg);
-  font: 800 14px/1 -apple-system, 'Songti SC', 'Noto Serif SC', serif;
-  letter-spacing: 2px;
-  color: #b04040;
-  border: 2.5px solid #b04040;
-  padding: 4px 10px;
-  border-radius: 2px;
-  opacity: 0.55;
+  transform: translate(-50%, -50%) rotate(-7deg);
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 2px solid rgba(176, 64, 64, 0.45);
+  color: rgba(176, 64, 64, 0.8);
+  background: rgba(255, 245, 245, 0.26);
+  font: 800 13px/1 var(--font-ui);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
   pointer-events: none;
   white-space: nowrap;
-  text-transform: uppercase;
-}
-.stamp-overlay.stamp-sealed {
-  /* ink bleed effect */
-  text-shadow: 0 0 2px rgba(176, 64, 64, 0.3);
-  box-shadow: inset 0 0 4px rgba(176, 64, 64, 0.15);
 }
 
-/* Sealed cards: content slightly blurred to convey "do not read" */
 .card-sealed .card-content {
-  filter: blur(2px);
-  opacity: 0.4;
+  filter: blur(1.6px);
+  opacity: 0.36;
+}
+
+@media (max-width: 900px) {
+  .card {
+    border-radius: 16px;
+    padding: 11px 12px 10px;
+  }
+
+  .card-header-actions {
+    max-width: 48%;
+  }
 }

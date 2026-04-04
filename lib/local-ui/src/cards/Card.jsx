@@ -52,14 +52,14 @@ function stripMarkdown(md, maxLen = MAX_PREVIEW_CHARS) {
 const STAMP_CONFIG = {
   sealed: { label: 'SENSITIVE', cls: 'stamp-sealed' },
   new: { label: 'NEW', cls: 'stamp-new' },
-  modified: { label: 'MOD', cls: 'stamp-mod' },
+  modified: { label: 'EDIT', cls: 'stamp-mod' },
   failed: { label: 'FAILED', cls: 'stamp-failed' },
   local: { label: 'LOCAL', cls: 'stamp-local' },
-  synced: { label: 'OK', cls: 'stamp-synced' },
+  synced: { label: 'SYNC', cls: 'stamp-synced' },
 };
 
 const TRANSIENT_STAMP_CONFIG = {
-  queued: { label: 'QUEUED', cls: 'stamp-queued' },
+  queued: { label: 'QUEUE', cls: 'stamp-queued' },
   syncing: { label: 'SYNCING', cls: 'stamp-syncing' },
   done: { label: 'DONE', cls: 'stamp-done' },
   failed: { label: 'FAILED', cls: 'stamp-failed' },
@@ -234,7 +234,7 @@ export const Card = React.memo(function Card({
         <div className="card-header">
           {isJournalGroup && <span className="card-journal-mode-badge">{file._journalGroupMode === 'week' ? 'WEEK' : 'MONTH'}</span>}
           {isLog && <span className="session-badge">LOG</span>}
-          <div className="card-name" style={{ color: isLog ? '#999' : pal.text }}>
+          <div className="card-name" style={{ color: isJournalGroup ? '#3f3528' : isLog ? '#999' : pal.text }}>
             {isJournalGroup ? file._journalGroupLabel || displayName : displayName}
           </div>
           {isJournalGroup ? (
@@ -283,18 +283,23 @@ export const Card = React.memo(function Card({
         <JournalGroupCard file={file} selected={selected} selectMode={selectMode} />
       ) : (
         <>
-          <div className="card-header">
-            {selectMode && (
-              <span className={`card-checkbox ${checked ? 'card-checkbox-on' : ''} ${selectable === false ? 'card-checkbox-disabled' : ''}`} data-checkbox="true">
-                {checked ? '[x]' : '[ ]'}
-              </span>
-            )}
-            {isLog && <span className="session-badge">LOG</span>}
+        <div className="card-header">
+          {selectMode && (
+            <span className={`card-checkbox ${checked ? 'card-checkbox-on' : ''} ${selectable === false ? 'card-checkbox-disabled' : ''}`} data-checkbox="true">
+              {checked ? '[x]' : '[ ]'}
+            </span>
+          )}
+          {isLog && <span className="session-badge">LOG</span>}
+          <div className="card-title-block">
             <div className="card-name" style={{ color: isLog ? '#999' : pal.text }}>
               {displayName}
             </div>
-            <ClusterBadge file={file} />
-            <PrivateBadge file={file} />
+            <div className="card-meta-row">
+              <ClusterBadge file={file} />
+              <PrivateBadge file={file} />
+            </div>
+          </div>
+          <div className="card-header-actions">
             <WarningBadge file={file} />
             {transientStatus && effectiveStatus !== 'sealed' && <TransientStamp status={transientStatus} />}
             {effectiveStatus !== 'sealed' && <Stamp status={effectiveStatus} />}
@@ -304,6 +309,7 @@ export const Card = React.memo(function Card({
               </button>
             )}
           </div>
+        </div>
           {warningExpanded && <WarningPanel file={file} />}
           {preview && !isLog && (
             <div className="card-content" style={{ color: pal.content }}>

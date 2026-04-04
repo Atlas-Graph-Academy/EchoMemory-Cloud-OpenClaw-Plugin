@@ -15,10 +15,14 @@ import {
   triggerSyncSelected,
   connectSSE,
   fetchSetupStatus,
+  fetchPluginUpdateStatus,
   reportUiPresence,
   saveSetupConfig,
+  triggerGatewayRestart,
+  triggerPluginUpdate,
 } from './sync/api';
 import './styles/global.css';
+import pluginPkg from '../../../package.json';
 
 const UI_HEARTBEAT_INTERVAL_MS = 15000;
 const TIME_GROUP_PATH_PREFIX = '__time_group__/';
@@ -366,9 +370,15 @@ export default function App() {
   const [setupPanelsOpen, setSetupPanelsOpen] = useState({
     quickSetup: true,
     configuration: true,
+    pluginUpdates: true,
   });
   const [setupSaving, setSetupSaving] = useState(false);
   const [setupMessage, setSetupMessage] = useState(null);
+  const [pluginUpdateState, setPluginUpdateState] = useState(null);
+  const [pluginUpdateLoading, setPluginUpdateLoading] = useState(false);
+  const [pluginUpdateBusy, setPluginUpdateBusy] = useState(false);
+  const [gatewayRestartBusy, setGatewayRestartBusy] = useState(false);
+  const [pluginUpdateMessage, setPluginUpdateMessage] = useState(null);
   const [view, setView] = useState('memories');
   const [journalViewMode, setJournalViewMode] = useState('all');
   const [expandedJournalGroup, setExpandedJournalGroup] = useState(null);
@@ -426,6 +436,30 @@ export default function App() {
     }
   }, []);
 
+  const loadPluginUpdateStatus = useCallback(async () => {
+    setPluginUpdateLoading(true);
+    try {
+      const data = await fetchPluginUpdateStatus();
+      setPluginUpdateState(data);
+    } catch (error) {
+      setPluginUpdateState({
+        ok: false,
+        currentVersion: pluginPkg?.version || '',
+        latestVersion: null,
+        packageName: pluginPkg?.name || '',
+        updateAvailable: false,
+        canUpdate: false,
+        installSource: 'unknown',
+        installSourceLabel: 'Unknown',
+        updateDisabledReason: null,
+        checkedAt: new Date().toISOString(),
+        error: String(error?.message ?? error),
+      });
+    } finally {
+      setPluginUpdateLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     const sendPresence = (active = true) => reportUiPresence({
       clientId: clientIdRef.current,
@@ -465,6 +499,7 @@ export default function App() {
     loadSyncStatus();
     loadBackendSources();
     loadSetupStatus();
+    loadPluginUpdateStatus();
     const cleanup = connectSSE({
       onServerConnected: (event) => {
         const nextServerInstanceId = event?.serverInstanceId;
@@ -564,7 +599,7 @@ export default function App() {
       },
     });
     return cleanup;
-  }, [loadAuthStatus, loadBackendSources, loadFiles, loadSetupStatus, loadSyncStatus]);
+  }, [loadAuthStatus, loadBackendSources, loadFiles, loadPluginUpdateStatus, loadSetupStatus, loadSyncStatus]);
 
   useEffect(() => {
     setExpandedWarnings((prev) => {
@@ -845,6 +880,36 @@ export default function App() {
     }
   }, [loadAuthStatus, loadBackendSources, loadSetupStatus, loadSyncStatus, setupDraft]);
 
+  const handlePluginUpdate = useCallback(async () => {
+    setPluginUpdateBusy(true);
+    setPluginUpdateMessage(null);
+    try {
+      const result = await triggerPluginUpdate();
+      setPluginUpdateMessage({ ok: true, text: result.message || 'Plugin updated successfully.' });
+      await loadPluginUpdateStatus();
+    } catch (error) {
+      setPluginUpdateMessage({ ok: false, text: String(error?.message ?? error) });
+    } finally {
+      setPluginUpdateBusy(false);
+    }
+  }, [loadPluginUpdateStatus]);
+
+  const handleGatewayRestart = useCallback(async () => {
+    setGatewayRestartBusy(true);
+    setPluginUpdateMessage(null);
+    try {
+      const result = await triggerGatewayRestart();
+      setPluginUpdateMessage({
+        ok: true,
+        text: result.message || 'Triggered openclaw gateway restart. This page may reconnect automatically.',
+      });
+    } catch (error) {
+      setPluginUpdateMessage({ ok: false, text: String(error?.message ?? error) });
+    } finally {
+      setGatewayRestartBusy(false);
+    }
+  }, []);
+
   const dateStr = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   const hasApiKey = Boolean(setupDraft.apiKey);
@@ -868,6 +933,15 @@ export default function App() {
           ? 'No files fall inside the selected time range.'
           : 'No files available.';
   const compactModeLabel = journalViewMode === 'week' ? 'Week view' : journalViewMode === 'month' ? 'Month view' : 'View all';
+  const pluginVersion = pluginPkg?.version || '';
+  const canTriggerPluginUpdate = Boolean(
+    pluginUpdateState
+    && pluginUpdateState.canUpdate !== false
+    && (
+      pluginUpdateState.updateAvailable
+      || !pluginUpdateState.latestVersion
+    ),
+  );
 
   useEffect(() => {
     if (!selectedPath || readingPath) return;
@@ -877,7 +951,9 @@ export default function App() {
 
   return (
     <div className={`app-shell ${cloudSidebarOpen ? 'app-shell--cloud-open' : ''}`}>
-      <aside className="setup-sidebar" aria-label="Echo setup">
+      <div className="app-atmosphere" />
+      <div className="app-frame">
+        <aside className="setup-sidebar" aria-label="Echo setup">
         <div className="setup-sidebar__rail">Setup</div>
         <div className="setup-sidebar__panel">
           <div className="setup-sidebar__header">
@@ -1050,166 +1126,285 @@ export default function App() {
               </div>
             )}
           </div>
+
+          <div className="setup-card setup-card--collapsible">
+            <button
+              type="button"
+              className="setup-card__summary"
+              aria-expanded={setupPanelsOpen.pluginUpdates}
+              onClick={() => toggleSetupPanel('pluginUpdates')}
+            >
+              <span className="setup-card__title">Plugin updates</span>
+            </button>
+            {setupPanelsOpen.pluginUpdates && (
+              <div className="setup-card__content">
+                <div className="setup-update-grid">
+                  <div className="setup-update-row">
+                    <span>Current version</span>
+                    <strong>{pluginUpdateState?.currentVersion ? `v${pluginUpdateState.currentVersion}` : `v${pluginVersion}`}</strong>
+                  </div>
+                  <div className="setup-update-row">
+                    <span>Latest version</span>
+                    <strong>
+                      {pluginUpdateLoading
+                        ? 'Checking...'
+                        : pluginUpdateState?.latestVersion
+                          ? `v${pluginUpdateState.latestVersion}`
+                          : 'Unavailable'}
+                    </strong>
+                  </div>
+                  <div className="setup-update-row">
+                    <span>Install source</span>
+                    <strong>{pluginUpdateState?.installSourceLabel || 'Loading...'}</strong>
+                  </div>
+                  <div className="setup-update-row">
+                    <span>Status</span>
+                    <strong>
+                      {pluginUpdateLoading
+                        ? 'Checking...'
+                        : pluginUpdateState?.error
+                          ? 'Check failed'
+                          : pluginUpdateState?.updateAvailable
+                            ? 'Update available'
+                            : pluginUpdateState?.latestVersion
+                              ? 'Up to date'
+                              : 'Check required'}
+                    </strong>
+                  </div>
+                </div>
+                {pluginUpdateState?.checkedAt && (
+                  <p className="setup-copy">Last checked: {timeAgo(pluginUpdateState.checkedAt)}</p>
+                )}
+                {pluginUpdateState?.updateDisabledReason && (
+                  <p className="setup-copy">{pluginUpdateState.updateDisabledReason}</p>
+                )}
+                {pluginUpdateState?.error && (
+                  <p className="setup-msg setup-msg--error">{pluginUpdateState.error}</p>
+                )}
+                <div className="setup-actions">
+                  <button
+                    type="button"
+                    className="setup-secondary-btn"
+                    onClick={loadPluginUpdateStatus}
+                    disabled={pluginUpdateLoading || pluginUpdateBusy || gatewayRestartBusy}
+                  >
+                    {pluginUpdateLoading ? 'Checking...' : 'Check latest'}
+                  </button>
+                  <button
+                    type="button"
+                    className="setup-secondary-btn"
+                    onClick={handlePluginUpdate}
+                    disabled={
+                      !pluginUpdateState
+                      || !canTriggerPluginUpdate
+                      || pluginUpdateLoading
+                      || pluginUpdateBusy
+                      || gatewayRestartBusy
+                    }
+                  >
+                    {pluginUpdateBusy
+                      ? 'Updating...'
+                      : pluginUpdateState?.updateAvailable
+                        ? 'Update plugin'
+                        : 'Install latest'}
+                  </button>
+                  <button
+                    type="button"
+                    className="setup-secondary-btn"
+                    onClick={handleGatewayRestart}
+                    disabled={gatewayRestartBusy || pluginUpdateBusy}
+                  >
+                    {gatewayRestartBusy ? 'Restarting...' : 'Restart gateway'}
+                  </button>
+                </div>
+                <p className="setup-copy">
+                  Update installs the published npm package via <code>openclaw plugins install {pluginUpdateState?.packageName || pluginPkg?.name}</code>.
+                  Restart the gateway afterward to load the new version.
+                </p>
+                {pluginUpdateState?.releaseUrl && (
+                  <p className="setup-copy">
+                    <a href={pluginUpdateState.releaseUrl} target="_blank" rel="noopener noreferrer">View release page</a>
+                  </p>
+                )}
+                {pluginUpdateMessage && (
+                  <p className={pluginUpdateMessage.ok ? 'setup-msg setup-msg--ok' : 'setup-msg setup-msg--error'}>
+                    {pluginUpdateMessage.text}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
         </div>
-      </aside>
+        </aside>
 
-      <div className="hdr">
-        <span className="hdr-icon">Archive</span>
-        {readingPath ? (
-          <>
-            <span className="hdr-back" onClick={() => { setReadingPath(null); setSelectedPath(null); }}>
-              Back to archive
+        <header className="hdr">
+          <div className="hdr-group hdr-group--title">
+            <span className="hdr-icon">Archive</span>
+            {readingPath ? (
+              <>
+                <span className="hdr-back" onClick={() => { setReadingPath(null); setSelectedPath(null); }}>
+                  Back to archive
+                </span>
+                <span className="hdr-title">
+                  {(readingFile?.fileName || '').replace(/\.md$/i, '')}
+                </span>
+              </>
+            ) : view === 'memories' ? (
+              <>
+                <span className="hdr-title">OpenClaw Smart Clusters</span>
+                {pluginVersion && <span className="hdr-version">v{pluginVersion}</span>}
+              </>
+            ) : (
+              <>
+                <span className="hdr-back" onClick={() => setView('memories')}>Back</span>
+                <span className="hdr-title hdr-title-system">System Files</span>
+                {pluginVersion && <span className="hdr-version">v{pluginVersion}</span>}
+              </>
+            )}
+          </div>
+
+          <div className="hdr-group hdr-group--filters">
+            <input
+              className="hdr-search"
+              type="text"
+              value={searchQuery}
+              placeholder="Search files and content"
+              onChange={(event) => setSearchQuery(event.target.value)}
+            />
+            <input
+              className="hdr-date"
+              type="date"
+              value={dateFrom}
+              title="Only show files modified on or after this date"
+              aria-label="Filter files from date"
+              onChange={(event) => setDateFrom(event.target.value)}
+            />
+            <input
+              className="hdr-date"
+              type="date"
+              value={dateTo}
+              title="Only show files modified on or before this date"
+              aria-label="Filter files to date"
+              onChange={(event) => setDateTo(event.target.value)}
+            />
+            {hasDateFilter && (
+              <button
+                type="button"
+                className="hdr-inline-btn"
+                onClick={() => {
+                  setDateFrom('');
+                  setDateTo('');
+                }}
+              >
+                Clear dates
+              </button>
+            )}
+            <select
+              className="hdr-select"
+              value={journalViewMode}
+              title="Control how files are grouped"
+              aria-label="File grouping view"
+              onChange={(event) => {
+                setJournalViewMode(event.target.value);
+                setExpandedJournalGroup(null);
+              }}
+            >
+              <option value="all">View All</option>
+              <option value="month">By Month</option>
+              <option value="week">By Week</option>
+            </select>
+            {compactJournalEnabled && expandedJournalGroup && (
+              <button type="button" className="hdr-inline-btn" onClick={() => setExpandedJournalGroup(null)}>
+                Collapse {journalViewMode}
+              </button>
+            )}
+          </div>
+
+          <div className="hdr-group hdr-group--meta">
+            <span className="hdr-meta"><b>{dateStr}</b> {timeStr}</span>
+            <span className="hdr-meta">{timeAgo(syncStatus?.lastSyncAt)}</span>
+            <span className="hdr-conn">
+              {isConnected && <span className="conn-ok">{authLabel}</span>}
+              {!isConnected && <span className="conn-off">{authLabel}</span>}
             </span>
-            <span className="hdr-title">
-              {(readingFile?.fileName || '').replace(/\.md$/i, '')}
-            </span>
-          </>
-        ) : view === 'memories' ? (
-          <span className="hdr-title">OpenClaw Smart Clusters</span>
-        ) : (
-          <>
-            <span className="hdr-back" onClick={() => setView('memories')}>Back</span>
-            <span className="hdr-title hdr-title-system">System Files</span>
-          </>
-        )}
-        <input
-          className="hdr-search"
-          type="text"
-          value={searchQuery}
-          placeholder="Search files and content"
-          onChange={(event) => setSearchQuery(event.target.value)}
-        />
-        <input
-          className="hdr-date"
-          type="date"
-          value={dateFrom}
-          title="Only show files modified on or after this date"
-          aria-label="Filter files from date"
-          onChange={(event) => setDateFrom(event.target.value)}
-        />
-        <input
-          className="hdr-date"
-          type="date"
-          value={dateTo}
-          title="Only show files modified on or before this date"
-          aria-label="Filter files to date"
-          onChange={(event) => setDateTo(event.target.value)}
-        />
-        {hasDateFilter && (
-          <button
-            type="button"
-            className="hdr-inline-btn"
-            onClick={() => {
-              setDateFrom('');
-              setDateTo('');
-            }}
-          >
-            Clear dates
-          </button>
-        )}
-        <select
-          className="hdr-select"
-          value={journalViewMode}
-          title="Control how files are grouped"
-          aria-label="File grouping view"
-          onChange={(event) => {
-            setJournalViewMode(event.target.value);
-            setExpandedJournalGroup(null);
-          }}
-        >
-          <option value="all">View All</option>
-          <option value="month">By Month</option>
-          <option value="week">By Week</option>
-        </select>
-        {compactJournalEnabled && expandedJournalGroup && (
-          <button type="button" className="hdr-inline-btn" onClick={() => setExpandedJournalGroup(null)}>
-            Collapse {journalViewMode}
-          </button>
-        )}
-        <span className="hdr-spacer" />
-        <span className="hdr-meta"><b>{dateStr}</b> {timeStr}</span>
-        <span className="hdr-meta">|</span>
-        <span className="hdr-meta">{timeAgo(syncStatus?.lastSyncAt)}</span>
-        <span className="hdr-meta">|</span>
-        <span className="hdr-conn">
-          {isConnected && <span className="conn-ok">{authLabel}</span>}
-          {!isConnected && <span className="conn-off">{authLabel}</span>}
-        </span>
-      </div>
+          </div>
+        </header>
 
-      {readingPath ? (
-        <ReadingPanel
-          path={readingPath}
-          content={readingContent ?? contentMap?.get(readingPath) ?? null}
-          file={readingFile}
-          onSave={handleReadingSave}
-          onClose={() => {
-            setReadingPath(null);
-            setSelectedPath(null);
-            setReadingContent(null);
-          }}
-        />
-      ) : files.length === 0 ? (
-        <div className="empty-state">Loading files...</div>
-      ) : filteredAnnotated.length === 0 ? (
-        <div className="empty-state">{emptyStateMessage}</div>
-      ) : (
-        <Viewport
-          key={view}
-          cards={activeLayout.cards}
-          sections={activeLayout.sections}
-          bounds={activeLayout.bounds}
-          syncStatus={syncMap}
-          syncMetaByPath={syncMetaByPath}
-          transientStatusMap={cardSyncState}
-          contentMap={contentMap}
-          expandedWarnings={expandedWarnings}
-          selectedPath={selectedPath}
-          selectMode={selectMode}
-          syncSelection={syncSelection}
-          selectablePaths={selectablePaths}
-          onWarningToggle={toggleWarningExpansion}
-          onCardClick={(path) => {
-            if (selectMode) {
-              if (path && selectablePaths.has(path)) toggleFileSelection(path);
-              return;
-            }
-            if (path === null) {
-              setSelectedPath(null);
-              return;
-            }
-            setSelectedPath((prev) => (prev === path ? null : path));
-          }}
-          onCardExpand={(path) => {
-            const journalGroup = journalGroupPaths.get(path);
-            if (journalGroup) {
-              setExpandedJournalGroup((prev) => (prev === journalGroup.fullKey ? null : journalGroup.fullKey));
-              setSelectedPath(path);
-              return;
-            }
-            if (isTimeGroupPath(path)) return;
-            setReadingPath(path);
-            const existing = contentMap?.get(path);
-            if (existing) {
-              setReadingContent(existing);
-              return;
-            }
-            setReadingContent(null);
-            fetchFileContent(path).then((result) => {
-              const content = result?.content ?? '';
-              setReadingContent(content);
-              setContentMap((prev) => {
-                const next = new Map(prev || []);
-                next.set(path, content);
-                return next;
-              });
-            });
-          }}
-        />
-      )}
+        <main className={`app-main ${readingPath ? 'app-main--reading' : ''}`}>
+          {readingPath ? (
+            <ReadingPanel
+              path={readingPath}
+              content={readingContent ?? contentMap?.get(readingPath) ?? null}
+              file={readingFile}
+              onSave={handleReadingSave}
+              onClose={() => {
+                setReadingPath(null);
+                setSelectedPath(null);
+                setReadingContent(null);
+              }}
+            />
+          ) : files.length === 0 ? (
+            <div className="empty-state">Loading files...</div>
+          ) : filteredAnnotated.length === 0 ? (
+            <div className="empty-state">{emptyStateMessage}</div>
+          ) : (
+            <Viewport
+              key={view}
+              cards={activeLayout.cards}
+              sections={activeLayout.sections}
+              bounds={activeLayout.bounds}
+              syncStatus={syncMap}
+              syncMetaByPath={syncMetaByPath}
+              transientStatusMap={cardSyncState}
+              contentMap={contentMap}
+              expandedWarnings={expandedWarnings}
+              selectedPath={selectedPath}
+              selectMode={selectMode}
+              syncSelection={syncSelection}
+              selectablePaths={selectablePaths}
+              onWarningToggle={toggleWarningExpansion}
+              onCardClick={(path) => {
+                if (selectMode) {
+                  if (path && selectablePaths.has(path)) toggleFileSelection(path);
+                  return;
+                }
+                if (path === null) {
+                  setSelectedPath(null);
+                  return;
+                }
+                setSelectedPath((prev) => (prev === path ? null : path));
+              }}
+              onCardExpand={(path) => {
+                const journalGroup = journalGroupPaths.get(path);
+                if (journalGroup) {
+                  setExpandedJournalGroup((prev) => (prev === journalGroup.fullKey ? null : journalGroup.fullKey));
+                  setSelectedPath(path);
+                  return;
+                }
+                if (isTimeGroupPath(path)) return;
+                setReadingPath(path);
+                const existing = contentMap?.get(path);
+                if (existing) {
+                  setReadingContent(existing);
+                  return;
+                }
+                setReadingContent(null);
+                fetchFileContent(path).then((result) => {
+                  const content = result?.content ?? '';
+                  setReadingContent(content);
+                  setContentMap((prev) => {
+                    const next = new Map(prev || []);
+                    next.set(path, content);
+                    return next;
+                  });
+                });
+              }}
+            />
+          )}
+        </main>
 
-      {syncProgress && (
-        <div className="sync-progress-dock">
+        {syncProgress && (
+          <div className="sync-progress-dock">
           <div className="sync-progress-top">
             <span className="sync-progress-title">
               {syncProgress.phase === 'failed'
@@ -1251,10 +1446,10 @@ export default function App() {
               Failed {basenameFromPath(syncProgress.recentFileResult.relativePath || syncProgress.currentRelativePath)}: {syncProgress.recentFileResult.lastError || 'Unknown error'}
             </div>
           )}
-        </div>
-      )}
+          </div>
+        )}
 
-      <div className="ftr">
+        <footer className="ftr">
         {selectMode ? (
           <>
             <span className="selection-copy">
@@ -1341,13 +1536,14 @@ export default function App() {
             {isConnected ? 'Explore your memories' : 'Add Echo key in Setup'}
           </a>
         )}
+        </footer>
+        <CloudSidebar
+          isConnected={isConnected}
+          apiKey={setupDraft.apiKey}
+          localApiAvailable={setupState?.capabilities?.cloudSidebarApi === true}
+          onOpenChange={setCloudSidebarOpen}
+        />
       </div>
-      <CloudSidebar
-        isConnected={isConnected}
-        apiKey={setupDraft.apiKey}
-        localApiAvailable={setupState?.capabilities?.cloudSidebarApi === true}
-        onOpenChange={setCloudSidebarOpen}
-      />
     </div>
   );
 }

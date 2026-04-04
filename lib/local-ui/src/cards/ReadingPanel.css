@@ -1,64 +1,77 @@
-/* Reading panel */
-
 .reading-panel-wrapper {
-  flex: 1;
   display: flex;
-  overflow: hidden;
-  background: #faf9f6;
-  animation: rpFadeIn 0.3s ease-out;
+  flex: 1;
+  min-height: 0;
+  padding: 14px;
+  animation: rpFadeIn var(--motion-slow) ease-out;
 }
 
 @keyframes rpFadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .reading-panel {
-  flex: 1;
   display: flex;
+  flex: 1;
   flex-direction: column;
-  max-width: 1100px;
-  margin: 0 auto;
-  width: 100%;
+  min-width: 0;
+  border-radius: 24px;
+  overflow: hidden;
+  border: 1px solid rgba(194, 214, 239, 0.1);
+  background:
+    linear-gradient(180deg, rgba(248, 244, 236, 0.96), rgba(244, 238, 228, 0.98)),
+    linear-gradient(135deg, rgba(225, 181, 138, 0.08), transparent 32%);
+  box-shadow:
+    0 26px 54px rgba(3, 8, 16, 0.24),
+    0 1px 0 rgba(255, 255, 255, 0.8) inset;
 }
 
 .rp-header {
-  flex-shrink: 0;
-  padding: 24px 32px 16px;
-  border-bottom: 1px solid #e0ddd8;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px 16px;
+  gap: 10px 16px;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid rgba(105, 91, 73, 0.12);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.32), rgba(255, 255, 255, 0)),
+    linear-gradient(180deg, rgba(247, 243, 234, 0.92), rgba(242, 236, 225, 0.84));
 }
 
 .rp-back {
-  flex-shrink: 0;
-  width: 32px;
-  height: 32px;
-  border: none;
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.06);
-  color: #666;
-  font-size: 16px;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(109, 93, 70, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.55);
+  color: #5e5143;
+  font-size: 15px;
   cursor: pointer;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s, color 0.15s;
-  margin-right: 8px;
+  transition: transform var(--motion-fast) ease, border-color var(--motion-fast) ease, background var(--motion-fast) ease;
 }
 
 .rp-back:hover {
-  background: rgba(0, 0, 0, 0.12);
-  color: #333;
+  transform: translateY(-1px);
+  border-color: rgba(109, 93, 70, 0.24);
+  background: rgba(255, 255, 255, 0.8);
 }
 
 .rp-title {
-  font: 700 24px/1.2 'Georgia', 'Noto Serif', serif;
-  color: #2a2520;
   flex: 1;
-  min-width: 0;
+  min-width: 220px;
+  color: #281f17;
+  font: 700 25px/1.16 var(--font-serif);
+  letter-spacing: -0.02em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -72,40 +85,45 @@
 }
 
 .rp-action-btn {
-  border: 1px solid #c9b99c;
+  min-height: 38px;
+  padding: 0 16px;
+  border: 1px solid rgba(113, 92, 68, 0.18);
   border-radius: 999px;
-  background: linear-gradient(135deg, #8d6b45, #6e5538);
-  color: #fffaf0;
-  font: 600 12px/1 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  letter-spacing: 0.04em;
+  background: linear-gradient(135deg, rgba(132, 104, 72, 0.96), rgba(104, 82, 59, 0.96));
+  color: #fff9f0;
+  font: 700 11px/1 var(--font-ui);
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  padding: 10px 16px;
   cursor: pointer;
-  transition: transform 0.15s ease, opacity 0.15s ease;
+  transition: transform var(--motion-fast) ease, filter var(--motion-fast) ease, opacity var(--motion-fast) ease;
 }
 
 .rp-action-btn:hover:not(:disabled) {
   transform: translateY(-1px);
+  filter: brightness(1.05);
 }
 
 .rp-action-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.52;
   cursor: default;
 }
 
 .rp-action-btn--ghost {
-  background: rgba(255, 250, 240, 0.8);
-  color: #6f5840;
+  background: rgba(255, 255, 255, 0.65);
+  color: #6a5640;
 }
 
 .rp-dirty-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 12px;
   border-radius: 999px;
   background: rgba(111, 88, 64, 0.08);
   color: #6f5840;
-  font: 600 11px/1 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  letter-spacing: 0.06em;
+  font: 700 10px/1 var(--font-ui);
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  padding: 8px 12px;
 }
 
 .rp-dirty-pill.is-dirty {
@@ -114,28 +132,27 @@
 }
 
 .rp-path {
-  font: 400 11px/1 -apple-system, sans-serif;
-  color: #a09888;
+  padding: 12px 24px 0;
+  color: #8e806e;
+  font: 500 11px/1.45 var(--font-ui);
   word-break: break-all;
-  width: 100%;
-  padding-left: 40px;
 }
 
 .rp-body {
   flex: 1;
   overflow-y: auto;
-  padding: 32px 32px 64px;
-  font: 400 16px/1.8 'Georgia', 'Noto Serif', serif;
-  color: #3a3530;
+  padding: 24px 24px 56px;
+  color: #382f28;
+  font: 400 17px/1.85 var(--font-serif);
   -webkit-font-smoothing: antialiased;
 }
 
-.rp-h1 { font-size: 28px; font-weight: 800; margin: 36px 0 14px; color: #1a1510; line-height: 1.3; }
-.rp-h2 { font-size: 22px; font-weight: 700; margin: 32px 0 12px; color: #2a2520; line-height: 1.3; border-bottom: 1px solid #e8e4df; padding-bottom: 8px; }
-.rp-h3 { font-size: 18px; font-weight: 700; margin: 24px 0 8px; color: #3a3530; line-height: 1.3; }
-.rp-h4 { font-size: 16px; font-weight: 700; margin: 20px 0 6px; color: #4a4540; line-height: 1.4; }
-.rp-h5 { font-size: 15px; font-weight: 700; margin: 16px 0 4px; color: #5a5550; }
-.rp-h6 { font-size: 13px; font-weight: 600; margin: 14px 0 4px; color: #6a6560; text-transform: uppercase; letter-spacing: 0.5px; }
+.rp-h1 { font-size: 32px; font-weight: 800; margin: 34px 0 14px; color: #1f1711; line-height: 1.22; }
+.rp-h2 { font-size: 24px; font-weight: 700; margin: 30px 0 12px; color: #2a2119; line-height: 1.28; border-bottom: 1px solid rgba(109, 93, 70, 0.12); padding-bottom: 8px; }
+.rp-h3 { font-size: 20px; font-weight: 700; margin: 24px 0 8px; color: #352b23; line-height: 1.3; }
+.rp-h4 { font-size: 17px; font-weight: 700; margin: 18px 0 6px; color: #433930; line-height: 1.35; }
+.rp-h5 { font-size: 15px; font-weight: 700; margin: 16px 0 4px; color: #574b41; }
+.rp-h6 { font-size: 12px; font-weight: 700; margin: 14px 0 4px; color: #6d6052; text-transform: uppercase; letter-spacing: 0.12em; }
 
 .rp-p {
   margin: 0 0 4px;
@@ -146,7 +163,7 @@
 }
 
 .rp-list {
-  margin: 4px 0 8px 24px;
+  margin: 6px 0 8px 24px;
   padding: 0;
 }
 
@@ -155,87 +172,98 @@
 }
 
 .rp-quote {
-  margin: 14px 0;
-  padding: 10px 20px;
-  border-left: 3px solid #c8b898;
-  background: rgba(200, 184, 152, 0.08);
+  margin: 16px 0;
+  padding: 12px 18px;
+  border-left: 3px solid #c6aa83;
+  background: rgba(198, 170, 131, 0.12);
   color: #6a6050;
   font-style: italic;
 }
 
 .rp-code-block {
-  margin: 14px 0;
+  margin: 16px 0;
   padding: 16px 18px;
-  background: #f0ede8;
-  border-radius: 6px;
+  border-radius: 14px;
+  background: rgba(237, 231, 221, 0.88);
   overflow-x: auto;
-  font: 400 13.5px/1.55 'SF Mono', 'Fira Code', 'Consolas', monospace;
-  color: #4a4540;
+  font: 400 13.5px/1.6 var(--font-mono);
+  color: #463d35;
 }
 
 .rp-inline-code {
-  background: #ede9e3;
+  background: rgba(233, 225, 214, 0.82);
   padding: 2px 6px;
-  border-radius: 3px;
-  font: 400 13.5px/1 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  border-radius: 6px;
+  font: 400 13px/1 var(--font-mono);
   color: #6a5540;
 }
 
 .rp-body a {
-  color: #7c6a4f;
+  color: #765b3d;
   text-decoration: underline;
-  text-decoration-color: rgba(124, 106, 79, 0.3);
-  transition: text-decoration-color 0.15s;
+  text-decoration-color: rgba(118, 91, 61, 0.28);
+  transition: text-decoration-color var(--motion-fast) ease;
 }
 
 .rp-body a:hover {
-  text-decoration-color: rgba(124, 106, 79, 0.8);
+  text-decoration-color: rgba(118, 91, 61, 0.7);
 }
 
 .rp-hr {
   border: none;
-  border-top: 1px solid #ddd8d0;
+  border-top: 1px solid rgba(109, 93, 70, 0.18);
   margin: 28px 0;
 }
 
 .rp-body strong {
+  color: #241c15;
   font-weight: 700;
-  color: #2a2520;
-}
-
-.rp-body em {
-  font-style: italic;
 }
 
 .rp-body del {
-  text-decoration: line-through;
-  opacity: 0.5;
+  opacity: 0.55;
+}
+
+.rp-warning,
+.rp-save-error,
+.rp-loading,
+.rp-preview-body {
+  border-radius: 18px;
 }
 
 .rp-warning {
-  max-width: 640px;
+  max-width: 760px;
   margin: 0 auto 24px;
-  border: 1px solid #d7c49a;
-  border-radius: 10px;
-  background: #fff9eb;
-  padding: 24px 26px;
-  box-shadow: 0 10px 30px rgba(130, 100, 30, 0.08);
+  border: 1px solid rgba(183, 145, 92, 0.24);
+  background: rgba(255, 248, 235, 0.86);
+  padding: 22px 24px;
+  box-shadow: 0 10px 30px rgba(130, 100, 30, 0.06);
 }
 
 .rp-warning__title {
-  font: 700 22px/1.25 'Georgia', 'Noto Serif', serif;
-  color: #7a5a1f;
   margin-bottom: 10px;
+  color: #7a5a1f;
+  font: 700 22px/1.24 var(--font-serif);
 }
 
 .rp-warning__copy {
   margin: 0 0 14px;
 }
 
+.rp-warning__privacy,
+.rp-warning__row,
+.rp-save-error,
+.rp-loading,
+.rp-pane-label,
+.rp-editor-help {
+  font-family: var(--font-ui);
+}
+
 .rp-warning__privacy {
-  font: 600 13px/1.4 -apple-system, sans-serif;
-  color: #8a6421;
   margin-bottom: 12px;
+  color: #8a6421;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .rp-warning__row {
@@ -245,25 +273,31 @@
   gap: 16px;
   padding: 8px 0;
   border-top: 1px solid rgba(138, 100, 33, 0.14);
-  font: 600 13px/1.4 -apple-system, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .rp-save-error {
-  max-width: 640px;
+  max-width: 760px;
   margin: 0 auto 20px;
-  border: 1px solid rgba(164, 63, 54, 0.22);
-  border-radius: 10px;
-  background: #fff4f1;
+  border: 1px solid rgba(164, 63, 54, 0.2);
+  background: rgba(255, 244, 241, 0.88);
   color: #8d3b32;
   padding: 14px 18px;
-  font: 600 13px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
 }
 
 .rp-loading {
-  max-width: 640px;
-  margin: 60px auto 0;
+  max-width: 760px;
+  margin: 50px auto 0;
+  padding: 20px 22px;
+  border: 1px solid rgba(109, 93, 70, 0.12);
+  background: rgba(255, 255, 255, 0.4);
   color: #817462;
-  font: 600 15px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
   text-align: center;
 }
 
@@ -282,8 +316,9 @@
 .rp-pane-label {
   margin-bottom: 10px;
   color: #7a6a58;
-  font: 600 11px/1 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  letter-spacing: 0.08em;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
@@ -291,33 +326,51 @@
   width: 100%;
   min-height: 60vh;
   resize: vertical;
-  border: 1px solid #ddd3c6;
-  border-radius: 16px;
-  background: #fffdf8;
+  border: 1px solid rgba(117, 100, 77, 0.16);
+  border-radius: 18px;
+  background: rgba(255, 253, 248, 0.96);
   color: #332c24;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
   padding: 18px 20px;
-  font: 400 14px/1.65 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  font: 400 14px/1.65 var(--font-mono);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 .rp-editor:focus {
   outline: none;
-  border-color: #b28a5a;
-  box-shadow: 0 0 0 3px rgba(178, 138, 90, 0.14);
+  border-color: rgba(178, 138, 90, 0.34);
+  box-shadow: 0 0 0 3px rgba(178, 138, 90, 0.12);
 }
 
 .rp-editor-help {
   margin-top: 10px;
   color: #8a7d6b;
-  font: 500 12px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
 }
 
 .rp-preview-body {
   min-height: 60vh;
-  border: 1px solid #e4ddd3;
-  border-radius: 16px;
-  background: rgba(255, 252, 246, 0.9);
+  border: 1px solid rgba(117, 100, 77, 0.12);
+  background: rgba(255, 252, 246, 0.84);
   padding: 18px 20px;
+}
+
+.rp-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.rp-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.rp-body::-webkit-scrollbar-thumb {
+  background: rgba(157, 145, 129, 0.6);
+  border-radius: 999px;
+}
+
+.rp-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(141, 128, 111, 0.86);
 }
 
 @media (max-width: 900px) {
@@ -332,38 +385,26 @@
 }
 
 @media (max-width: 720px) {
-  .rp-header {
-    padding: 20px 20px 14px;
+  .reading-panel-wrapper {
+    padding: 10px;
   }
 
-  .rp-body {
-    padding: 24px 20px 52px;
+  .rp-header {
+    padding: 18px 18px 14px;
   }
 
   .rp-path {
-    padding-left: 0;
+    padding-inline: 18px;
+  }
+
+  .rp-body {
+    padding: 20px 18px 44px;
   }
 
   .rp-actions {
     width: 100%;
+    margin-left: 0;
     justify-content: flex-end;
     flex-wrap: wrap;
   }
-}
-
-.rp-body::-webkit-scrollbar {
-  width: 6px;
-}
-
-.rp-body::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.rp-body::-webkit-scrollbar-thumb {
-  background: #d0ccc4;
-  border-radius: 3px;
-}
-
-.rp-body::-webkit-scrollbar-thumb:hover {
-  background: #b0aaa0;
 }

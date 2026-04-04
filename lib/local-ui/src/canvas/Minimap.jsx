@@ -8,7 +8,7 @@ import './Minimap.css';
 
 const MM_W = 180;
 const MM_H = 120;
-const TIER_COLORS = { 1: '#d4a574', 2: '#a0b4d4', 3: '#c0c0c4' };
+const TIER_COLORS = { 1: '#d8b184', 2: '#91aed8', 3: '#96a3b8' };
 
 export function Minimap({ cards, bounds, viewState, viewportRef, onNavigate }) {
   const canvasRef = useRef(null);
@@ -30,7 +30,7 @@ export function Minimap({ cards, bounds, viewState, viewportRef, onNavigate }) {
     const oy = (MM_H - bounds.h * s) / 2;
 
     // Background
-    ctx.fillStyle = 'rgba(10, 10, 15, 0.9)';
+    ctx.fillStyle = 'rgba(8, 13, 22, 0.92)';
     ctx.fillRect(0, 0, MM_W, MM_H);
 
     // Draw cards as tiny rectangles
@@ -57,7 +57,7 @@ export function Minimap({ cards, bounds, viewState, viewportRef, onNavigate }) {
       const vw = vpW / zoom;
       const vh = vpH / zoom;
 
-      ctx.strokeStyle = '#a78bfa';
+      ctx.strokeStyle = '#c3d7ff';
       ctx.lineWidth = 1.5;
       ctx.strokeRect(
         ox + vx * s,

@@ -232,34 +232,37 @@ export function Viewport({
       />
 
       <div className="viewport-controls">
-        <button type="button" className="viewport-control viewport-control-fit" onClick={fitToCanvas} title="Fit canvas">
-          Fit
-        </button>
-        <button type="button" className="viewport-control" onClick={zoomIn} title="Zoom in">
-          +
-        </button>
-        <button type="button" className="viewport-control" onClick={zoomOut} title="Zoom out">
-          -
-        </button>
-        <div className="viewport-control-pad">
-          <button type="button" className="viewport-control" onClick={() => panBy(0, 160)} title="Pan up">
-            Up
+        <div className="viewport-control-cluster">
+          <button type="button" className="viewport-control viewport-control-fit" onClick={fitToCanvas} title="Fit canvas">
+            Fit
           </button>
-          <div className="viewport-control-pad__row">
-            <button type="button" className="viewport-control" onClick={() => panBy(160, 0)} title="Pan left">
-              Left
+          <button type="button" className="viewport-control" onClick={zoomIn} title="Zoom in">
+            +
+          </button>
+          <button type="button" className="viewport-control" onClick={zoomOut} title="Zoom out">
+            -
+          </button>
+          <div className="zoom-indicator">{zoomPct}% | {renderCards.length}/{cards.length}</div>
+        </div>
+        <div className="viewport-control-cluster viewport-control-cluster--pad">
+          <div className="viewport-control-pad">
+            <button type="button" className="viewport-control" onClick={() => panBy(0, 160)} title="Pan up">
+              Up
             </button>
-            <button type="button" className="viewport-control" onClick={() => panBy(-160, 0)} title="Pan right">
-              Right
+            <div className="viewport-control-pad__row">
+              <button type="button" className="viewport-control" onClick={() => panBy(160, 0)} title="Pan left">
+                Left
+              </button>
+              <button type="button" className="viewport-control" onClick={() => panBy(-160, 0)} title="Pan right">
+                Right
+              </button>
+            </div>
+            <button type="button" className="viewport-control" onClick={() => panBy(0, -160)} title="Pan down">
+              Down
             </button>
           </div>
-          <button type="button" className="viewport-control" onClick={() => panBy(0, -160)} title="Pan down">
-            Down
-          </button>
         </div>
       </div>
-
-      <div className="zoom-indicator">{zoomPct}% | {renderCards.length}/{cards.length}</div>
     </div>
   );
 }
