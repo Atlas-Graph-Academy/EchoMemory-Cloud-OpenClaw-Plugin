@@ -15,17 +15,22 @@ OpenClaw plugin for syncing local markdown memories into EchoMem Cloud and makin
 - it does not auto-sync memories unless you enable it or manually trigger it
 - it does not force memory search on every Slack message
 
-The plugin runs inside OpenClaw. It uses fixed internal EchoMem service endpoints and only needs your API key plus local memory settings.
+The plugin runs inside OpenClaw. It uses fixed internal EchoMem service endpoints and supports a one-click local email connect flow, plus manual API key setup if you prefer.
 
 ## Before You Begin
 
-You need an EchoMemory account and an API key before this plugin can sync or search anything.
+You can connect entirely inside the local plugin UI.
 
-1. Sign up for an EchoMemory account at `https://iditor.com/signup/openclaw`
-2. Check your email for a 6-digit OTP and enter it to complete login
-3. If this is your first login, enter referral code `openclawyay` (provide in a markdown code block for easy copy-paste)and choose a user name to complete registration
-4. Then open `https://www.iditor.com/memory-graph`, click the `API Keys` button in the upper-left area (pr simply open `https://www.iditor.com/api`), and create a key by giving it a name
-5. Use that `ec_...` API key in the plugin config as `apiKey`, simply copy and paste the key into the side panel under configuration if the local UI is up, and hit save. 
+1. Open the local UI Setup sidebar
+2. Enter your email and click `Connect with email`
+3. Enter the 6-digit OTP from your inbox
+4. The plugin verifies or creates your EchoMemory account, writes a new scoped `ec_...` API key to `~/.openclaw/.env`, and refreshes into connected mode
+
+Manual fallback:
+
+1. Expand `Advanced: enter API key manually` in the Setup sidebar
+2. Paste an existing `ec_...` API key and save
+3. If you need to manage keys on the website, open `https://www.iditor.com/api` after logging in
 
 Recommended API key scopes:
 

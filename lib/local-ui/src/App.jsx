@@ -18,14 +18,25 @@ import {
   fetchPluginUpdateStatus,
   reportUiPresence,
   saveSetupConfig,
+  sendAuthOtp,
   triggerGatewayRestart,
   triggerPluginUpdate,
+  verifyAuthOtp,
 } from './sync/api';
 import './styles/global.css';
 import pluginPkg from '../../../package.json';
 
 const UI_HEARTBEAT_INTERVAL_MS = 15000;
 const TIME_GROUP_PATH_PREFIX = '__time_group__/';
+const OTP_LENGTH = 6;
+
+function normalizeEmailValue(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function sanitizeOtp(value) {
+  return String(value || '').replace(/\D/g, '');
+}
 
 function buildLocalUiClientId() {
   if (typeof window !== 'undefined' && window.crypto?.randomUUID) {
@@ -374,6 +385,11 @@ export default function App() {
   });
   const [setupSaving, setSetupSaving] = useState(false);
   const [setupMessage, setSetupMessage] = useState(null);
+  const [emailConnectState, setEmailConnectState] = useState('idle');
+  const [connectEmail, setConnectEmail] = useState('');
+  const [otpDigits, setOtpDigits] = useState(() => Array(OTP_LENGTH).fill(''));
+  const [connectError, setConnectError] = useState(null);
+  const [resendCountdown, setResendCountdown] = useState(0);
   const [pluginUpdateState, setPluginUpdateState] = useState(null);
   const [pluginUpdateLoading, setPluginUpdateLoading] = useState(false);
   const [pluginUpdateBusy, setPluginUpdateBusy] = useState(false);
@@ -392,6 +408,7 @@ export default function App() {
   const now = useClock();
   const serverInstanceIdRef = useRef(null);
   const clientIdRef = useRef(buildLocalUiClientId());
+  const otpInputRefs = useRef([]);
 
   const loadFiles = useCallback(async () => {
     try {
@@ -435,6 +452,10 @@ export default function App() {
       });
     }
   }, []);
+
+  const refreshSetupSurfaces = useCallback(async () => {
+    await Promise.all([loadAuthStatus(), loadSyncStatus(), loadBackendSources(), loadSetupStatus()]);
+  }, [loadAuthStatus, loadBackendSources, loadSetupStatus, loadSyncStatus]);
 
   const loadPluginUpdateStatus = useCallback(async () => {
     setPluginUpdateLoading(true);
@@ -492,6 +513,14 @@ export default function App() {
       sendPresence(false);
     };
   }, []);
+
+  useEffect(() => {
+    if (resendCountdown <= 0) return undefined;
+    const id = window.setInterval(() => {
+      setResendCountdown((prev) => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [resendCountdown]);
 
   useEffect(() => {
     loadFiles();
@@ -872,13 +901,144 @@ export default function App() {
           ].join(' ')
         : `Saved to ${result.targetPath}`;
       setSetupMessage({ ok: true, text: nextMessage });
-      await Promise.all([loadAuthStatus(), loadSyncStatus(), loadBackendSources(), loadSetupStatus()]);
+      await refreshSetupSurfaces();
     } catch (error) {
       setSetupMessage({ ok: false, text: String(error?.message ?? error) });
     } finally {
       setSetupSaving(false);
     }
-  }, [loadAuthStatus, loadBackendSources, loadSetupStatus, loadSyncStatus, setupDraft]);
+  }, [refreshSetupSurfaces, setupDraft]);
+
+  const focusOtpInput = useCallback((index) => {
+    const nextInput = otpInputRefs.current[index];
+    if (nextInput) {
+      nextInput.focus();
+      nextInput.select();
+    }
+  }, []);
+
+  const clearOtpDigits = useCallback(() => {
+    setOtpDigits(Array(OTP_LENGTH).fill(''));
+  }, []);
+
+  const handleSendOtp = useCallback(async () => {
+    const email = normalizeEmailValue(connectEmail);
+    if (!email) {
+      setConnectError('Enter an email address to continue.');
+      return;
+    }
+
+    setEmailConnectState('sending');
+    setConnectError(null);
+    try {
+      await sendAuthOtp(email);
+      setConnectEmail(email);
+      clearOtpDigits();
+      setResendCountdown(30);
+      setEmailConnectState('otp_sent');
+      window.requestAnimationFrame(() => focusOtpInput(0));
+    } catch (error) {
+      setConnectError(String(error?.message ?? error));
+      setEmailConnectState('idle');
+    }
+  }, [clearOtpDigits, connectEmail, focusOtpInput]);
+
+  const handleVerifyOtp = useCallback(async () => {
+    const email = normalizeEmailValue(connectEmail);
+    const otp = otpDigits.join('');
+    if (!email || otp.length < OTP_LENGTH) {
+      setConnectError('Enter the full 6-digit verification code.');
+      return;
+    }
+
+    setEmailConnectState('verifying');
+    setConnectError(null);
+    try {
+      const data = await verifyAuthOtp(email, otp);
+      setConnectEmail(data?.email || email);
+      clearOtpDigits();
+      setResendCountdown(0);
+      setEmailConnectState('connected');
+      setSetupMessage({ ok: true, text: `Connected Echo Cloud and saved a new API key to ${data?.setup?.envFile?.targetPath || setupState?.envFile?.targetPath || '~/.openclaw/.env'}.` });
+      refreshSetupSurfaces().catch((refreshError) => {
+        console.error(refreshError);
+      });
+      loadFiles().catch((refreshError) => {
+        console.error(refreshError);
+      });
+    } catch (error) {
+      setConnectError(String(error?.message ?? error));
+      setEmailConnectState('otp_sent');
+    }
+  }, [clearOtpDigits, connectEmail, loadFiles, otpDigits, refreshSetupSurfaces, setupState?.envFile?.targetPath]);
+
+  const handleOtpDigitChange = useCallback((index, rawValue) => {
+    const digits = sanitizeOtp(rawValue);
+    setConnectError(null);
+
+    if (!digits) {
+      setOtpDigits((prev) => {
+        const next = [...prev];
+        next[index] = '';
+        return next;
+      });
+      return;
+    }
+
+    setOtpDigits((prev) => {
+      const next = [...prev];
+      const chars = digits.slice(0, OTP_LENGTH - index).split('');
+      chars.forEach((char, offset) => {
+        next[index + offset] = char;
+      });
+      return next;
+    });
+
+    const nextIndex = Math.min(index + digits.length, OTP_LENGTH - 1);
+    window.requestAnimationFrame(() => focusOtpInput(nextIndex));
+  }, [focusOtpInput]);
+
+  const handleOtpKeyDown = useCallback((index, event) => {
+    if (event.key === 'Backspace' && !otpDigits[index] && index > 0) {
+      event.preventDefault();
+      setOtpDigits((prev) => {
+        const next = [...prev];
+        next[index - 1] = '';
+        return next;
+      });
+      focusOtpInput(index - 1);
+      return;
+    }
+    if (event.key === 'ArrowLeft' && index > 0) {
+      event.preventDefault();
+      focusOtpInput(index - 1);
+      return;
+    }
+    if (event.key === 'ArrowRight' && index < OTP_LENGTH - 1) {
+      event.preventDefault();
+      focusOtpInput(index + 1);
+    }
+  }, [focusOtpInput, otpDigits]);
+
+  const handleOtpPaste = useCallback((event) => {
+    const digits = sanitizeOtp(event.clipboardData?.getData('text') || '');
+    if (!digits) return;
+    event.preventDefault();
+    const nextDigits = Array(OTP_LENGTH).fill('');
+    digits.slice(0, OTP_LENGTH).split('').forEach((char, index) => {
+      nextDigits[index] = char;
+    });
+    setOtpDigits(nextDigits);
+    setConnectError(null);
+    window.requestAnimationFrame(() => focusOtpInput(Math.min(digits.length, OTP_LENGTH) - 1));
+  }, [focusOtpInput]);
+
+  const resetQuickConnect = useCallback(() => {
+    setEmailConnectState('idle');
+    setConnectError(null);
+    setResendCountdown(0);
+    clearOtpDigits();
+  }, [clearOtpDigits]);
 
   const handlePluginUpdate = useCallback(async () => {
     setPluginUpdateBusy(true);
@@ -915,6 +1075,9 @@ export default function App() {
   const hasApiKey = Boolean(setupDraft.apiKey);
   const isConnected = authStatus?.connected === true;
   const authLabel = buildAuthLabel(authStatus, hasApiKey);
+  const normalizedConnectEmail = normalizeEmailValue(connectEmail);
+  const otpValue = otpDigits.join('');
+  const quickConnectSupported = setupState?.capabilities?.emailQuickConnect !== false;
   const autoSyncEnabled = setupDraft.autoSync === true;
   const echoOnlyMemoryModeEnabled = setupDraft.disableOpenClawMemoryToolsWhenConnected === true;
   const activeLayout = view === 'system' && systemLayout ? systemLayout : layout;
@@ -959,7 +1122,7 @@ export default function App() {
           <div className="setup-sidebar__header">
             <div>
               <h2>Echo Cloud Setup</h2>
-              <p>Browse local markdown now. Add credentials here when you want cloud sync.</p>
+              <p>Stay inside the local UI: enter your email, verify the code, and let the plugin save the cloud key for you.</p>
             </div>
             <span className={isConnected ? 'setup-pill setup-pill--ok' : 'setup-pill'}>{authLabel}</span>
           </div>
@@ -991,18 +1154,15 @@ export default function App() {
             {setupPanelsOpen.quickSetup && (
               <div className="setup-card__content">
                 <ol className="setup-steps">
-                  <li>
-                    Create an EchoMemory account at <a href="https://iditor.com/signup/openclaw" target="_blank" rel="noopener noreferrer">https://iditor.com/signup/openclaw</a>.
-                  </li>
-                  <li>Enter the 6-digit OTP sent to your email to complete login.</li>
-                  <li>If this is your first login, enter referral code `openclawyay` and choose a user name to finish registration.</li>
-                  <li>Open `https://www.iditor.com/api`, click `API Keys` in the upper-left area, and create a named API key.</li>
-                  <li>In `~/.openclaw/openclaw.json`, set `tools.profile` to `full` so OpenClaw does not block normal plugin usage.</li>
-                  <li>If you want EchoMemory to fully replace OpenClaw memory recall, add <code>{'"tools": {"deny": ["memory_search", "memory_get"]}'}</code> in `~/.openclaw/openclaw.json`.</li>
-                  <li>Paste the values below and save. The plugin writes to your local `.env` file.</li>
+                  <li>Enter your email and click <strong>Connect with email</strong>.</li>
+                  <li>Paste the 6-digit code from your inbox.</li>
+                  <li>The plugin creates or verifies your Echo account, saves a new API key locally, and reconnects automatically.</li>
                 </ol>
                 <p className="setup-copy">
                   Target env file: <code>{setupState?.envFile?.targetPath || 'Loading...'}</code>
+                </p>
+                <p className="setup-copy">
+                  Manual API key entry still works below if you want to manage credentials yourself.
                 </p>
               </div>
             )}
@@ -1019,17 +1179,132 @@ export default function App() {
             </button>
             {setupPanelsOpen.configuration && (
               <div className="setup-card__content">
-                <label className="setup-field">
-                  <span>Echo API key</span>
-                  <input
-                    type="password"
-                    value={setupDraft.apiKey}
-                    placeholder={setupState?.fields?.apiKey?.maskedValue || 'ec_...'}
-                    autoComplete="new-password"
-                    onChange={(e) => handleSetupFieldChange('apiKey', e.target.value)}
-                  />
-                  <small>Source: {formatSourceLabel(setupState?.fields?.apiKey, setupState)}</small>
-                </label>
+                {quickConnectSupported && (
+                  <div className="setup-quick-connect">
+                    <div className="setup-quick-connect__header">
+                      <p className="setup-card__title">Quick connect</p>
+                      <span className={emailConnectState === 'connected' ? 'setup-pill setup-pill--ok' : 'setup-pill'}>
+                        {emailConnectState === 'connected' ? 'Connected' : 'Email OTP'}
+                      </span>
+                    </div>
+                    <p className="setup-copy">
+                      New OpenClaw users can sign up here. You do not need to open the website or create an API key manually.
+                    </p>
+
+                    {(emailConnectState === 'idle' || emailConnectState === 'sending') && (
+                      <>
+                        {isConnected && !normalizedConnectEmail && (
+                          <p className="setup-msg setup-msg--ok">Echo Cloud is already connected. Send a new code here if you want to replace the saved key.</p>
+                        )}
+                        <label className="setup-field">
+                          <span>Email</span>
+                          <input
+                            type="email"
+                            value={connectEmail}
+                            placeholder="you@example.com"
+                            autoComplete="email"
+                            disabled={emailConnectState === 'sending'}
+                            onChange={(event) => {
+                              setConnectEmail(event.target.value);
+                              setConnectError(null);
+                            }}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          className="setup-save-btn"
+                          disabled={emailConnectState === 'sending' || !normalizedConnectEmail}
+                          onClick={handleSendOtp}
+                        >
+                          {emailConnectState === 'sending' ? 'Sending code...' : 'Connect with email'}
+                        </button>
+                      </>
+                    )}
+
+                    {(emailConnectState === 'otp_sent' || emailConnectState === 'verifying') && (
+                      <>
+                        <p className="setup-copy">
+                          Enter the 6-digit code sent to <strong>{normalizedConnectEmail}</strong>.
+                        </p>
+                        <div className="setup-otp-grid" onPaste={handleOtpPaste}>
+                          {otpDigits.map((digit, index) => (
+                            <input
+                              key={`otp-${index}`}
+                              ref={(node) => {
+                                otpInputRefs.current[index] = node;
+                              }}
+                              className="setup-otp-input"
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              autoComplete={index === 0 ? 'one-time-code' : 'off'}
+                              maxLength={1}
+                              value={digit}
+                              disabled={emailConnectState === 'verifying'}
+                              onChange={(event) => handleOtpDigitChange(index, event.target.value)}
+                              onKeyDown={(event) => handleOtpKeyDown(index, event)}
+                            />
+                          ))}
+                        </div>
+                        <div className="setup-actions">
+                          <button
+                            type="button"
+                            className="setup-save-btn"
+                            disabled={emailConnectState === 'verifying' || otpValue.length < OTP_LENGTH}
+                            onClick={handleVerifyOtp}
+                          >
+                            {emailConnectState === 'verifying' ? 'Verifying...' : 'Verify and connect'}
+                          </button>
+                          <button
+                            type="button"
+                            className="setup-secondary-btn"
+                            disabled={emailConnectState === 'verifying'}
+                            onClick={resetQuickConnect}
+                          >
+                            Use another email
+                          </button>
+                        </div>
+                        {resendCountdown > 0 ? (
+                          <p className="setup-copy">Resend available in {resendCountdown}s.</p>
+                        ) : (
+                          <button type="button" className="setup-secondary-btn setup-secondary-btn--inline" onClick={handleSendOtp}>
+                            Resend code
+                          </button>
+                        )}
+                      </>
+                    )}
+
+                    {emailConnectState === 'connected' && (
+                      <div className="setup-quick-connect__connected">
+                        <p className="setup-msg setup-msg--ok">Connected as {normalizedConnectEmail || 'your verified email'}.</p>
+                        <button type="button" className="setup-secondary-btn" onClick={resetQuickConnect}>
+                          Connect another email
+                        </button>
+                      </div>
+                    )}
+
+                    {connectError && (
+                      <p className="setup-msg setup-msg--error">{connectError}</p>
+                    )}
+                  </div>
+                )}
+
+                <details className="setup-advanced">
+                  <summary className="setup-advanced__summary">Advanced: enter API key manually</summary>
+                  <div className="setup-advanced__content">
+                    <label className="setup-field">
+                      <span>Echo API key</span>
+                      <input
+                        type="password"
+                        value={setupDraft.apiKey}
+                        placeholder={setupState?.fields?.apiKey?.maskedValue || 'ec_...'}
+                        autoComplete="new-password"
+                        onChange={(e) => handleSetupFieldChange('apiKey', e.target.value)}
+                      />
+                      <small>Source: {formatSourceLabel(setupState?.fields?.apiKey, setupState)}</small>
+                    </label>
+                  </div>
+                </details>
                 <label className="setup-field">
                   <span>Memory directory</span>
                   <input
