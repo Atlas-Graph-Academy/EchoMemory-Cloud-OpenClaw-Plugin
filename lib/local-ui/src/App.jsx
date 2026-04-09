@@ -1097,6 +1097,7 @@ export default function App() {
           : 'No files available.';
   const compactModeLabel = journalViewMode === 'week' ? 'Week view' : journalViewMode === 'month' ? 'Month view' : 'View all';
   const pluginVersion = pluginPkg?.version || '';
+  const displayPluginVersion = pluginUpdateState?.currentVersion || pluginVersion;
   const canTriggerPluginUpdate = Boolean(
     pluginUpdateState
     && pluginUpdateState.canUpdate !== false
@@ -1527,13 +1528,13 @@ export default function App() {
             ) : view === 'memories' ? (
               <>
                 <span className="hdr-title">OpenClaw Smart Clusters</span>
-                {pluginVersion && <span className="hdr-version">v{pluginVersion}</span>}
+                {displayPluginVersion && <span className="hdr-version">v{displayPluginVersion}</span>}
               </>
             ) : (
               <>
                 <span className="hdr-back" onClick={() => setView('memories')}>Back</span>
                 <span className="hdr-title hdr-title-system">System Files</span>
-                {pluginVersion && <span className="hdr-version">v{pluginVersion}</span>}
+                {displayPluginVersion && <span className="hdr-version">v{displayPluginVersion}</span>}
               </>
             )}
           </div>
