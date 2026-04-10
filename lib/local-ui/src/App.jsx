@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Viewport } from './canvas/Viewport';
 import { ReadingPanel } from './cards/ReadingPanel';
 import { CloudSidebar } from './cloud/CloudSidebar';
+import { Coachmark } from './onboarding/Coachmark';
+import { buildTourSteps, ONBOARDING_STORAGE_KEY } from './onboarding/steps';
 import { computeLayout, computeSystemLayout, getTier, isSessionLog } from './layout/masonry';
 import {
   fetchFiles,
@@ -43,6 +45,26 @@ function buildLocalUiClientId() {
     return window.crypto.randomUUID();
   }
   return `local-ui-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function readOnboardingStorage() {
+  if (typeof window === 'undefined') {
+    return { completed: false, dismissed: false };
+  }
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(ONBOARDING_STORAGE_KEY) || '{}');
+    return {
+      completed: parsed.completed === true,
+      dismissed: parsed.dismissed === true,
+    };
+  } catch {
+    return { completed: false, dismissed: false };
+  }
+}
+
+function writeOnboardingStorage(nextState) {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify(nextState));
 }
 
 function useClock() {
@@ -398,6 +420,13 @@ export default function App() {
   const [pluginUpdateMessage, setPluginUpdateMessage] = useState(null);
   const [view, setView] = useState('memories');
   const [journalViewMode, setJournalViewMode] = useState('all');
+  const [onboarding, setOnboarding] = useState(() => ({
+    active: false,
+    stepIndex: 0,
+    ...readOnboardingStorage(),
+  }));
+  const [tourTargetElement, setTourTargetElement] = useState(null);
+  const [forcedCloudTab, setForcedCloudTab] = useState('memories');
   const [expandedJournalGroup, setExpandedJournalGroup] = useState(null);
   const [selectedPath, setSelectedPath] = useState(null);
   const [readingPath, setReadingPath] = useState(null);
@@ -799,6 +828,20 @@ export default function App() {
     () => files.find((file) => file.relativePath === readingPath) || null,
     [files, readingPath],
   );
+  const hasApiKey = Boolean(setupDraft.apiKey);
+  const isConnected = authStatus?.connected === true;
+  const autoSyncEnabled = setupDraft.autoSync === true;
+  const echoOnlyMemoryModeEnabled = setupDraft.disableOpenClawMemoryToolsWhenConnected === true;
+  const activeLayout = view === 'system' && systemLayout ? systemLayout : layout;
+  const representativeCardPath = useMemo(
+    () => activeLayout?.cards?.find((card) => !isTimeGroupPath(card.key))?.key || activeLayout?.cards?.[0]?.key || null,
+    [activeLayout],
+  );
+  const tourSteps = useMemo(
+    () => buildTourSteps({ isConnected, pendingCount }),
+    [isConnected, pendingCount],
+  );
+  const currentTourStep = onboarding.active ? tourSteps[onboarding.stepIndex] || null : null;
 
   const handleReadingSave = useCallback(async (nextContent) => {
     if (!readingPath) {
@@ -827,6 +870,136 @@ export default function App() {
       // The local write already succeeded; allow SSE or the next poll to refresh sync state.
     }
   }, [loadSyncStatus, readingPath]);
+
+  const persistOnboardingState = useCallback((nextState) => {
+    writeOnboardingStorage(nextState);
+    setOnboarding((prev) => ({ ...prev, ...nextState }));
+  }, []);
+
+  const startOnboarding = useCallback(() => {
+    persistOnboardingState({
+      active: true,
+      stepIndex: 0,
+      completed: false,
+      dismissed: false,
+    });
+  }, [persistOnboardingState]);
+
+  const stopOnboarding = useCallback((nextState = {}) => {
+    persistOnboardingState({
+      active: false,
+      stepIndex: 0,
+      ...nextState,
+    });
+  }, [persistOnboardingState]);
+
+  const goToTourStep = useCallback((direction) => {
+    setOnboarding((prev) => {
+      if (!prev.active) return prev;
+      const nextIndex = Math.max(0, Math.min(tourSteps.length - 1, prev.stepIndex + direction));
+      if (nextIndex === prev.stepIndex) {
+        if (nextIndex === tourSteps.length - 1 && direction > 0) {
+          writeOnboardingStorage({ completed: true, dismissed: false });
+          return { ...prev, active: false, stepIndex: 0, completed: true, dismissed: false };
+        }
+        return prev;
+      }
+      return { ...prev, stepIndex: nextIndex };
+    });
+  }, [tourSteps.length]);
+
+  const handleTourPrimaryAction = useCallback(() => {
+    if (!currentTourStep) return;
+    if (currentTourStep.id === 'welcome') {
+      goToTourStep(1);
+      return;
+    }
+    if (currentTourStep.id === 'completion') {
+      if (!isConnected) {
+        const emailInput = document.querySelector('[data-tour="email-connect"] input[type="email"]');
+        emailInput?.focus();
+        stopOnboarding({ completed: true, dismissed: false });
+        return;
+      }
+      if (pendingCount > 0) {
+        setSelectMode(true);
+        stopOnboarding({ completed: true, dismissed: false });
+        return;
+      }
+      window.open('https://www.iditor.com/memory-timeline-lab', '_blank', 'noopener,noreferrer');
+      stopOnboarding({ completed: true, dismissed: false });
+    }
+  }, [currentTourStep, goToTourStep, isConnected, pendingCount, stopOnboarding]);
+
+  useEffect(() => {
+    if (onboarding.active) return;
+    if (onboarding.completed || onboarding.dismissed) return;
+    const timerId = window.setTimeout(() => {
+      setOnboarding((prev) => (prev.completed || prev.dismissed || prev.active
+        ? prev
+        : { ...prev, active: true, stepIndex: 0 }));
+    }, 500);
+    return () => window.clearTimeout(timerId);
+  }, [onboarding.active, onboarding.completed, onboarding.dismissed]);
+
+  useEffect(() => {
+    if (!currentTourStep) {
+      setTourTargetElement(null);
+      return;
+    }
+
+    setSetupPanelsOpen((prev) => ({
+      ...prev,
+      quickSetup: ['quick-setup'].includes(currentTourStep.id) ? true : prev.quickSetup,
+      configuration: ['email-connect', 'configuration'].includes(currentTourStep.id) ? true : prev.configuration,
+      pluginUpdates: currentTourStep.id === 'plugin-updates' ? true : prev.pluginUpdates,
+    }));
+
+    if (['select-files', 'sync', 'system-files', 'cloud-rail', 'cloud-memories', 'cloud-sources', 'completion'].includes(currentTourStep.id) && readingPath) {
+      setReadingPath(null);
+      setSelectedPath(null);
+      setReadingContent(null);
+    }
+
+    if (currentTourStep.id === 'reading' && !readingPath) {
+      const nextPath = selectedPath || representativeCardPath;
+      if (nextPath && !isTimeGroupPath(nextPath)) {
+        setReadingPath(nextPath);
+        const existing = contentMap?.get(nextPath);
+        if (existing) {
+          setReadingContent(existing);
+        } else {
+          setReadingContent(null);
+          fetchFileContent(nextPath).then((result) => {
+            const content = result?.content ?? '';
+            setReadingContent(content);
+            setContentMap((prev) => {
+              const next = new Map(prev || []);
+              next.set(nextPath, content);
+              return next;
+            });
+          });
+        }
+      }
+    }
+
+    if (currentTourStep.id === 'select-files' && pendingCount > 0) {
+      setSelectMode(true);
+    }
+
+    if (['cloud-rail', 'cloud-memories'].includes(currentTourStep.id)) {
+      setForcedCloudTab('memories');
+    }
+    if (currentTourStep.id === 'cloud-sources') {
+      setForcedCloudTab('sources');
+    }
+
+    const query = `[data-tour="${currentTourStep.target}"]`;
+    const rafId = window.requestAnimationFrame(() => {
+      setTourTargetElement(document.querySelector(query));
+    });
+    return () => window.cancelAnimationFrame(rafId);
+  }, [contentMap, currentTourStep, pendingCount, readingPath, representativeCardPath, selectedPath]);
 
   useEffect(() => {
     if (journalViewMode === 'all' && expandedJournalGroup) {
@@ -1099,15 +1272,10 @@ export default function App() {
 
   const dateStr = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-  const hasApiKey = Boolean(setupDraft.apiKey);
-  const isConnected = authStatus?.connected === true;
   const authLabel = buildAuthLabel(authStatus, hasApiKey);
   const normalizedConnectEmail = normalizeEmailValue(connectEmail);
   const otpValue = otpDigits.join('');
   const quickConnectSupported = setupState?.capabilities?.emailQuickConnect !== false;
-  const autoSyncEnabled = setupDraft.autoSync === true;
-  const echoOnlyMemoryModeEnabled = setupDraft.disableOpenClawMemoryToolsWhenConnected === true;
-  const activeLayout = view === 'system' && systemLayout ? systemLayout : layout;
   const activeCardKeys = useMemo(
     () => new Set((activeLayout?.cards || []).map((card) => card.key)),
     [activeLayout],
@@ -1147,12 +1315,17 @@ export default function App() {
         <aside className="setup-sidebar" aria-label="Echo setup">
         <div className="setup-sidebar__rail">Setup</div>
         <div className="setup-sidebar__panel">
-          <div className="setup-sidebar__header">
+          <div className="setup-sidebar__header" data-tour="setup-header">
             <div>
               <h2>Echo Cloud Setup</h2>
               <p>Stay inside the local UI: enter your email, verify the code, and let the plugin save the cloud key for you.</p>
             </div>
-            <span className={isConnected ? 'setup-pill setup-pill--ok' : 'setup-pill'}>{authLabel}</span>
+            <div className="setup-sidebar__header-actions" data-tour="tour-entry">
+              <span className={isConnected ? 'setup-pill setup-pill--ok' : 'setup-pill'}>{authLabel}</span>
+              <button type="button" className="setup-secondary-btn setup-secondary-btn--inline" onClick={startOnboarding}>
+                {onboarding.completed || onboarding.dismissed ? 'Replay onboarding' : 'Take tour'}
+              </button>
+            </div>
           </div>
 
           <div className="setup-card">
@@ -1185,7 +1358,7 @@ export default function App() {
             )}
           </div>
 
-          <div className="setup-card setup-card--collapsible">
+          <div className="setup-card setup-card--collapsible" data-tour="quick-setup-card">
             <button
               type="button"
               className="setup-card__summary"
@@ -1211,7 +1384,7 @@ export default function App() {
             )}
           </div>
 
-          <div className="setup-card setup-card--collapsible">
+          <div className="setup-card setup-card--collapsible" data-tour="configuration-card">
             <button
               type="button"
               className="setup-card__summary"
@@ -1223,7 +1396,7 @@ export default function App() {
             {setupPanelsOpen.configuration && (
               <div className="setup-card__content">
                 {quickConnectSupported && (
-                  <div className="setup-quick-connect">
+                  <div className="setup-quick-connect" data-tour="email-connect">
                     <div className="setup-quick-connect__header">
                       <p className="setup-card__title">Quick connect</p>
                       <span className={emailConnectState === 'connected' ? 'setup-pill setup-pill--ok' : 'setup-pill'}>
@@ -1445,7 +1618,7 @@ export default function App() {
             )}
           </div>
 
-          <div className="setup-card setup-card--collapsible">
+          <div className="setup-card setup-card--collapsible" data-tour="plugin-updates-card">
             <button
               type="button"
               className="setup-card__summary"
@@ -1584,7 +1757,7 @@ export default function App() {
             )}
           </div>
 
-          <div className="hdr-group hdr-group--filters">
+          <div className="hdr-group hdr-group--filters" data-tour="topbar-filters">
             <input
               className="hdr-search"
               type="text"
@@ -1641,7 +1814,7 @@ export default function App() {
             )}
           </div>
 
-          <div className="hdr-group hdr-group--meta">
+          <div className="hdr-group hdr-group--meta" data-tour="topbar-status">
             <span className="hdr-meta"><b>{dateStr}</b> {timeStr}</span>
             <span className="hdr-meta">{timeAgo(syncStatus?.lastSyncAt)}</span>
             <span className="hdr-conn">
@@ -1658,6 +1831,7 @@ export default function App() {
               content={readingContent ?? contentMap?.get(readingPath) ?? null}
               file={readingFile}
               onSave={handleReadingSave}
+              onboardingActive={onboarding.active}
               onClose={() => {
                 setReadingPath(null);
                 setSelectedPath(null);
@@ -1683,6 +1857,8 @@ export default function App() {
               selectMode={selectMode}
               syncSelection={syncSelection}
               selectablePaths={selectablePaths}
+              onboardingActive={onboarding.active}
+              onboardingCardPath={representativeCardPath}
               onWarningToggle={toggleWarningExpansion}
               onCardClick={(path) => {
                 if (selectMode) {
@@ -1803,7 +1979,7 @@ export default function App() {
               </span>
             )}
             {systemFileCount > 0 && (
-              <span className="ftr-system" onClick={() => setView('system')} title="View system files">
+              <span className="ftr-system" data-tour="system-files-link" onClick={() => setView('system')} title="View system files">
                 {systemFileCount} system files
               </span>
             )}
@@ -1834,36 +2010,52 @@ export default function App() {
             )}
           </>
         )}
-        {!selectMode && pendingCount > 0 && (
-          <button className="ftr-select-toggle" onClick={() => setSelectMode(true)}>
-            Select files
-          </button>
-        )}
-        {selectMode ? (
-          <button className="sync-btn" disabled={!isConnected || syncing || syncSelection.size === 0} onClick={handleSync}>
-            {syncing ? 'Syncing...' : `Sync ${syncSelection.size} selected`}
-          </button>
-        ) : (
-          <a
-            href="https://www.iditor.com/memory-timeline-lab"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="explore-btn"
-            aria-disabled={!isConnected}
-            onClick={(event) => {
-              if (!isConnected) event.preventDefault();
-            }}
-          >
-            {isConnected ? 'Explore your memories' : 'Add Echo key in Setup'}
-          </a>
-        )}
+        <div className="ftr-action-cluster" data-tour="footer-sync-area">
+          {!selectMode && pendingCount > 0 && (
+            <button className="ftr-select-toggle" onClick={() => setSelectMode(true)}>
+              Select files
+            </button>
+          )}
+          {selectMode ? (
+            <button className="sync-btn" disabled={!isConnected || syncing || syncSelection.size === 0} onClick={handleSync}>
+              {syncing ? 'Syncing...' : `Sync ${syncSelection.size} selected`}
+            </button>
+          ) : (
+            <a
+              href="https://www.iditor.com/memory-timeline-lab"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="explore-btn"
+              aria-disabled={!isConnected}
+              onClick={(event) => {
+                if (!isConnected) event.preventDefault();
+              }}
+            >
+              {isConnected ? 'Explore your memories' : 'Add Echo key in Setup'}
+            </a>
+          )}
+        </div>
         </footer>
         <CloudSidebar
           isConnected={isConnected}
           apiKey={setupDraft.apiKey}
           localApiAvailable={setupState?.capabilities?.cloudSidebarApi === true}
+          forcedOpen={onboarding.active && ['cloud-rail', 'cloud-memories', 'cloud-sources'].includes(currentTourStep?.id)}
+          forcedTab={forcedCloudTab}
           onOpenChange={setCloudSidebarOpen}
         />
+        {onboarding.active && currentTourStep && (
+          <Coachmark
+            step={currentTourStep}
+            stepIndex={onboarding.stepIndex}
+            totalSteps={tourSteps.length}
+            targetElement={tourTargetElement}
+            onPrev={() => goToTourStep(-1)}
+            onNext={() => goToTourStep(1)}
+            onSkip={() => stopOnboarding({ dismissed: true, completed: false })}
+            onPrimaryAction={handleTourPrimaryAction}
+          />
+        )}
       </div>
     </div>
   );

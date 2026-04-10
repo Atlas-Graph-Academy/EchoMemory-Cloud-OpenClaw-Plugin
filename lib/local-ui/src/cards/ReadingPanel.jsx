@@ -151,7 +151,7 @@ function WarningNotice({ file }) {
   );
 }
 
-export function ReadingPanel({ path, content, file, onClose, onSave }) {
+export function ReadingPanel({ path, content, file, onClose, onSave, onboardingActive = false }) {
   const [isEditing, setIsEditing] = useState(false);
   const [draftContent, setDraftContent] = useState('');
   const [saveBusy, setSaveBusy] = useState(false);
@@ -206,13 +206,13 @@ export function ReadingPanel({ path, content, file, onClose, onSave }) {
   return (
     <div className="reading-panel-wrapper">
       <div className="reading-panel">
-        <div className="rp-header">
-          <button className="rp-back" onClick={onClose} title="Back to archive">
+        <div className="rp-header" data-tour={onboardingActive ? 'reading-header' : undefined}>
+          <button className="rp-back" data-tour={onboardingActive ? 'reading-back' : undefined} onClick={onClose} title="Back to archive">
             {'<-'}
           </button>
           <div className="rp-title">{displayName}</div>
           {typeof onSave === 'function' && isContentReady && !isEditing && (
-            <button type="button" className="rp-action-btn" onClick={() => setIsEditing(true)}>
+            <button type="button" className="rp-action-btn" data-tour={onboardingActive ? 'reading-edit' : undefined} onClick={() => setIsEditing(true)}>
               Edit
             </button>
           )}
@@ -232,6 +232,7 @@ export function ReadingPanel({ path, content, file, onClose, onSave }) {
               <button
                 type="button"
                 className="rp-action-btn"
+                data-tour={onboardingActive ? 'reading-save' : undefined}
                 onClick={handleSave}
                 disabled={saveBusy || !hasUnsavedChanges}
               >

@@ -187,6 +187,8 @@ export const Card = React.memo(function Card({
   selectMode,
   checked,
   selectable,
+  onboardingActive,
+  onboardingFeatured,
 }) {
   const { file, x, y, w, h } = card;
   const tier = file._tier || 3;
@@ -203,6 +205,7 @@ export const Card = React.memo(function Card({
       <div
         className="card card-lod0"
         data-card-path={file.relativePath}
+        data-tour={onboardingActive && onboardingFeatured ? 'representative-card' : undefined}
         style={{
           left: x,
           top: y,
@@ -222,6 +225,7 @@ export const Card = React.memo(function Card({
       <div
         className={`card${isLog ? ' card-session-log' : ''}${isJournalGroup ? ' card-journal-group' : ''}`}
         data-card-path={file.relativePath}
+        data-tour={onboardingActive && onboardingFeatured ? 'representative-card' : undefined}
         style={{
           left: x,
           top: y,
@@ -270,6 +274,7 @@ export const Card = React.memo(function Card({
     <div
       className={classNames}
       data-card-path={file.relativePath}
+      data-tour={onboardingActive && onboardingFeatured ? 'representative-card' : undefined}
       style={{
         left: x,
         top: y,

@@ -228,6 +228,13 @@ a {
   margin-bottom: 16px;
 }
 
+.setup-sidebar__header-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
 .setup-sidebar__header h2 {
   font-size: 18px;
   color: var(--text-strong);
@@ -795,6 +802,13 @@ a {
 
 .ftr-spacer {
   flex: 1 1 auto;
+}
+
+.ftr-action-cluster {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .sync-btn,

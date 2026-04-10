@@ -29,6 +29,8 @@ export function Viewport({
   selectMode,
   syncSelection,
   selectablePaths,
+  onboardingActive,
+  onboardingCardPath,
   onCardClick,
   onCardExpand,
   onWarningToggle,
@@ -175,6 +177,7 @@ export function Viewport({
       <div
         ref={vpRef}
         className="viewport"
+        data-tour="canvas-root"
         onPointerDown={handlers.onPointerDown}
         onPointerMove={handlers.onPointerMove}
         onPointerUp={handlePointerUp}
@@ -216,6 +219,8 @@ export function Viewport({
                   selectMode={selectMode}
                   checked={syncSelection?.has(card.key)}
                   selectable={selectablePaths?.has(card.key)}
+                  onboardingActive={onboardingActive}
+                  onboardingFeatured={card.key === onboardingCardPath}
                 />
               ))}
             </>

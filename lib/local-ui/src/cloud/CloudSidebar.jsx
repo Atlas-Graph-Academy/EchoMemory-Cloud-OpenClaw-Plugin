@@ -423,7 +423,7 @@ function CloudEditModal({ state, busy, onSave, onClose }) {
   );
 }
 
-export function CloudSidebar({ isConnected, apiKey, localApiAvailable, onOpenChange }) {
+export function CloudSidebar({ isConnected, apiKey, localApiAvailable, onOpenChange, forcedOpen = false, forcedTab = 'memories' }) {
   const [hoverOpen, setHoverOpen] = useState(false);
   const [focusOpen, setFocusOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('memories');
@@ -438,11 +438,16 @@ export function CloudSidebar({ isConnected, apiKey, localApiAvailable, onOpenCha
   const [editingState, setEditingState] = useState(null);
   const [mutationState, setMutationState] = useState(null);
   const listPaneRef = useRef(null);
-  const isOpen = hoverOpen || focusOpen;
+  const isOpen = forcedOpen || hoverOpen || focusOpen;
 
   useEffect(() => {
     onOpenChange?.(isOpen);
   }, [isOpen, onOpenChange]);
+
+  useEffect(() => {
+    if (!forcedOpen) return;
+    setActiveTab(forcedTab === 'sources' ? 'sources' : 'memories');
+  }, [forcedOpen, forcedTab]);
 
   useEffect(() => {
     if (isConnected) return;
@@ -714,6 +719,7 @@ export function CloudSidebar({ isConnected, apiKey, localApiAvailable, onOpenCha
     <aside
       className={`cloud-sidebar ${isOpen ? 'cloud-sidebar--open' : ''}`}
       aria-label="Echo cloud sidebar"
+      data-tour="cloud-rail"
       onMouseEnter={() => setHoverOpen(true)}
       onMouseLeave={() => setHoverOpen(false)}
       onFocus={() => setFocusOpen(true)}
@@ -737,6 +743,7 @@ export function CloudSidebar({ isConnected, apiKey, localApiAvailable, onOpenCha
             <button
               type="button"
               className={`cloud-sidebar__tab ${activeTab === 'memories' ? 'is-active' : ''}`}
+              data-tour="cloud-memories-tab"
               onClick={() => {
                 setActiveTab('memories');
                 setDetailState(null);
@@ -747,6 +754,7 @@ export function CloudSidebar({ isConnected, apiKey, localApiAvailable, onOpenCha
             <button
               type="button"
               className={`cloud-sidebar__tab ${activeTab === 'sources' ? 'is-active' : ''}`}
+              data-tour="cloud-sources-tab"
               onClick={() => {
                 setActiveTab('sources');
                 setDetailState(null);
@@ -765,12 +773,13 @@ export function CloudSidebar({ isConnected, apiKey, localApiAvailable, onOpenCha
             </div>
           ) : (
             <div className="cloud-view">
-              <div className="header">
+              <div className="header" data-tour={activeTab === 'memories' ? 'cloud-metrics' : 'cloud-search'}>
                 <div className="header-title-group">
                   <h2 className="view-header-title">My {currentTabLabel}</h2>
                   {activeTab === 'memories' && (
                     <a
                       className="header-link-btn"
+                      data-tour="cloud-graph-link"
                       href={GRAPH_URL}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -810,7 +819,7 @@ export function CloudSidebar({ isConnected, apiKey, localApiAvailable, onOpenCha
                 </div>
               )}
 
-              <div className="list-search">
+              <div className="list-search" data-tour="cloud-search">
                 <input
                   type="text"
                   placeholder={activeTab === 'memories' ? 'Search memories...' : 'Search sources...'}
