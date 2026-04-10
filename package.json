@@ -1,6 +1,6 @@
 {
   "name": "@echomem/openclaw-memory",
-  "version": "0.2.18",
+  "version": "0.3.1",
   "description": "OpenClaw plugin for syncing local markdown memory files to Echo cloud",
   "type": "module",
   "main": "./index.js",
