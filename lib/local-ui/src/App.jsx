@@ -384,6 +384,7 @@ export default function App() {
     pluginUpdates: true,
   });
   const [setupSaving, setSetupSaving] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
   const [setupMessage, setSetupMessage] = useState(null);
   const [emailConnectState, setEmailConnectState] = useState('idle');
   const [connectEmail, setConnectEmail] = useState('');
@@ -909,6 +910,32 @@ export default function App() {
     }
   }, [refreshSetupSurfaces, setupDraft]);
 
+  const handleDisconnect = useCallback(async () => {
+    setDisconnecting(true);
+    setSetupMessage(null);
+    setConnectError(null);
+    try {
+      const result = await saveSetupConfig({
+        ...setupDraft,
+        apiKey: '',
+      });
+      setSetupState(result.setup || null);
+      setConnectEmail('');
+      setEmailConnectState('idle');
+      setResendCountdown(0);
+      clearOtpDigits();
+      setSetupMessage({
+        ok: true,
+        text: `Disconnected this device from Echo Cloud and switched back to local-only mode. Saved to ${result.targetPath}.`,
+      });
+      await refreshSetupSurfaces();
+    } catch (error) {
+      setSetupMessage({ ok: false, text: String(error?.message ?? error) });
+    } finally {
+      setDisconnecting(false);
+    }
+  }, [clearOtpDigits, refreshSetupSurfaces, setupDraft]);
+
   const focusOtpInput = useCallback((index) => {
     const nextInput = otpInputRefs.current[index];
     if (nextInput) {
@@ -1141,6 +1168,21 @@ export default function App() {
                       : 'The local UI is ready. Save or verify your key to re-enable cloud features.')
                   : 'The local UI is running in local-only mode. Files remain fully viewable without an Echo API key.'}
             </p>
+            {hasApiKey && (
+              <div className="setup-actions setup-actions--stacked">
+                <button
+                  type="button"
+                  className="setup-secondary-btn"
+                  disabled={setupSaving || disconnecting}
+                  onClick={handleDisconnect}
+                >
+                  {disconnecting ? 'Disconnecting...' : 'Disconnect this device'}
+                </button>
+                <p className="setup-copy">
+                  This removes the saved local API key and returns the plugin to local-only mode on this device. Existing Echo API keys remain valid until you delete them from the website.
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="setup-card setup-card--collapsible">
@@ -1494,8 +1536,11 @@ export default function App() {
                   </button>
                 </div>
                 <p className="setup-copy">
-                  Update installs the published npm package via <code>openclaw plugins install {pluginUpdateState?.packageName || pluginPkg?.name}</code>.
+                  Update installs the published npm package via <code>openclaw plugins install --dangerously-force-unsafe-install {pluginUpdateState?.packageName || pluginPkg?.name}</code>.
                   Restart the gateway afterward to load the new version.
+                </p>
+                <p className="setup-copy">
+                  On OpenClaw 2026.4.8 and newer, keep <code>plugins.allow</code> configured for this plugin. Do not add <code>plugins.dangerousAllow</code> to <code>~/.openclaw/openclaw.json</code>; that key is invalid.
                 </p>
                 {pluginUpdateState?.releaseUrl && (
                   <p className="setup-copy">
