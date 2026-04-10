@@ -834,7 +834,16 @@ export default function App() {
   const echoOnlyMemoryModeEnabled = setupDraft.disableOpenClawMemoryToolsWhenConnected === true;
   const activeLayout = view === 'system' && systemLayout ? systemLayout : layout;
   const representativeCardPath = useMemo(
-    () => activeLayout?.cards?.find((card) => !isTimeGroupPath(card.key))?.key || activeLayout?.cards?.[0]?.key || null,
+    () => {
+      const cards = (activeLayout?.cards || []).filter((card) => !isTimeGroupPath(card.key));
+      if (cards.length === 0) return activeLayout?.cards?.[0]?.key || null;
+      const bestCard = cards.reduce((best, card) => {
+        const score = (card.w || 0) * (card.h || 0);
+        const bestScore = best ? (best.w || 0) * (best.h || 0) : -1;
+        return score > bestScore ? card : best;
+      }, null);
+      return bestCard?.key || null;
+    },
     [activeLayout],
   );
   const tourSteps = useMemo(
@@ -950,12 +959,12 @@ export default function App() {
 
     setSetupPanelsOpen((prev) => ({
       ...prev,
-      quickSetup: ['quick-setup'].includes(currentTourStep.id) ? true : prev.quickSetup,
-      configuration: ['email-connect', 'configuration'].includes(currentTourStep.id) ? true : prev.configuration,
-      pluginUpdates: currentTourStep.id === 'plugin-updates' ? true : prev.pluginUpdates,
+      quickSetup: currentTourStep.id === 'setup' ? true : prev.quickSetup,
+      configuration: currentTourStep.id === 'connect-config' ? true : prev.configuration,
+      pluginUpdates: currentTourStep.id === 'setup' ? true : prev.pluginUpdates,
     }));
 
-    if (['select-files', 'sync', 'system-files', 'cloud-rail', 'cloud-memories', 'cloud-sources', 'completion'].includes(currentTourStep.id) && readingPath) {
+    if (['sync', 'cloud', 'sources', 'completion'].includes(currentTourStep.id) && readingPath) {
       setReadingPath(null);
       setSelectedPath(null);
       setReadingContent(null);
@@ -964,6 +973,7 @@ export default function App() {
     if (currentTourStep.id === 'reading' && !readingPath) {
       const nextPath = selectedPath || representativeCardPath;
       if (nextPath && !isTimeGroupPath(nextPath)) {
+        setSelectedPath(nextPath);
         setReadingPath(nextPath);
         const existing = contentMap?.get(nextPath);
         if (existing) {
@@ -983,14 +993,18 @@ export default function App() {
       }
     }
 
-    if (currentTourStep.id === 'select-files' && pendingCount > 0) {
+    if (currentTourStep.id === 'sync' && pendingCount > 0) {
       setSelectMode(true);
     }
 
-    if (['cloud-rail', 'cloud-memories'].includes(currentTourStep.id)) {
+    if (currentTourStep.id === 'cards' && representativeCardPath) {
+      setSelectedPath(representativeCardPath);
+    }
+
+    if (currentTourStep.id === 'cloud') {
       setForcedCloudTab('memories');
     }
-    if (currentTourStep.id === 'cloud-sources') {
+    if (currentTourStep.id === 'sources') {
       setForcedCloudTab('sources');
     }
 
@@ -1948,7 +1962,7 @@ export default function App() {
 
         <footer className="ftr">
         {selectMode ? (
-          <>
+          <div className="ftr-action-cluster" data-tour="footer-select-controls">
             <span className="selection-copy">
               <b>{syncSelection.size}</b> file{syncSelection.size !== 1 ? 's' : ''} selected
             </span>
@@ -1967,7 +1981,7 @@ export default function App() {
             <button className="ftr-select-toggle" onClick={() => { setSelectMode(false); setSyncSelection(new Set()); }}>
               Cancel
             </button>
-          </>
+          </div>
         ) : view === 'memories' ? (
           <>
             <span>
@@ -2012,12 +2026,12 @@ export default function App() {
         )}
         <div className="ftr-action-cluster" data-tour="footer-sync-area">
           {!selectMode && pendingCount > 0 && (
-            <button className="ftr-select-toggle" onClick={() => setSelectMode(true)}>
+            <button className="ftr-select-toggle" data-tour="footer-select-controls" onClick={() => setSelectMode(true)}>
               Select files
             </button>
           )}
           {selectMode ? (
-            <button className="sync-btn" disabled={!isConnected || syncing || syncSelection.size === 0} onClick={handleSync}>
+            <button className="sync-btn" data-tour="footer-sync-action" disabled={!isConnected || syncing || syncSelection.size === 0} onClick={handleSync}>
               {syncing ? 'Syncing...' : `Sync ${syncSelection.size} selected`}
             </button>
           ) : (
@@ -2026,6 +2040,7 @@ export default function App() {
               target="_blank"
               rel="noopener noreferrer"
               className="explore-btn"
+              data-tour="footer-sync-action"
               aria-disabled={!isConnected}
               onClick={(event) => {
                 if (!isConnected) event.preventDefault();
@@ -2040,7 +2055,7 @@ export default function App() {
           isConnected={isConnected}
           apiKey={setupDraft.apiKey}
           localApiAvailable={setupState?.capabilities?.cloudSidebarApi === true}
-          forcedOpen={onboarding.active && ['cloud-rail', 'cloud-memories', 'cloud-sources'].includes(currentTourStep?.id)}
+          forcedOpen={onboarding.active && ['cloud', 'sources'].includes(currentTourStep?.id)}
           forcedTab={forcedCloudTab}
           onOpenChange={setCloudSidebarOpen}
         />

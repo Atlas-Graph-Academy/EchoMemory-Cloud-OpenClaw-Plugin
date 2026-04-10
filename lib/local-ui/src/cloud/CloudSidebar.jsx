@@ -728,6 +728,7 @@ export function CloudSidebar({ isConnected, apiKey, localApiAvailable, onOpenCha
       <button
         type="button"
         className="cloud-sidebar__rail"
+        data-tour="cloud-rail"
         aria-expanded={isOpen}
         onClick={() => {
           if (typeof window !== 'undefined' && window.matchMedia('(hover: none)').matches) {
@@ -737,7 +738,7 @@ export function CloudSidebar({ isConnected, apiKey, localApiAvailable, onOpenCha
       >
         <span>Cloud</span>
       </button>
-      <div className="cloud-sidebar__panel">
+      <div className="cloud-sidebar__panel" data-tour="cloud-panel">
         <div className="cloud-sidebar__panel-inner">
           <div className="cloud-sidebar__tabs">
             <button
@@ -772,7 +773,7 @@ export function CloudSidebar({ isConnected, apiKey, localApiAvailable, onOpenCha
               </p>
             </div>
           ) : (
-            <div className="cloud-view">
+            <div className="cloud-view" data-tour={activeTab === 'memories' ? 'cloud-memories-panel' : 'cloud-sources-panel'}>
               <div className="header" data-tour={activeTab === 'memories' ? 'cloud-metrics' : 'cloud-search'}>
                 <div className="header-title-group">
                   <h2 className="view-header-title">My {currentTabLabel}</h2>
