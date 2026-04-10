@@ -10,7 +10,7 @@ import {
 import { getPlatformIcon } from './platformIcons';
 import './CloudSidebar.css';
 
-const GRAPH_URL = 'https://www.iditor.com/login?next=/memory-graph';
+const GRAPH_URL = 'https://www.iditor.com/memory-timeline-lab';
 
 const CJK_CHAR_RE = /[\u3400-\u9fff\uf900-\ufaff]/;
 const LATIN_ALNUM_RE = /[A-Za-z0-9]/;

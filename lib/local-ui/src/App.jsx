@@ -1845,7 +1845,7 @@ export default function App() {
           </button>
         ) : (
           <a
-            href="https://www.iditor.com/login?next=/memory-graph"
+            href="https://www.iditor.com/memory-timeline-lab"
             target="_blank"
             rel="noopener noreferrer"
             className="explore-btn"
