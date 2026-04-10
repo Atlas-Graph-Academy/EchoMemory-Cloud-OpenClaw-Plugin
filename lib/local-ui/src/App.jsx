@@ -923,7 +923,7 @@ export default function App() {
       setConnectEmail('');
       setEmailConnectState('idle');
       setResendCountdown(0);
-      clearOtpDigits();
+      setOtpDigits(Array(OTP_LENGTH).fill(''));
       setSetupMessage({
         ok: true,
         text: `Disconnected this device from Echo Cloud and switched back to local-only mode. Saved to ${result.targetPath}.`,
@@ -934,7 +934,7 @@ export default function App() {
     } finally {
       setDisconnecting(false);
     }
-  }, [clearOtpDigits, refreshSetupSurfaces, setupDraft]);
+  }, [refreshSetupSurfaces, setupDraft]);
 
   const focusOtpInput = useCallback((index) => {
     const nextInput = otpInputRefs.current[index];
