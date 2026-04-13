@@ -939,7 +939,7 @@ export default function App() {
         stopOnboarding({ completed: true, dismissed: false });
         return;
       }
-      window.open('https://www.iditor.com/memory-timeline-lab', '_blank', 'noopener,noreferrer');
+      window.open('http://localhost:3001/memories/timeline?mode=photo-first', '_blank', 'noopener,noreferrer');
       stopOnboarding({ completed: true, dismissed: false });
     }
   }, [currentTourStep, goToTourStep, isConnected, pendingCount, stopOnboarding]);
@@ -1935,7 +1935,7 @@ export default function App() {
             setTotalStreamedCount(0);
           }}
           onOpenTimeline={() => {
-            window.open('https://www.iditor.com/memory-timeline-lab', '_blank', 'noopener,noreferrer');
+            window.open('http://localhost:3001/memories/timeline?mode=photo-first', '_blank', 'noopener,noreferrer');
           }}
         />
 
@@ -1989,7 +1989,7 @@ export default function App() {
               </button>
             )}
             <a
-              href="https://www.iditor.com/memory-timeline-lab"
+              href="http://localhost:3001/memories/timeline?mode=photo-first"
               target="_blank"
               rel="noopener noreferrer"
               className="explore-btn"
