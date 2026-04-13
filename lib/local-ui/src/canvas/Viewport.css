@@ -37,40 +37,54 @@
   will-change: transform;
 }
 
+/* ── section header strip ── */
 .section-label {
   position: absolute;
-  display: inline-flex;
-  align-items: baseline;
-  gap: 8px;
-  padding: 0 0 8px;
-  /* Counter-scale: parent canvas is scaled by var(--zoom); we want the final
-     on-screen label to be 16px when zoom >= 0.75, grow with zoom above 1x,
-     and floor at 12px when zoomed out below 0.75. */
-  font-size: max(16px, calc(12px / var(--zoom, 1)));
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  opacity: 0.62;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 16px 0 0;
+  border-radius: 12px 12px 0 0;
+  background:
+    linear-gradient(90deg,
+      rgba(12, 18, 29, 0.55) 0%,
+      rgba(12, 18, 29, 0.3) 60%,
+      transparent 100%);
+  border-bottom: 1px solid var(--sec-color, rgba(146, 184, 255, 0.18));
+  border-bottom-color: color-mix(in srgb, var(--sec-color, #92b8ff) 22%, transparent);
   pointer-events: none;
+  white-space: nowrap;
 }
 
-.section-label::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: -120px;
-  bottom: 0;
-  height: 1px;
-  background: linear-gradient(90deg, currentColor, transparent 86%);
-  opacity: 0.28;
+.section-label__bar {
+  flex-shrink: 0;
+  width: 4px;
+  height: 24px;
+  border-radius: 2px;
+  margin-left: 12px;
 }
 
-.section-count {
-  /* Slightly smaller than the cluster label, same counter-scale floor. */
-  font-size: max(13px, calc(10px / var(--zoom, 1)));
-  font-weight: 600;
-  opacity: 0.7;
+.section-label__text {
+  font-size: max(20px, calc(15px / var(--zoom, 1)));
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.9;
+}
+
+.section-count-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font: 700 max(12px, calc(10px / var(--zoom, 1))) / 1 var(--font-ui);
+  letter-spacing: 0.04em;
+  color: #0a0f1a;
+  opacity: 0.92;
 }
 
 .viewport-controls {

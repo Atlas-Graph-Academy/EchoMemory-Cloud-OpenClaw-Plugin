@@ -35,6 +35,7 @@ export function Viewport({
   onCardClick,
   onCardExpand,
   onWarningToggle,
+  onSyncFile,
 }) {
   const vpRef = useRef(null);
   const canvasRef = useRef(null);
@@ -119,6 +120,12 @@ export function Viewport({
     if (!panMoved.current) {
       const el = document.elementFromPoint(e.clientX, e.clientY);
 
+      if (el?.closest('.card-sync-btn')) {
+        const syncPath = el.closest('.card-sync-btn')?.dataset?.syncPath;
+        if (syncPath && onSyncFile) onSyncFile(syncPath);
+        return;
+      }
+
       if (el?.closest('.card-expand-btn')) {
         const cardEl = el.closest('[data-card-path]');
         if (cardEl && onCardExpand) onCardExpand(cardEl.dataset.cardPath);
@@ -200,10 +207,23 @@ export function Viewport({
                 <div
                   key={section.id}
                   className="section-label"
-                  style={{ left: section.x, top: section.y, color: section.color }}
+                  style={{
+                    left: section.x,
+                    top: section.y,
+                    width: section.w,
+                    '--sec-color': section.color,
+                  }}
                 >
-                  {section.label}
-                  <span className="section-count">{section.count}</span>
+                  <span className="section-label__bar" style={{ background: section.color }} />
+                  <span className="section-label__text" style={{ color: section.color }}>
+                    {section.label}
+                  </span>
+                  <span
+                    className="section-count-pill"
+                    style={{ background: section.color }}
+                  >
+                    {section.count}
+                  </span>
                 </div>
               ))}
 
@@ -228,6 +248,7 @@ export function Viewport({
                   selectable={selectablePaths?.has(card.key)}
                   onboardingActive={onboardingActive}
                   onboardingFeatured={card.key === onboardingCardPath}
+                  onSyncFile={onSyncFile}
                 />
               ))}
             </>

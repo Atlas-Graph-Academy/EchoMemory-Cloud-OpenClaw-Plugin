@@ -248,6 +248,29 @@
   background: rgba(146, 184, 255, 0.22);
 }
 
+.card-sync-btn {
+  flex-shrink: 0;
+  height: 22px;
+  padding: 0 10px;
+  border: 1px solid rgba(106, 156, 255, 0.35);
+  border-radius: 8px;
+  background: rgba(106, 156, 255, 0.18);
+  color: #3a6ac5;
+  font: 700 10px/1 var(--font-ui, sans-serif);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.card-sync-btn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(106, 156, 255, 0.55);
+  background: rgba(106, 156, 255, 0.3);
+}
+
 .session-badge,
 .card-cluster-badge,
 .card-private-badge,
@@ -491,9 +514,11 @@
 }
 
 .stamp-new {
-  color: #9a7639;
-  border-color: rgba(154, 118, 57, 0.24);
-  background: rgba(154, 118, 57, 0.08);
+  color: #ffffff;
+  border-color: rgba(106, 156, 255, 0.5);
+  background: rgba(106, 156, 255, 0.85);
+  font-weight: 800;
+  opacity: 1;
 }
 
 .stamp-mod {
@@ -562,6 +587,20 @@
 .card-sealed .card-content {
   filter: blur(1.6px);
   opacity: 0.36;
+}
+
+/* ── New / unsynced file glow ── */
+.card-new {
+  box-shadow:
+    0 0 0 2px rgba(106, 156, 255, 0.45),
+    0 0 14px 2px rgba(106, 156, 255, 0.18);
+  border-left-width: 4px !important;
+}
+
+.card-new.card-lod0 {
+  box-shadow:
+    0 0 0 2px rgba(106, 156, 255, 0.55),
+    0 0 18px 4px rgba(106, 156, 255, 0.25);
 }
 
 @media (max-width: 900px) {

@@ -1492,76 +1492,30 @@ export default function App() {
       <div className="app-atmosphere" />
       <div className="app-frame">
         <aside className="setup-sidebar" aria-label="Echo setup">
-        <div className="setup-sidebar__rail">Setup</div>
+        <div className="setup-sidebar__rail">{'\u2699'}</div>
         <div className="setup-sidebar__panel">
           <div className="setup-sidebar__header" data-tour="setup-header">
             <div>
-              <h2>Echo Cloud Setup</h2>
-              <p>Stay inside the local UI: enter your email, verify the code, and let the plugin save the cloud key for you.</p>
+              <h2>Settings</h2>
             </div>
             <div className="setup-sidebar__header-actions" data-tour="tour-entry">
               <span className={isConnected ? 'setup-pill setup-pill--ok' : 'setup-pill'}>{authLabel}</span>
-              <button type="button" className="setup-secondary-btn setup-secondary-btn--inline" onClick={startOnboarding}>
-                {onboarding.completed || onboarding.dismissed ? 'Replay onboarding' : 'Take tour'}
-              </button>
             </div>
           </div>
 
-          <div className="setup-card">
-            <p className="setup-card__title">Current mode</p>
-              <p className="setup-copy">
-              {isConnected
-                ? (echoOnlyMemoryModeEnabled
-                    ? 'Cloud sync, graph links, and import status are active. OpenClaw default memory retrieval is suppressed for Echo-only recall.'
-                    : 'Cloud sync, graph links, and import status are active.')
-                : hasApiKey
-                  ? (echoOnlyMemoryModeEnabled
-                      ? 'The local UI is ready. Echo-only recall will take effect after cloud access is verified.'
-                      : 'The local UI is ready. Save or verify your key to re-enable cloud features.')
-                  : 'The local UI is running in local-only mode. Files remain fully viewable without an Echo API key.'}
-            </p>
-            {hasApiKey && (
-              <div className="setup-actions setup-actions--stacked">
-                <button
-                  type="button"
-                  className="setup-secondary-btn"
-                  disabled={setupSaving || disconnecting}
-                  onClick={handleDisconnect}
-                >
-                  {disconnecting ? 'Disconnecting...' : 'Disconnect this device'}
-                </button>
-                <p className="setup-copy">
-                  This removes the saved local API key and returns the plugin to local-only mode on this device. Existing Echo API keys remain valid until you delete them from the website.
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div className="setup-card setup-card--collapsible" data-tour="quick-setup-card">
-            <button
-              type="button"
-              className="setup-card__summary"
-              aria-expanded={setupPanelsOpen.quickSetup}
-              onClick={() => toggleSetupPanel('quickSetup')}
-            >
-              <span className="setup-card__title">Quick setup</span>
-            </button>
-            {setupPanelsOpen.quickSetup && (
-              <div className="setup-card__content">
-                <ol className="setup-steps">
-                  <li>Enter your email and click <strong>Connect with email</strong>.</li>
-                  <li>Paste the 6-digit code from your inbox.</li>
-                  <li>The plugin creates or verifies your Echo account, saves a new API key locally, and reconnects automatically.</li>
-                </ol>
-                <p className="setup-copy">
-                  Target env file: <code>{setupState?.envFile?.targetPath || 'Loading...'}</code>
-                </p>
-                <p className="setup-copy">
-                  Manual API key entry still works below if you want to manage credentials yourself.
-                </p>
-              </div>
-            )}
-          </div>
+          {hasApiKey && (
+            <div className="setup-card">
+              <p className="setup-card__title">Connection</p>
+              <button
+                type="button"
+                className="setup-secondary-btn"
+                disabled={setupSaving || disconnecting}
+                onClick={handleDisconnect}
+              >
+                {disconnecting ? 'Disconnecting...' : 'Disconnect this device'}
+              </button>
+            </div>
+          )}
 
           <div className="setup-card setup-card--collapsible" data-tour="configuration-card">
             <button
@@ -1574,132 +1528,17 @@ export default function App() {
             </button>
             {setupPanelsOpen.configuration && (
               <div className="setup-card__content">
-                {quickConnectSupported && (
-                  <div className="setup-quick-connect" data-tour="email-connect">
-                    <div className="setup-quick-connect__header">
-                      <p className="setup-card__title">Quick connect</p>
-                      <span className={emailConnectState === 'connected' ? 'setup-pill setup-pill--ok' : 'setup-pill'}>
-                        {emailConnectState === 'connected' ? 'Connected' : 'Email OTP'}
-                      </span>
-                    </div>
-                    <p className="setup-copy">
-                      New OpenClaw users can sign up here. You do not need to open the website or create an API key manually.
-                    </p>
-
-                    {(emailConnectState === 'idle' || emailConnectState === 'sending') && (
-                      <>
-                        {isConnected && !normalizedConnectEmail && (
-                          <p className="setup-msg setup-msg--ok">Echo Cloud is already connected. Send a new code here if you want to replace the saved key.</p>
-                        )}
-                        <label className="setup-field">
-                          <span>Email</span>
-                          <input
-                            type="email"
-                            value={connectEmail}
-                            placeholder="you@example.com"
-                            autoComplete="email"
-                            disabled={emailConnectState === 'sending'}
-                            onChange={(event) => {
-                              setConnectEmail(event.target.value);
-                              setConnectError(null);
-                            }}
-                          />
-                        </label>
-                        <button
-                          type="button"
-                          className="setup-save-btn"
-                          disabled={emailConnectState === 'sending' || !normalizedConnectEmail}
-                          onClick={handleSendOtp}
-                        >
-                          {emailConnectState === 'sending' ? 'Sending code...' : 'Connect with email'}
-                        </button>
-                      </>
-                    )}
-
-                    {(emailConnectState === 'otp_sent' || emailConnectState === 'verifying') && (
-                      <>
-                        <p className="setup-copy">
-                          Enter the 6-digit code sent to <strong>{normalizedConnectEmail}</strong>.
-                        </p>
-                        <div className="setup-otp-grid" onPaste={handleOtpPaste}>
-                          {otpDigits.map((digit, index) => (
-                            <input
-                              key={`otp-${index}`}
-                              ref={(node) => {
-                                otpInputRefs.current[index] = node;
-                              }}
-                              className="setup-otp-input"
-                              type="text"
-                              inputMode="numeric"
-                              pattern="[0-9]*"
-                              autoComplete={index === 0 ? 'one-time-code' : 'off'}
-                              maxLength={1}
-                              value={digit}
-                              disabled={emailConnectState === 'verifying'}
-                              onChange={(event) => handleOtpDigitChange(index, event.target.value)}
-                              onKeyDown={(event) => handleOtpKeyDown(index, event)}
-                            />
-                          ))}
-                        </div>
-                        <div className="setup-actions">
-                          <button
-                            type="button"
-                            className="setup-save-btn"
-                            disabled={emailConnectState === 'verifying' || otpValue.length < OTP_LENGTH}
-                            onClick={handleVerifyOtp}
-                          >
-                            {emailConnectState === 'verifying' ? 'Verifying...' : 'Verify and connect'}
-                          </button>
-                          <button
-                            type="button"
-                            className="setup-secondary-btn"
-                            disabled={emailConnectState === 'verifying'}
-                            onClick={resetQuickConnect}
-                          >
-                            Use another email
-                          </button>
-                        </div>
-                        {resendCountdown > 0 ? (
-                          <p className="setup-copy">Resend available in {resendCountdown}s.</p>
-                        ) : (
-                          <button type="button" className="setup-secondary-btn setup-secondary-btn--inline" onClick={handleSendOtp}>
-                            Resend code
-                          </button>
-                        )}
-                      </>
-                    )}
-
-                    {emailConnectState === 'connected' && (
-                      <div className="setup-quick-connect__connected">
-                        <p className="setup-msg setup-msg--ok">Connected as {normalizedConnectEmail || 'your verified email'}.</p>
-                        <button type="button" className="setup-secondary-btn" onClick={resetQuickConnect}>
-                          Connect another email
-                        </button>
-                      </div>
-                    )}
-
-                    {connectError && (
-                      <p className="setup-msg setup-msg--error">{connectError}</p>
-                    )}
-                  </div>
-                )}
-
-                <details className="setup-advanced">
-                  <summary className="setup-advanced__summary">Advanced: enter API key manually</summary>
-                  <div className="setup-advanced__content">
-                    <label className="setup-field">
-                      <span>Echo API key</span>
-                      <input
-                        type="password"
-                        value={setupDraft.apiKey}
-                        placeholder={setupState?.fields?.apiKey?.maskedValue || 'ec_...'}
-                        autoComplete="new-password"
-                        onChange={(e) => handleSetupFieldChange('apiKey', e.target.value)}
-                      />
-                      <small>Source: {formatSourceLabel(setupState?.fields?.apiKey, setupState)}</small>
-                    </label>
-                  </div>
-                </details>
+                <label className="setup-field">
+                  <span>Echo API key</span>
+                  <input
+                    type="password"
+                    value={setupDraft.apiKey}
+                    placeholder={setupState?.fields?.apiKey?.maskedValue || 'ec_...'}
+                    autoComplete="new-password"
+                    onChange={(e) => handleSetupFieldChange('apiKey', e.target.value)}
+                  />
+                  <small>Source: {formatSourceLabel(setupState?.fields?.apiKey, setupState)}</small>
+                </label>
                 <label className="setup-field">
                   <span>Memory directory</span>
                   <input
@@ -2026,6 +1865,102 @@ export default function App() {
           </div>
         </header>
 
+        {!isConnected && (
+          <section className="value-bar">
+            <div className="value-bar__content">
+              <h2 className="value-bar__title">Echo Memory System</h2>
+              <div className="value-bar__props">
+                <div className="value-bar__prop">
+                  <strong>One memory layer across all your AI tools.</strong>
+                  Claude · ChatGPT · Cursor · Hermes · OpenClaw — your memories travel with you. No vendor lock-in. Ever.
+                </div>
+                <div className="value-bar__prop">
+                  <strong>Find builders solving the same problems.</strong>
+                  Make your best memories public. Echo matches you with people working on the same niche. Use their experience. Share yours.
+                </div>
+                <div className="value-bar__prop">
+                  <strong>Full transparency.</strong>
+                  You see exactly how every memory is stored, who accessed it, and how it was used. Delete anything, anytime.
+                </div>
+              </div>
+              <div className="value-bar__auth">
+                {(emailConnectState === 'idle' || emailConnectState === 'sending') && (
+                  <div className="value-bar__email-row">
+                    <input
+                      type="email"
+                      className="value-bar__email-input"
+                      value={connectEmail}
+                      placeholder="you@example.com"
+                      autoComplete="email"
+                      disabled={emailConnectState === 'sending'}
+                      onChange={(event) => {
+                        setConnectEmail(event.target.value);
+                        setConnectError(null);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' && normalizedConnectEmail) handleSendOtp();
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="value-bar__send-btn"
+                      disabled={emailConnectState === 'sending' || !normalizedConnectEmail}
+                      onClick={handleSendOtp}
+                    >
+                      {emailConnectState === 'sending' ? 'Sending...' : 'Get Code \u2192'}
+                    </button>
+                  </div>
+                )}
+                {(emailConnectState === 'otp_sent' || emailConnectState === 'verifying') && (
+                  <div className="value-bar__otp-section">
+                    <p className="value-bar__otp-label">
+                      Enter the 6-digit code sent to <strong>{normalizedConnectEmail}</strong>
+                    </p>
+                    <div className="value-bar__otp-row">
+                      <div className="value-bar__otp-grid" onPaste={handleOtpPaste}>
+                        {otpDigits.map((digit, index) => (
+                          <input
+                            key={`vb-otp-${index}`}
+                            ref={(node) => { otpInputRefs.current[index] = node; }}
+                            className="value-bar__otp-input"
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            autoComplete={index === 0 ? 'one-time-code' : 'off'}
+                            maxLength={1}
+                            value={digit}
+                            disabled={emailConnectState === 'verifying'}
+                            onChange={(event) => handleOtpDigitChange(index, event.target.value)}
+                            onKeyDown={(event) => handleOtpKeyDown(index, event)}
+                          />
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        className="value-bar__send-btn"
+                        disabled={emailConnectState === 'verifying' || otpValue.length < OTP_LENGTH}
+                        onClick={handleVerifyOtp}
+                      >
+                        {emailConnectState === 'verifying' ? 'Verifying...' : 'Verify \u2192'}
+                      </button>
+                    </div>
+                    <div className="value-bar__otp-actions">
+                      {resendCountdown > 0 ? (
+                        <span className="value-bar__hint">Resend in {resendCountdown}s</span>
+                      ) : (
+                        <button type="button" className="value-bar__link-btn" onClick={handleSendOtp}>Resend code</button>
+                      )}
+                      <button type="button" className="value-bar__link-btn" onClick={resetQuickConnect}>Use another email</button>
+                    </div>
+                  </div>
+                )}
+                {connectError && <p className="value-bar__error">{connectError}</p>}
+                <p className="value-bar__hint">That's it. One email. We send a code. You're in.</p>
+              </div>
+            </div>
+          </section>
+        )}
+
         <main className={`app-main ${readingPath ? 'app-main--reading' : ''}`}>
           {readingPath ? (
             <ReadingPanel
@@ -2062,6 +1997,12 @@ export default function App() {
               onboardingActive={onboarding.active}
               onboardingCardPath={representativeCardPath}
               onWarningToggle={toggleWarningExpansion}
+              onSyncFile={(path) => {
+                if (!path || !isConnected) return;
+                triggerSyncSelected([path]).catch((err) => {
+                  console.error('Single-file sync failed:', err);
+                });
+              }}
               onCardClick={(path) => {
                 if (selectMode) {
                   if (path && selectablePaths.has(path)) toggleFileSelection(path);
@@ -2169,14 +2110,18 @@ export default function App() {
               href="http://localhost:3001/memories/timeline?mode=photo-first"
               target="_blank"
               rel="noopener noreferrer"
-              className="explore-btn"
+              className={`explore-btn${syncing && totalStreamedCount > 0 ? ' explore-btn--live' : ''}`}
               data-tour="footer-sync-action"
               aria-disabled={!isConnected}
               onClick={(event) => {
                 if (!isConnected) event.preventDefault();
               }}
             >
-              {isConnected ? 'Timeline →' : 'Add Echo key'}
+              {!isConnected
+                ? 'Add Echo key'
+                : syncing && totalStreamedCount > 0
+                  ? <><span className="explore-btn__count" key={totalStreamedCount}>{totalStreamedCount}</span>{' new memories — Timeline →'}</>
+                  : 'Timeline →'}
             </a>
           </div>
         </footer>

@@ -3,7 +3,7 @@ import './Card.css';
 
 const STATUS_PALETTE = {
   sealed: { bg: '#fdf2f2', border: '#c9a0a0', text: '#8b4c4c', content: '#7a4040' },
-  new: { bg: '#fefcf6', border: '#d4b882', text: '#7a6230', content: '#6b5228' },
+  new: { bg: '#ffffff', border: '#6a9cff', text: '#1a3a6a', content: '#1a2840' },
   modified: { bg: '#fefcf6', border: '#d4b882', text: '#7a6230', content: '#6b5228' },
   failed: { bg: '#fff5f5', border: '#d48b8b', text: '#9b4545', content: '#7c3d3d' },
   local: { bg: '#f5f4f0', border: '#bbb1a2', text: '#756b5c', content: '#5f574d' },
@@ -213,6 +213,7 @@ export const Card = React.memo(function Card({
   selectable,
   onboardingActive,
   onboardingFeatured,
+  onSyncFile,
 }) {
   const { file, x, y, w, h } = card;
   const tier = file._tier || 3;
@@ -222,13 +223,14 @@ export const Card = React.memo(function Card({
   const pal = isLog ? STATUS_PALETTE.none : getPalette(effectiveStatus, tier);
   const lod = zoom < 0.08 ? 0 : zoom < 0.18 ? 1 : 2;
   const isProcessing = transientStatus === 'syncing' || transientStatus === 'queued';
+  const isNew = effectiveStatus === 'new';
 
   void syncMeta;
 
   if (lod === 0) {
     return (
       <div
-        className={`card card-lod0${isProcessing ? ' card-processing' : ''}${checked ? ' card-picked' : ''}`}
+        className={`card card-lod0${isNew ? ' card-new' : ''}${isProcessing ? ' card-processing' : ''}${checked ? ' card-picked' : ''}`}
         data-card-path={file.relativePath}
         data-tour={onboardingActive && onboardingFeatured ? 'representative-card' : undefined}
         style={{
@@ -248,7 +250,7 @@ export const Card = React.memo(function Card({
   if (lod === 1) {
     return (
       <div
-        className={`card${isLog ? ' card-session-log' : ''}${isJournalGroup ? ' card-journal-group' : ''}${isProcessing ? ' card-processing' : ''}${checked ? ' card-picked' : ''}`}
+        className={`card${isNew ? ' card-new' : ''}${isLog ? ' card-session-log' : ''}${isJournalGroup ? ' card-journal-group' : ''}${isProcessing ? ' card-processing' : ''}${checked ? ' card-picked' : ''}`}
         data-card-path={file.relativePath}
         data-tour={onboardingActive && onboardingFeatured ? 'representative-card' : undefined}
         style={{
@@ -285,6 +287,7 @@ export const Card = React.memo(function Card({
   const preview = useMemo(() => stripMarkdown(content), [content]);
   const classNames = [
     'card',
+    isNew ? 'card-new' : '',
     isLog ? 'card-session-log' : '',
     isJournalGroup ? 'card-journal-group' : '',
     effectiveStatus === 'sealed' ? 'card-sealed' : '',
@@ -339,6 +342,11 @@ export const Card = React.memo(function Card({
             <WarningBadge file={file} />
             {transientStatus && effectiveStatus !== 'sealed' && <TransientStamp status={transientStatus} />}
             {effectiveStatus !== 'sealed' && <Stamp status={effectiveStatus} />}
+            {selected && !selectMode && (effectiveStatus === 'new' || effectiveStatus === 'modified') && onSyncFile && (
+              <button className="card-sync-btn" data-sync-path={file.relativePath} title="Sync this file">
+                Sync
+              </button>
+            )}
             {selected && !selectMode && (
               <button className="card-expand-btn" title="Read full document">
                 {'->'}

@@ -1020,6 +1020,22 @@ export function CloudSidebar({ isConnected, apiKey, localApiAvailable, onOpenCha
               </div>
             </div>
           )}
+
+          <div className="cloud-sidebar__demo-cta">
+            <div className="cloud-sidebar__demo-label">See a Live Timeline</div>
+            <p className="cloud-sidebar__demo-desc">
+              See what a published memory timeline looks like.
+            </p>
+            <a
+              href="https://iditor.com/kobe"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="cloud-sidebar__demo-link"
+            >
+              View Kobe's Timeline {'\u2192'}
+            </a>
+            <p className="cloud-sidebar__demo-hint">Your timeline could look like this.</p>
+          </div>
         </div>
 
         {detailState && (
