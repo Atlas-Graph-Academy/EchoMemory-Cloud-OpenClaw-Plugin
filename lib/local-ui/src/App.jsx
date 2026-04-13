@@ -6,6 +6,7 @@ import { Coachmark } from './onboarding/Coachmark';
 import { SelectionDrawer } from './selection/SelectionDrawer';
 import { buildTourSteps, ONBOARDING_STORAGE_KEY } from './onboarding/steps';
 import { computeLayout, computeSystemLayout, getTier, isSessionLog } from './layout/masonry';
+import { ProcessingTheater } from './sync/ProcessingTheater';
 import {
   fetchFiles,
   fetchAllContents,
@@ -114,23 +115,6 @@ function normalizePathKey(rawPath) {
   if (!rawPath) return '';
   const normalized = String(rawPath).replace(/\\/g, '/');
   return normalized.toLowerCase();
-}
-
-function formatDuration(ms) {
-  if (!Number.isFinite(ms) || ms <= 0) return '0s';
-  const totalSeconds = Math.round(ms / 1000);
-  if (totalSeconds < 60) return `${totalSeconds}s`;
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  if (minutes < 60) return `${minutes}m ${seconds}s`;
-  const hours = Math.floor(minutes / 60);
-  return `${hours}h ${minutes % 60}m`;
-}
-
-function basenameFromPath(relativePath) {
-  if (!relativePath) return '';
-  const parts = String(relativePath).split(/[\\/]/);
-  return parts[parts.length - 1] || relativePath;
 }
 
 function parseDateInput(value, endOfDay = false) {
@@ -347,13 +331,6 @@ function buildTimeGroupedDisplayFiles(files, mode, expandedGroupKey) {
   return { items, groups: orderedGroups };
 }
 
-function formatStageLabel(stage) {
-  if (!stage) return null;
-  const normalized = String(stage).trim().toLowerCase();
-  if (!normalized) return null;
-  return normalized.replace(/[_-]+/g, ' ');
-}
-
 function buildSyncResultState(result) {
   const summary = result?.summary || {};
   const runResults = Array.isArray(result?.run_results) ? result.run_results : [];
@@ -390,6 +367,8 @@ export default function App() {
   const [syncResult, setSyncResult] = useState(null);
   const [syncing, setSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState(null);
+  const [streamedMemories, setStreamedMemories] = useState([]);
+  const [totalStreamedCount, setTotalStreamedCount] = useState(0);
   const [cardSyncState, setCardSyncState] = useState({});
   const [backendSources, setBackendSources] = useState(null);
   const [setupState, setSetupState] = useState(null);
@@ -584,8 +563,23 @@ export default function App() {
         if (!progress) return;
         setSyncProgress(progress);
 
+        if (progress.latestMemory) {
+          const mem = progress.latestMemory;
+          setStreamedMemories((prev) => {
+            const next = [...prev, mem];
+            return next.length > 12 ? next.slice(next.length - 12) : next;
+          });
+          if (typeof progress.totalMemoriesStreamed === 'number') {
+            setTotalStreamedCount(progress.totalMemoriesStreamed);
+          } else {
+            setTotalStreamedCount((n) => n + 1);
+          }
+        }
+
         if (progress.phase === 'started') {
           setSyncing(true);
+          setStreamedMemories([]);
+          setTotalStreamedCount(0);
           setCardSyncState(() => {
             const next = {};
             for (const path of progress.queuedRelativePaths || []) {
@@ -834,11 +828,6 @@ export default function App() {
     return count;
   }, [filteredAnnotated]);
 
-  const syncProgressPercent = useMemo(() => {
-    if (!syncProgress?.totalFiles) return 0;
-    return Math.max(0, Math.min(100, Math.round((syncProgress.completedFiles / syncProgress.totalFiles) * 100)));
-  }, [syncProgress]);
-
   const readingFile = useMemo(
     () => files.find((file) => file.relativePath === readingPath) || null,
     [files, readingPath],
@@ -1054,6 +1043,8 @@ export default function App() {
     setSyncing(true);
     setSyncResult(null);
     setSyncProgress(null);
+    setStreamedMemories([]);
+    setTotalStreamedCount(0);
     try {
       let result;
       if (selectMode && syncSelection.size > 0) {
@@ -1934,51 +1925,19 @@ export default function App() {
           )}
         </main>
 
-        {syncProgress && (
-          <div className="sync-progress-dock">
-          <div className="sync-progress-top">
-            <span className="sync-progress-title">
-              {syncProgress.phase === 'failed'
-                ? 'Sync failed'
-                : syncProgress.phase === 'finished'
-                  ? syncProgress.failedCount > 0
-                    ? syncProgress.failedCount === syncProgress.totalFiles
-                      ? 'All files failed'
-                      : 'Sync finished with failures'
-                    : 'Sync complete'
-                  : 'Sync in progress'}
-            </span>
-            <span className="sync-progress-meta">
-              {Math.max(syncProgress.currentFileIndex || syncProgress.completedFiles, syncProgress.completedFiles)} / {syncProgress.totalFiles} files
-            </span>
-            {syncProgress.currentRelativePath && (
-              <span className="sync-progress-meta">
-                File {basenameFromPath(syncProgress.currentRelativePath)}
-              </span>
-            )}
-            {formatStageLabel(syncProgress.currentStage) && (
-              <span className="sync-progress-meta">
-                Stage {formatStageLabel(syncProgress.currentStage)}
-              </span>
-            )}
-            <span className="sync-progress-meta">Elapsed {formatDuration(syncProgress.elapsedMs)}</span>
-            {syncProgress.etaMs && syncProgress.phase !== 'finished' && syncProgress.phase !== 'failed' && (
-              <span className="sync-progress-meta">ETA {formatDuration(syncProgress.etaMs)}</span>
-            )}
-            <span className="sync-progress-meta">
-              OK {syncProgress.successCount} | Failed {syncProgress.failedCount}
-            </span>
-          </div>
-          <div className="sync-progress-track">
-            <div className="sync-progress-fill" style={{ width: `${syncProgressPercent}%` }} />
-          </div>
-          {syncProgress.recentFileResult?.status === 'failed' && (
-            <div className="sync-progress-detail">
-              Failed {basenameFromPath(syncProgress.recentFileResult.relativePath || syncProgress.currentRelativePath)}: {syncProgress.recentFileResult.lastError || 'Unknown error'}
-            </div>
-          )}
-          </div>
-        )}
+        <ProcessingTheater
+          syncProgress={syncProgress}
+          streamedMemories={streamedMemories}
+          totalStreamedCount={totalStreamedCount}
+          onDismiss={() => {
+            setSyncProgress(null);
+            setStreamedMemories([]);
+            setTotalStreamedCount(0);
+          }}
+          onOpenTimeline={() => {
+            window.open('https://www.iditor.com/memory-timeline-lab', '_blank', 'noopener,noreferrer');
+          }}
+        />
 
         <footer className="ftr">
           <div className="ftr-stats">

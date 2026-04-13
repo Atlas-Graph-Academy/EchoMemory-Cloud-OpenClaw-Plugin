@@ -896,63 +896,6 @@ a {
   color: var(--accent-strong);
 }
 
-.sync-progress-dock {
-  margin: 0 16px 10px;
-  padding: 14px 16px 12px;
-  border-radius: 18px;
-  border: 1px solid rgba(194, 214, 239, 0.1);
-  background:
-    linear-gradient(180deg, rgba(13, 19, 31, 0.92), rgba(9, 14, 24, 0.88)),
-    radial-gradient(circle at top left, rgba(146, 184, 255, 0.12), transparent 24%);
-  box-shadow: var(--panel-shadow-soft);
-}
-
-.sync-progress-top {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-.sync-progress-title {
-  color: var(--text-strong);
-  font-weight: 700;
-}
-
-.sync-progress-meta {
-  padding: 0 10px;
-  min-height: 26px;
-  display: inline-flex;
-  align-items: center;
-  border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.sync-progress-track {
-  width: 100%;
-  height: 9px;
-  margin-top: 10px;
-  border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.06);
-  overflow: hidden;
-}
-
-.sync-progress-fill {
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #7da3ee 0%, #c5d7ff 55%, #e1b58a 100%);
-  transition: width var(--motion-base) ease;
-}
-
-.sync-progress-detail {
-  margin-top: 10px;
-  color: #ffbaba;
-  font-size: 11px;
-  line-height: 1.5;
-}
-
 .empty-state {
   position: relative;
   height: 100%;
