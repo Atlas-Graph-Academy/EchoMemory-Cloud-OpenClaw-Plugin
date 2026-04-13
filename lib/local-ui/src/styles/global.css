@@ -765,6 +765,271 @@ a {
   background: #f8f5ef;
 }
 
+.hdr-daterange-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.hdr-daterange {
+  min-height: 38px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 14px;
+  border: 1px solid rgba(194, 214, 239, 0.12);
+  background: rgba(6, 10, 18, 0.4);
+  color: var(--text-main);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: border-color var(--motion-fast) ease, background var(--motion-fast) ease, color var(--motion-fast) ease;
+}
+
+.hdr-daterange:hover {
+  border-color: rgba(194, 214, 239, 0.24);
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.hdr-daterange__icon {
+  font-size: 12px;
+  color: rgba(194, 214, 239, 0.55);
+}
+
+.hdr-daterange__label {
+  font-weight: 500;
+}
+
+.hdr-daterange--active {
+  border-color: rgba(146, 184, 255, 0.45);
+  background: rgba(146, 184, 255, 0.09);
+  color: #dfeaff;
+}
+
+.hdr-daterange--active .hdr-daterange__icon {
+  color: rgba(180, 210, 255, 0.9);
+}
+
+.hdr-daterange-backdrop {
+  position: fixed;
+  inset: 0;
+  background: transparent;
+  z-index: 800;
+}
+
+.hdr-daterange-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 340px;
+  padding: 18px 18px 14px 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(194, 214, 239, 0.14);
+  background: linear-gradient(180deg, rgba(18, 22, 32, 0.96), rgba(12, 16, 26, 0.96));
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.45), 0 2px 10px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  z-index: 810;
+  animation: hdr-daterange-rise 180ms cubic-bezier(0.2, 0.9, 0.3, 1.1) both;
+}
+
+@keyframes hdr-daterange-rise {
+  0% { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.daterange-slider {
+  position: relative;
+  padding-top: 46px;
+}
+
+.daterange-slider--disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.daterange-slider__values {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 40px;
+  pointer-events: none;
+}
+
+.daterange-slider__value {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+.daterange-slider__value-label {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(194, 214, 239, 0.5);
+}
+
+.daterange-slider__value-date {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e8f0ff;
+  font-variant-numeric: tabular-nums;
+}
+
+.daterange-slider__track-wrap {
+  position: relative;
+  height: 28px;
+  display: flex;
+  align-items: center;
+}
+
+.daterange-slider__track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-50%);
+}
+
+.daterange-slider__fill {
+  position: absolute;
+  top: 50%;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(146, 184, 255, 0.65), rgba(197, 215, 255, 0.75));
+  box-shadow: 0 0 12px rgba(146, 184, 255, 0.25);
+  transform: translateY(-50%);
+}
+
+.daterange-slider__input {
+  position: absolute;
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+  pointer-events: none;
+}
+
+.daterange-slider__input:focus {
+  outline: none;
+}
+
+.daterange-slider__input::-webkit-slider-runnable-track {
+  height: 28px;
+  background: transparent;
+  border: none;
+}
+
+.daterange-slider__input::-moz-range-track {
+  height: 28px;
+  background: transparent;
+  border: none;
+}
+
+.daterange-slider__input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  pointer-events: auto;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #f3f7ff;
+  border: 2px solid rgba(146, 184, 255, 0.7);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45), 0 0 0 4px rgba(146, 184, 255, 0.12);
+  cursor: grab;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.daterange-slider__input::-webkit-slider-thumb:hover {
+  transform: scale(1.08);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.55), 0 0 0 6px rgba(146, 184, 255, 0.18);
+}
+
+.daterange-slider__input::-webkit-slider-thumb:active {
+  cursor: grabbing;
+}
+
+.daterange-slider__input::-moz-range-thumb {
+  pointer-events: auto;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #f3f7ff;
+  border: 2px solid rgba(146, 184, 255, 0.7);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45), 0 0 0 4px rgba(146, 184, 255, 0.12);
+  cursor: grab;
+}
+
+.daterange-slider__bounds {
+  margin-top: 10px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(194, 214, 239, 0.45);
+  font-variant-numeric: tabular-nums;
+}
+
+.hdr-daterange-popover__actions {
+  margin-top: 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.hdr-daterange-popover__reset,
+.hdr-daterange-popover__done {
+  min-height: 32px;
+  padding: 0 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background var(--motion-fast) ease, border-color var(--motion-fast) ease, color var(--motion-fast) ease;
+}
+
+.hdr-daterange-popover__reset {
+  border: 1px solid rgba(194, 214, 239, 0.14);
+  background: transparent;
+  color: rgba(194, 214, 239, 0.75);
+}
+
+.hdr-daterange-popover__reset:hover:not(:disabled) {
+  border-color: rgba(194, 214, 239, 0.28);
+  color: #e8f0ff;
+}
+
+.hdr-daterange-popover__reset:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.hdr-daterange-popover__done {
+  border: 1px solid rgba(146, 184, 255, 0.45);
+  background: linear-gradient(180deg, rgba(146, 184, 255, 0.22), rgba(146, 184, 255, 0.1));
+  color: #e6f0ff;
+}
+
+.hdr-daterange-popover__done:hover {
+  background: linear-gradient(180deg, rgba(146, 184, 255, 0.32), rgba(146, 184, 255, 0.16));
+}
+
 .hdr-meta b {
   color: var(--text-strong);
   font-weight: 700;

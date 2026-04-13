@@ -123,11 +123,101 @@ function parseDateInput(value, endOfDay = false) {
   return new Date(year, month - 1, day, endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0, endOfDay ? 999 : 0);
 }
 
+const DAY_MS = 86400000;
+
+function msToDateInputValue(ms) {
+  if (ms == null || !Number.isFinite(ms)) return '';
+  const d = new Date(ms);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function startOfDayMs(ms) {
+  const d = new Date(ms);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
 function formatShortDate(value) {
   if (!value) return 'Unknown date';
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return 'Unknown date';
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function formatSliderDay(ms) {
+  if (!Number.isFinite(ms)) return '—';
+  return new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function DateRangeSlider({ boundsMin, boundsMax, fromMs, toMs, onChangeFrom, onChangeTo }) {
+  const disabled = !Number.isFinite(boundsMin) || !Number.isFinite(boundsMax) || boundsMax <= boundsMin;
+  const span = disabled ? 1 : boundsMax - boundsMin;
+  const fromPct = disabled ? 0 : Math.max(0, Math.min(100, ((fromMs - boundsMin) / span) * 100));
+  const toPct = disabled ? 100 : Math.max(0, Math.min(100, ((toMs - boundsMin) / span) * 100));
+
+  const handleFromChange = (event) => {
+    const raw = Number(event.target.value);
+    if (!Number.isFinite(raw)) return;
+    const clamped = Math.min(raw, toMs);
+    onChangeFrom(clamped);
+  };
+  const handleToChange = (event) => {
+    const raw = Number(event.target.value);
+    if (!Number.isFinite(raw)) return;
+    const clamped = Math.max(raw, fromMs);
+    onChangeTo(clamped);
+  };
+
+  return (
+    <div className={`daterange-slider${disabled ? ' daterange-slider--disabled' : ''}`}>
+      <div className="daterange-slider__values">
+        <div className="daterange-slider__value" style={{ left: `${fromPct}%` }}>
+          <span className="daterange-slider__value-label">From</span>
+          <span className="daterange-slider__value-date">{formatSliderDay(fromMs)}</span>
+        </div>
+        <div className="daterange-slider__value daterange-slider__value--right" style={{ left: `${toPct}%` }}>
+          <span className="daterange-slider__value-label">To</span>
+          <span className="daterange-slider__value-date">{formatSliderDay(toMs)}</span>
+        </div>
+      </div>
+      <div className="daterange-slider__track-wrap">
+        <div className="daterange-slider__track" />
+        <div
+          className="daterange-slider__fill"
+          style={{ left: `${fromPct}%`, width: `${Math.max(0, toPct - fromPct)}%` }}
+        />
+        <input
+          className="daterange-slider__input daterange-slider__input--from"
+          type="range"
+          min={boundsMin}
+          max={boundsMax}
+          step={DAY_MS}
+          value={fromMs}
+          disabled={disabled}
+          onChange={handleFromChange}
+          aria-label="Filter start date"
+        />
+        <input
+          className="daterange-slider__input daterange-slider__input--to"
+          type="range"
+          min={boundsMin}
+          max={boundsMax}
+          step={DAY_MS}
+          value={toMs}
+          disabled={disabled}
+          onChange={handleToChange}
+          aria-label="Filter end date"
+        />
+      </div>
+      <div className="daterange-slider__bounds">
+        <span>{formatSliderDay(boundsMin)}</span>
+        <span>{formatSliderDay(boundsMax)}</span>
+      </div>
+    </div>
+  );
 }
 
 function formatDateRangeLabel(start, end) {
@@ -362,6 +452,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [dateRangeOpen, setDateRangeOpen] = useState(false);
   const [authStatus, setAuthStatus] = useState(null);
   const [syncStatus, setSyncStatus] = useState(null);
   const [syncResult, setSyncResult] = useState(null);
@@ -1307,6 +1398,69 @@ export default function App() {
   );
   const hasDateFilter = Boolean(dateFrom || dateTo);
   const hasSearchFilter = searchQuery.trim().length > 0;
+
+  const visibleFileDateRange = useMemo(() => {
+    let min = null;
+    let max = null;
+    for (const file of filteredAnnotated) {
+      const t = Date.parse(file?.modifiedTime || file?.updatedAt || '');
+      if (!Number.isFinite(t)) continue;
+      if (min === null || t < min) min = t;
+      if (max === null || t > max) max = t;
+    }
+    return { min, max };
+  }, [filteredAnnotated]);
+
+  const absoluteDateBounds = useMemo(() => {
+    let min = null;
+    let max = null;
+    for (const file of annotated) {
+      const t = Date.parse(file?.modifiedTime || file?.updatedAt || '');
+      if (!Number.isFinite(t)) continue;
+      if (min === null || t < min) min = t;
+      if (max === null || t > max) max = t;
+    }
+    if (min != null) min = startOfDayMs(min);
+    if (max != null) max = startOfDayMs(max);
+    if (min != null && max != null && min === max) max = min + DAY_MS;
+    return { min, max };
+  }, [annotated]);
+
+  const sliderBounds = useMemo(() => {
+    const min = absoluteDateBounds.min ?? startOfDayMs(Date.now() - 30 * DAY_MS);
+    const max = absoluteDateBounds.max ?? startOfDayMs(Date.now());
+    return { min, max };
+  }, [absoluteDateBounds]);
+
+  const sliderFromMs = useMemo(() => {
+    const parsed = dateFrom ? parseDateInput(dateFrom, false)?.getTime() : null;
+    if (Number.isFinite(parsed)) return Math.max(sliderBounds.min, Math.min(sliderBounds.max, startOfDayMs(parsed)));
+    return sliderBounds.min;
+  }, [dateFrom, sliderBounds]);
+
+  const sliderToMs = useMemo(() => {
+    const parsed = dateTo ? parseDateInput(dateTo, false)?.getTime() : null;
+    if (Number.isFinite(parsed)) return Math.max(sliderBounds.min, Math.min(sliderBounds.max, startOfDayMs(parsed)));
+    return sliderBounds.max;
+  }, [dateTo, sliderBounds]);
+
+  const dateRangeLabel = useMemo(() => {
+    const fmt = (value) => {
+      if (value == null) return null;
+      const d = value instanceof Date ? value : new Date(value);
+      if (Number.isNaN(d.getTime())) return null;
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    };
+    const filterStart = dateFrom ? parseDateInput(dateFrom, false) : null;
+    const filterEnd = dateTo ? parseDateInput(dateTo, true) : null;
+    const start = filterStart || visibleFileDateRange.min;
+    const end = filterEnd || visibleFileDateRange.max;
+    const startLabel = fmt(start);
+    const endLabel = fmt(end);
+    if (!startLabel && !endLabel) return 'No files';
+    if (startLabel && endLabel && startLabel === endLabel) return startLabel;
+    return `${startLabel || '—'} – ${endLabel || '—'}`;
+  }, [dateFrom, dateTo, visibleFileDateRange]);
   const compactJournalEnabled = journalViewMode !== 'all';
   const emptyStateMessage = hasSearchFilter && hasDateFilter
     ? 'No files match the current search and time range.'
@@ -1790,34 +1944,57 @@ export default function App() {
               placeholder="Search files and content"
               onChange={(event) => setSearchQuery(event.target.value)}
             />
-            <input
-              className="hdr-date"
-              type="date"
-              value={dateFrom}
-              title="Only show files modified on or after this date"
-              aria-label="Filter files from date"
-              onChange={(event) => setDateFrom(event.target.value)}
-            />
-            <input
-              className="hdr-date"
-              type="date"
-              value={dateTo}
-              title="Only show files modified on or before this date"
-              aria-label="Filter files to date"
-              onChange={(event) => setDateTo(event.target.value)}
-            />
-            {hasDateFilter && (
+            <div className="hdr-daterange-wrap">
               <button
                 type="button"
-                className="hdr-inline-btn"
-                onClick={() => {
-                  setDateFrom('');
-                  setDateTo('');
-                }}
+                className={`hdr-daterange${hasDateFilter ? ' hdr-daterange--active' : ''}`}
+                onClick={() => setDateRangeOpen((v) => !v)}
+                title={hasDateFilter ? 'Date filter active — click to adjust' : 'Click to filter by date'}
+                aria-expanded={dateRangeOpen}
               >
-                Clear dates
+                <span className="hdr-daterange__icon" aria-hidden="true">▦</span>
+                <span className="hdr-daterange__label">{dateRangeLabel}</span>
               </button>
-            )}
+              {dateRangeOpen && (
+                <>
+                  <div
+                    className="hdr-daterange-backdrop"
+                    onClick={() => setDateRangeOpen(false)}
+                    aria-hidden="true"
+                  />
+                  <div className="hdr-daterange-popover" role="dialog" aria-label="Filter by date">
+                    <DateRangeSlider
+                      boundsMin={sliderBounds.min}
+                      boundsMax={sliderBounds.max}
+                      fromMs={sliderFromMs}
+                      toMs={sliderToMs}
+                      onChangeFrom={(ms) => setDateFrom(msToDateInputValue(ms))}
+                      onChangeTo={(ms) => setDateTo(msToDateInputValue(ms))}
+                    />
+                    <div className="hdr-daterange-popover__actions">
+                      <button
+                        type="button"
+                        className="hdr-daterange-popover__reset"
+                        disabled={!hasDateFilter}
+                        onClick={() => {
+                          setDateFrom('');
+                          setDateTo('');
+                        }}
+                      >
+                        View All
+                      </button>
+                      <button
+                        type="button"
+                        className="hdr-daterange-popover__done"
+                        onClick={() => setDateRangeOpen(false)}
+                      >
+                        Done
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
             <select
               className="hdr-select"
               value={journalViewMode}
