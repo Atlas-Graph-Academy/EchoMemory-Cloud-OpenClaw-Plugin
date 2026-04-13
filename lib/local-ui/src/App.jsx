@@ -3,6 +3,7 @@ import { Viewport } from './canvas/Viewport';
 import { ReadingPanel } from './cards/ReadingPanel';
 import { CloudSidebar } from './cloud/CloudSidebar';
 import { Coachmark } from './onboarding/Coachmark';
+import { SelectionDrawer } from './selection/SelectionDrawer';
 import { buildTourSteps, ONBOARDING_STORAGE_KEY } from './onboarding/steps';
 import { computeLayout, computeSystemLayout, getTier, isSessionLog } from './layout/masonry';
 import {
@@ -15,6 +16,7 @@ import {
   fetchBackendSources,
   triggerSync,
   triggerSyncSelected,
+  triggerReextractSelected,
   connectSSE,
   fetchSetupStatus,
   fetchPluginUpdateStatus,
@@ -792,7 +794,7 @@ export default function App() {
     () =>
       new Set(
         (syncStatus?.fileStatuses || [])
-          .filter((status) => status.syncEligible && ['new', 'modified', 'failed'].includes(status.status))
+          .filter((status) => status.syncEligible)
           .map((status) => status.relativePath),
       ),
     [syncStatus],
@@ -808,9 +810,6 @@ export default function App() {
 
   const systemFileCount = layout.systemFileCount || 0;
   const visibleFileCount = layout.visibleFileCount || 0;
-  const visibleCardCount = layout.visibleCardCount || layout.cards.length || 0;
-  const visibleSectionCount = layout.visibleSectionCount || 0;
-
   const pendingCount = useMemo(() => {
     let count = 0;
     for (const status of Object.values(syncMap)) {
@@ -818,6 +817,22 @@ export default function App() {
     }
     return count;
   }, [syncMap]);
+
+  const syncedCount = useMemo(() => {
+    let count = 0;
+    for (const status of Object.values(syncMap)) {
+      if (status === 'synced') count++;
+    }
+    return count;
+  }, [syncMap]);
+
+  const sensitiveCount = useMemo(() => {
+    let count = 0;
+    for (const file of filteredAnnotated) {
+      if (file?.hasSensitiveContent) count++;
+    }
+    return count;
+  }, [filteredAnnotated]);
 
   const syncProgressPercent = useMemo(() => {
     if (!syncProgress?.totalFiles) return 0;
@@ -1035,14 +1050,18 @@ export default function App() {
     });
   }, [selectablePaths]);
 
-  const handleSync = useCallback(async () => {
+  const handleSync = useCallback(async (mode = 'sync') => {
     setSyncing(true);
     setSyncResult(null);
     setSyncProgress(null);
     try {
       let result;
       if (selectMode && syncSelection.size > 0) {
-        result = await triggerSyncSelected([...syncSelection]);
+        if (mode === 'reextract') {
+          result = await triggerReextractSelected([...syncSelection]);
+        } else {
+          result = await triggerSyncSelected([...syncSelection]);
+        }
         setSyncSelection(new Set());
         setSelectMode(false);
       } else {
@@ -1052,7 +1071,8 @@ export default function App() {
       loadSyncStatus();
       loadBackendSources();
     } catch (error) {
-      setSyncResult({ ok: false, msg: String(error?.message || 'Sync failed') });
+      const label = mode === 'reextract' ? 'Re-extract failed' : 'Sync failed';
+      setSyncResult({ ok: false, msg: String(error?.message || label) });
     } finally {
       setSyncing(false);
     }
@@ -1961,80 +1981,54 @@ export default function App() {
         )}
 
         <footer className="ftr">
-        {selectMode ? (
-          <div className="ftr-action-cluster" data-tour="footer-select-controls">
-            <span className="selection-copy">
-              <b>{syncSelection.size}</b> file{syncSelection.size !== 1 ? 's' : ''} selected
-            </span>
-            <button
-              className="ftr-select-toggle"
-              onClick={() => {
-                const pending = (syncStatus?.fileStatuses || [])
-                  .filter((status) => status.syncEligible && ['new', 'modified', 'failed'].includes(status.status))
-                  .map((status) => status.relativePath);
-                setSyncSelection(new Set(pending));
-              }}
-            >
-              Select pending
-            </button>
-            <button className="ftr-select-toggle" onClick={() => setSyncSelection(new Set())}>Clear</button>
-            <button className="ftr-select-toggle" onClick={() => { setSelectMode(false); setSyncSelection(new Set()); }}>
-              Cancel
-            </button>
+          <div className="ftr-stats">
+            {view === 'memories' ? (
+              <>
+                <span className="ftr-stat"><b>{filteredAnnotated.length}</b> files</span>
+                <span className="ftr-stat-dot" />
+                <span className="ftr-stat"><b>{syncedCount}</b> synced</span>
+                {sensitiveCount > 0 && (
+                  <>
+                    <span className="ftr-stat-dot" />
+                    <span className="ftr-stat ftr-stat--sensitive"><b>{sensitiveCount}</b> sensitive</span>
+                  </>
+                )}
+                {systemFileCount > 0 && (
+                  <>
+                    <span className="ftr-stat-dot" />
+                    <span
+                      className="ftr-system"
+                      data-tour="system-files-link"
+                      onClick={() => setView('system')}
+                      title="View system files"
+                    >
+                      {systemFileCount} system
+                    </span>
+                  </>
+                )}
+              </>
+            ) : (
+              <span className="ftr-stat"><b>{systemFileCount}</b> system files</span>
+            )}
           </div>
-        ) : view === 'memories' ? (
-          <>
-            <span>
-              <b>{visibleSectionCount}</b> smart clusters | <b>{visibleCardCount}</b> visible cards | <b>{filteredAnnotated.length}</b> matching files
-            </span>
-            {compactJournalEnabled && journalDisplay.groupedFileCount > 0 && (
-              <span>
-                <b>{compactModeLabel}</b> | <b>{journalDisplay.journalGroupCount}</b> time groups | {expandedJournalGroup ? '1 expanded' : 'all folded'}
-              </span>
-            )}
-            {systemFileCount > 0 && (
-              <span className="ftr-system" data-tour="system-files-link" onClick={() => setView('system')} title="View system files">
-                {systemFileCount} system files
-              </span>
-            )}
-          </>
-        ) : (
-          <>
-            <span>
-              <b>{systemFileCount}</b> system files | hidden from smart clusters
-            </span>
-            {compactJournalEnabled && journalDisplay.groupedFileCount > 0 && (
-              <span>
-                <b>{compactModeLabel}</b> | <b>{journalDisplay.journalGroupCount}</b> time groups | {expandedJournalGroup ? '1 expanded' : 'all folded'}
-              </span>
-            )}
-          </>
-        )}
-        <span className="ftr-spacer" />
-        {syncResult && (
-          <>
-            <span className={syncResult.ok ? 'sync-result' : 'sync-error'}>{syncResult.msg}</span>
-            {!syncResult.ok && syncResult.failed?.length > 0 && (
-              <span className="sync-error">
-                {syncResult.failed
-                  .slice(0, 2)
-                  .map((item) => `${basenameFromPath(item.filePath)}: ${item.lastError || 'Unknown error'}`)
-                  .join(' | ')}
-              </span>
-            )}
-          </>
-        )}
-        <div className="ftr-action-cluster" data-tour="footer-sync-area">
-          {!selectMode && pendingCount > 0 && (
-            <button className="ftr-select-toggle" data-tour="footer-select-controls" onClick={() => setSelectMode(true)}>
-              Select files
-            </button>
+          <span className="ftr-spacer" />
+          {syncResult && !syncResult.ok && (
+            <span className="sync-error">{syncResult.msg}</span>
           )}
-          {selectMode ? (
-            <button className="sync-btn" data-tour="footer-sync-action" disabled={!isConnected || syncing || syncSelection.size === 0} onClick={handleSync}>
-              {syncing ? 'Syncing...' : `Sync ${syncSelection.size} selected`}
-            </button>
-          ) : (
+          <div className="ftr-action-cluster" data-tour="footer-sync-area">
+            {isConnected && (
+              <button
+                className={`ftr-select-toggle${selectMode ? ' ftr-select-toggle--active' : ''}`}
+                data-tour="footer-select-controls"
+                onClick={() => setSelectMode(!selectMode)}
+              >
+                {selectMode
+                  ? syncSelection.size > 0
+                    ? `${syncSelection.size} picked`
+                    : 'Close'
+                  : 'Select files'}
+              </button>
+            )}
             <a
               href="https://www.iditor.com/memory-timeline-lab"
               target="_blank"
@@ -2046,10 +2040,9 @@ export default function App() {
                 if (!isConnected) event.preventDefault();
               }}
             >
-              {isConnected ? 'Explore your memories' : 'Add Echo key in Setup'}
+              {isConnected ? 'Timeline →' : 'Add Echo key'}
             </a>
-          )}
-        </div>
+          </div>
         </footer>
         <CloudSidebar
           isConnected={isConnected}
@@ -2058,6 +2051,20 @@ export default function App() {
           forcedOpen={onboarding.active && ['cloud', 'sources'].includes(currentTourStep?.id)}
           forcedTab={forcedCloudTab}
           onOpenChange={setCloudSidebarOpen}
+        />
+        <SelectionDrawer
+          open={selectMode}
+          onClose={() => { setSelectMode(false); }}
+          cards={activeLayout.cards}
+          sections={activeLayout.sections}
+          syncMap={syncMap}
+          selectablePaths={selectablePaths}
+          syncSelection={syncSelection}
+          setSyncSelection={setSyncSelection}
+          toggleFileSelection={toggleFileSelection}
+          syncing={syncing}
+          isConnected={isConnected}
+          onSync={handleSync}
         />
         {onboarding.active && currentTourStep && (
           <Coachmark

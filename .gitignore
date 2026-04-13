@@ -59,3 +59,4 @@ docs/**/*.md
 !lib/local-ui/dist/**
 
 *.sql
+.gstack/

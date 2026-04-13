@@ -14,6 +14,30 @@ const STATUS_PALETTE = {
 const TIER_DEFAULTS = { 1: 'new', 2: 'none', 3: 'none' };
 const MAX_PREVIEW_CHARS = 600;
 
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '';
+  if (bytes < 1024) return `${bytes}B`;
+  const kb = bytes / 1024;
+  if (kb < 1024) return `${kb < 10 ? kb.toFixed(1) : Math.round(kb)}KB`;
+  const mb = kb / 1024;
+  return `${mb < 10 ? mb.toFixed(1) : Math.round(mb)}MB`;
+}
+
+function formatRelativeDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const diffMs = Date.now() - d.getTime();
+  const day = 24 * 60 * 60 * 1000;
+  const diffDays = Math.floor(diffMs / day);
+  if (diffDays <= 0) return 'today';
+  if (diffDays === 1) return 'yesterday';
+  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+  if (diffDays < 365) return `${Math.floor(diffDays / 30)}mo ago`;
+  return `${Math.floor(diffDays / 365)}y ago`;
+}
+
 function getPalette(syncStatus, tier) {
   if (syncStatus === 'sealed') return STATUS_PALETTE.sealed;
   if (syncStatus === 'new') return STATUS_PALETTE.new;
@@ -197,13 +221,14 @@ export const Card = React.memo(function Card({
   const effectiveStatus = syncStatus || null;
   const pal = isLog ? STATUS_PALETTE.none : getPalette(effectiveStatus, tier);
   const lod = zoom < 0.08 ? 0 : zoom < 0.18 ? 1 : 2;
+  const isProcessing = transientStatus === 'syncing' || transientStatus === 'queued';
 
   void syncMeta;
 
   if (lod === 0) {
     return (
       <div
-        className="card card-lod0"
+        className={`card card-lod0${isProcessing ? ' card-processing' : ''}${checked ? ' card-picked' : ''}`}
         data-card-path={file.relativePath}
         data-tour={onboardingActive && onboardingFeatured ? 'representative-card' : undefined}
         style={{
@@ -223,7 +248,7 @@ export const Card = React.memo(function Card({
   if (lod === 1) {
     return (
       <div
-        className={`card${isLog ? ' card-session-log' : ''}${isJournalGroup ? ' card-journal-group' : ''}`}
+        className={`card${isLog ? ' card-session-log' : ''}${isJournalGroup ? ' card-journal-group' : ''}${isProcessing ? ' card-processing' : ''}${checked ? ' card-picked' : ''}`}
         data-card-path={file.relativePath}
         data-tour={onboardingActive && onboardingFeatured ? 'representative-card' : undefined}
         style={{
@@ -266,9 +291,15 @@ export const Card = React.memo(function Card({
     selected ? 'card-selected' : '',
     dimmed ? 'card-dimmed' : '',
     selectMode && selectable === false ? 'card-unselectable' : '',
+    isProcessing ? 'card-processing' : '',
+    checked ? 'card-picked' : '',
   ]
     .filter(Boolean)
     .join(' ');
+
+  const sizeLabel = formatBytes(file.sizeBytes);
+  const dateLabel = formatRelativeDate(file.modifiedTime || file.updatedAt);
+  const showInfoRow = !isJournalGroup && !isLog && (sizeLabel || dateLabel);
 
   return (
     <div
@@ -316,6 +347,13 @@ export const Card = React.memo(function Card({
           </div>
         </div>
           {warningExpanded && <WarningPanel file={file} />}
+          {showInfoRow && (
+            <div className="card-info-row" style={{ color: pal.content }}>
+              {sizeLabel && <span className="card-info-chip">{sizeLabel}</span>}
+              {dateLabel && <span className="card-info-chip">{dateLabel}</span>}
+              {isProcessing && <span className="card-info-chip card-info-chip-processing">processing</span>}
+            </div>
+          )}
           {preview && !isLog && (
             <div className="card-content" style={{ color: pal.content }}>
               {preview}

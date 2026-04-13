@@ -12,8 +12,8 @@
   backdrop-filter: blur(var(--blur-panel));
   z-index: 55;
   cursor: pointer;
-  opacity: 0.88;
-  transition: opacity var(--motion-fast) ease, transform var(--motion-fast) ease, border-color var(--motion-fast) ease;
+  opacity: 0.22;
+  transition: opacity 0.2s ease, transform var(--motion-fast) ease, border-color var(--motion-fast) ease;
 }
 
 .app-shell--cloud-open .minimap {
@@ -21,9 +21,13 @@
 }
 
 .minimap:hover {
-  opacity: 1;
+  opacity: 0.95;
   transform: translateY(-1px);
   border-color: rgba(194, 214, 239, 0.24);
+}
+
+.viewport-panning .minimap {
+  opacity: 0.7;
 }
 
 .minimap-canvas {

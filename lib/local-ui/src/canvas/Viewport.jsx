@@ -29,6 +29,7 @@ export function Viewport({
   selectMode,
   syncSelection,
   selectablePaths,
+
   onboardingActive,
   onboardingCardPath,
   onCardClick,
@@ -45,7 +46,6 @@ export function Viewport({
     animateTo,
     zoomIn,
     zoomOut,
-    panBy,
     fitToCanvas,
     handlers,
   } = useCanvasTransform(vpRef, canvasRef, bounds);
@@ -140,6 +140,15 @@ export function Viewport({
         const path = cardEl.dataset.cardPath;
         const card = cards.find((item) => item.key === path);
         if (card) {
+          // In select mode: toggle-only, no zoom/focus. The canvas stays put
+          // so you can click a bunch of cards in a row without losing your
+          // place. Double-click-to-expand is also disabled in select mode.
+          if (selectMode) {
+            lastClickRef.current = { path: null, time: 0 };
+            if (onCardClick) onCardClick(path);
+            return;
+          }
+
           const now = Date.now();
           const last = lastClickRef.current;
 
@@ -169,8 +178,6 @@ export function Viewport({
     const targetPanY = (vpH / 2) - cy * z;
     animateTo(targetPanX, targetPanY, z, 300);
   }, [viewState.zoom, animateTo]);
-
-  const zoomPct = Math.round(viewState.zoom * 100);
 
   return (
     <div className="viewport-root">
@@ -237,35 +244,31 @@ export function Viewport({
       />
 
       <div className="viewport-controls">
-        <div className="viewport-control-cluster">
-          <button type="button" className="viewport-control viewport-control-fit" onClick={fitToCanvas} title="Fit canvas">
-            Fit
+        <div className="viewport-zoom-pill" title="Zoom controls">
+          <button
+            type="button"
+            className="viewport-zoom-pill__btn"
+            onClick={fitToCanvas}
+            title="Fit to canvas"
+          >
+            ⊡
           </button>
-          <button type="button" className="viewport-control" onClick={zoomIn} title="Zoom in">
+          <button
+            type="button"
+            className="viewport-zoom-pill__btn"
+            onClick={zoomOut}
+            title="Zoom out"
+          >
+            −
+          </button>
+          <button
+            type="button"
+            className="viewport-zoom-pill__btn"
+            onClick={zoomIn}
+            title="Zoom in"
+          >
             +
           </button>
-          <button type="button" className="viewport-control" onClick={zoomOut} title="Zoom out">
-            -
-          </button>
-          <div className="zoom-indicator">{zoomPct}% | {renderCards.length}/{cards.length}</div>
-        </div>
-        <div className="viewport-control-cluster viewport-control-cluster--pad">
-          <div className="viewport-control-pad">
-            <button type="button" className="viewport-control" onClick={() => panBy(0, 160)} title="Pan up">
-              Up
-            </button>
-            <div className="viewport-control-pad__row">
-              <button type="button" className="viewport-control" onClick={() => panBy(160, 0)} title="Pan left">
-                Left
-              </button>
-              <button type="button" className="viewport-control" onClick={() => panBy(-160, 0)} title="Pan right">
-                Right
-              </button>
-            </div>
-            <button type="button" className="viewport-control" onClick={() => panBy(0, -160)} title="Pan down">
-              Down
-            </button>
-          </div>
         </div>
       </div>
     </div>

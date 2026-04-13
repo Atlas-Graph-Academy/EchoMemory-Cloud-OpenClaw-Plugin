@@ -1,0 +1,517 @@
+/* Selection Drawer — side panel with flat checkbox list.
+   Sits on top of the canvas with a soft scrim so the canvas stays visible. */
+
+.sel-drawer-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 8, 16, 0.42);
+  backdrop-filter: blur(1px);
+  z-index: 140;
+  animation: selDrawerFade 0.16s ease-out;
+}
+
+.sel-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(460px, 92vw);
+  z-index: 150;
+  display: flex;
+  flex-direction: column;
+  background:
+    linear-gradient(180deg, rgba(14, 20, 32, 0.98), rgba(8, 12, 22, 0.98)),
+    radial-gradient(circle at top right, rgba(146, 184, 255, 0.08), transparent 40%);
+  border-left: 1px solid rgba(194, 214, 239, 0.14);
+  box-shadow: -24px 0 60px rgba(2, 6, 16, 0.48);
+  color: var(--text-main);
+  animation: selDrawerSlide 0.22s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+@keyframes selDrawerFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes selDrawerSlide {
+  from { transform: translateX(24px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* ── Header ───────────────────────────────────────────────── */
+
+.sel-drawer__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid rgba(194, 214, 239, 0.1);
+}
+
+.sel-drawer__title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.sel-drawer__title-main {
+  font: 700 15px/1.2 var(--font-ui);
+  color: var(--text-strong);
+  letter-spacing: 0.01em;
+}
+
+.sel-drawer__title-sub {
+  font: 500 11px/1 var(--font-ui);
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+
+.sel-drawer__close {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  border: 1px solid rgba(194, 214, 239, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-main);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background var(--motion-fast) ease, border-color var(--motion-fast) ease;
+}
+
+.sel-drawer__close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(194, 214, 239, 0.28);
+}
+
+/* ── Toolbar ──────────────────────────────────────────────── */
+
+.sel-drawer__toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 20px 10px;
+  border-bottom: 1px solid rgba(194, 214, 239, 0.08);
+}
+
+.sel-drawer__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sel-chip {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(194, 214, 239, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-muted);
+  font: 600 11px/1 var(--font-ui);
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all var(--motion-fast) ease;
+}
+
+.sel-chip:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(194, 214, 239, 0.28);
+}
+
+.sel-chip--active {
+  background: rgba(120, 196, 255, 0.18);
+  border-color: rgba(120, 196, 255, 0.5);
+  color: #e6f2ff;
+}
+
+.sel-drawer__search {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(194, 214, 239, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-main);
+  font: 500 12px/1.4 var(--font-ui);
+  outline: none;
+  transition: border-color var(--motion-fast) ease, background var(--motion-fast) ease;
+}
+
+.sel-drawer__search:focus {
+  border-color: rgba(120, 196, 255, 0.5);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.sel-drawer__search::placeholder {
+  color: rgba(194, 214, 239, 0.36);
+}
+
+/* ── Action bar (select-all/clear) ────────────────────────── */
+
+.sel-drawer__actionbar {
+  display: flex;
+  gap: 8px;
+  padding: 8px 20px 10px;
+  border-bottom: 1px solid rgba(194, 214, 239, 0.08);
+}
+
+.sel-drawer__link-btn {
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: rgba(146, 184, 255, 0.82);
+  font: 600 11px/1 var(--font-ui);
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: color var(--motion-fast) ease, background var(--motion-fast) ease;
+}
+
+.sel-drawer__link-btn:hover:not(:disabled) {
+  color: #c2dcff;
+  background: rgba(146, 184, 255, 0.1);
+}
+
+.sel-drawer__link-btn:disabled {
+  opacity: 0.36;
+  cursor: default;
+}
+
+/* ── Body (scrolling group list) ──────────────────────────── */
+
+.sel-drawer__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 0 8px;
+}
+
+.sel-drawer__body::-webkit-scrollbar {
+  width: 10px;
+}
+
+.sel-drawer__body::-webkit-scrollbar-thumb {
+  background: rgba(194, 214, 239, 0.14);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.sel-drawer__body::-webkit-scrollbar-thumb:hover {
+  background: rgba(194, 214, 239, 0.28);
+  background-clip: content-box;
+}
+
+.sel-drawer__empty {
+  padding: 36px 20px;
+  color: var(--text-muted);
+  font: 500 12px/1.5 var(--font-ui);
+  text-align: center;
+}
+
+/* ── Groups ───────────────────────────────────────────────── */
+
+.sel-group {
+  margin: 8px 0;
+}
+
+.sel-group__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 20px;
+  position: sticky;
+  top: 0;
+  background:
+    linear-gradient(180deg, rgba(10, 16, 28, 0.96), rgba(10, 16, 28, 0.9));
+  backdrop-filter: blur(6px);
+  z-index: 2;
+  border-bottom: 1px solid rgba(194, 214, 239, 0.06);
+}
+
+.sel-group__checkbox {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  border: 1.5px solid rgba(194, 214, 239, 0.36);
+  background: rgba(255, 255, 255, 0.04);
+  color: #e6f2ff;
+  font: 700 13px/1 var(--font-ui);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--motion-fast) ease;
+  flex-shrink: 0;
+}
+
+.sel-group__checkbox:hover:not(:disabled) {
+  border-color: rgba(120, 196, 255, 0.72);
+  background: rgba(120, 196, 255, 0.12);
+}
+
+.sel-group__checkbox--full {
+  border-color: rgba(120, 196, 255, 0.85);
+  background: rgba(120, 196, 255, 0.85);
+  color: #0b1422;
+}
+
+.sel-group__checkbox--partial {
+  border-color: rgba(120, 196, 255, 0.72);
+  background: rgba(120, 196, 255, 0.3);
+  color: #e6f2ff;
+}
+
+.sel-group__checkbox:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.sel-group__title {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  min-width: 0;
+}
+
+.sel-group__chevron {
+  width: 12px;
+  font: 500 10px/1 var(--font-ui);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.sel-group__label {
+  font: 700 12px/1 var(--font-ui);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.sel-group__count {
+  font: 600 11px/1 var(--font-ui);
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+/* ── Rows ─────────────────────────────────────────────────── */
+
+.sel-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sel-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-main);
+  font: 500 12px/1.3 var(--font-ui);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--motion-fast) ease, border-color var(--motion-fast) ease;
+  min-width: 0;
+}
+
+.sel-row:hover:not(.sel-row--disabled) {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(194, 214, 239, 0.1);
+}
+
+.sel-row--checked {
+  background: rgba(120, 196, 255, 0.12);
+  border-color: rgba(120, 196, 255, 0.42);
+}
+
+.sel-row--checked:hover {
+  background: rgba(120, 196, 255, 0.18);
+}
+
+.sel-row--disabled {
+  opacity: 0.46;
+  cursor: not-allowed;
+}
+
+.sel-row--sensitive .sel-row__name {
+  color: #f5b8b8;
+}
+
+.sel-row__checkbox {
+  font-size: 14px;
+  color: rgba(194, 214, 239, 0.6);
+  text-align: center;
+  line-height: 1;
+}
+
+.sel-row--checked .sel-row__checkbox {
+  color: #78c4ff;
+}
+
+.sel-row__name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-strong);
+  font-weight: 600;
+}
+
+.sel-row__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.sel-row__chip {
+  font: 600 10px/1 var(--font-ui);
+  color: var(--text-muted);
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  letter-spacing: 0.02em;
+}
+
+/* Status pills — reuse palette language from Card stamps. */
+
+.sel-pill {
+  font: 700 9px/1 var(--font-ui);
+  padding: 4px 6px;
+  border-radius: 5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.sel-pill.pill-new {
+  background: rgba(212, 184, 130, 0.22);
+  color: #e6c98a;
+}
+
+.sel-pill.pill-mod {
+  background: rgba(212, 184, 130, 0.22);
+  color: #e6c98a;
+}
+
+.sel-pill.pill-failed {
+  background: rgba(212, 139, 139, 0.26);
+  color: #f5a4a4;
+}
+
+.sel-pill.pill-synced {
+  background: rgba(192, 192, 200, 0.18);
+  color: #c8c8d0;
+}
+
+.sel-pill.pill-local {
+  background: rgba(187, 177, 162, 0.2);
+  color: #d4c8b3;
+}
+
+.sel-pill.pill-sealed {
+  background: rgba(201, 160, 160, 0.26);
+  color: #f5b8b8;
+}
+
+/* ── Footer ───────────────────────────────────────────────── */
+
+.sel-drawer__footer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 20px 18px;
+  border-top: 1px solid rgba(194, 214, 239, 0.14);
+  background: linear-gradient(180deg, rgba(10, 16, 28, 0.85), rgba(6, 10, 20, 0.95));
+}
+
+.sel-drawer__summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sel-drawer__summary-top {
+  font: 600 13px/1.2 var(--font-ui);
+  color: var(--text-strong);
+}
+
+.sel-drawer__summary-sensitive {
+  color: #f5b8b8;
+  font-weight: 600;
+}
+
+.sel-drawer__summary-copy {
+  font: 500 11px/1.4 var(--font-ui);
+  color: var(--text-muted);
+}
+
+.sel-drawer__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.sel-btn {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font: 700 12px/1 var(--font-ui);
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: all var(--motion-fast) ease;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.sel-btn:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.sel-btn--ghost {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(194, 214, 239, 0.14);
+  color: var(--text-main);
+}
+
+.sel-btn--ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(194, 214, 239, 0.28);
+}
+
+.sel-btn--primary {
+  background: linear-gradient(180deg, #78c4ff, #3b82f6);
+  color: #061018;
+  border-color: rgba(120, 196, 255, 0.72);
+  box-shadow: 0 6px 18px rgba(59, 130, 246, 0.36);
+}
+
+.sel-btn--primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(59, 130, 246, 0.5);
+}
+
+.sel-btn--primary:active:not(:disabled) {
+  transform: translateY(0);
+}

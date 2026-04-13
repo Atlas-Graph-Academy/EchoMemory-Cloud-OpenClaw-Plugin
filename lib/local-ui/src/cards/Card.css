@@ -73,6 +73,92 @@
   pointer-events: none;
 }
 
+/* ── Picked state: drawn when a card is checked in the Selection Drawer.
+   Works at every LOD so you can see the selection shape even when zoomed
+   out to fit-all. ── */
+.card-picked {
+  border-color: rgba(146, 184, 255, 0.9) !important;
+  box-shadow:
+    0 0 0 2px rgba(146, 184, 255, 0.82),
+    0 0 20px rgba(120, 196, 255, 0.42),
+    0 12px 26px rgba(5, 10, 19, 0.24) !important;
+  z-index: 25;
+}
+
+.card-picked.card-lod0 {
+  border-left-color: rgba(146, 184, 255, 1) !important;
+  box-shadow:
+    inset 3px 0 0 rgba(146, 184, 255, 1),
+    0 0 0 1.5px rgba(146, 184, 255, 0.72),
+    0 0 14px rgba(120, 196, 255, 0.46) !important;
+}
+
+/* ── Processing state: pulsing glow around cards currently being re-extracted ── */
+.card-processing {
+  border-color: rgba(120, 196, 255, 0.72) !important;
+  animation:
+    cardFadeIn 0.42s ease-out both,
+    cardProcessingPulse 1.6s ease-in-out infinite;
+  z-index: 30;
+}
+
+.card-processing.card-lod0 {
+  animation:
+    cardProcessingPulse 1.6s ease-in-out infinite;
+  border-left-color: rgba(120, 196, 255, 0.85) !important;
+}
+
+@keyframes cardProcessingPulse {
+  0%, 100% {
+    box-shadow:
+      0 14px 28px rgba(5, 10, 19, 0.16),
+      0 0 0 1px rgba(120, 196, 255, 0.55),
+      0 0 18px rgba(120, 196, 255, 0.38),
+      0 1px 0 rgba(255, 255, 255, 0.45) inset;
+  }
+  50% {
+    box-shadow:
+      0 14px 28px rgba(5, 10, 19, 0.16),
+      0 0 0 2px rgba(120, 196, 255, 0.85),
+      0 0 32px rgba(120, 196, 255, 0.72),
+      0 1px 0 rgba(255, 255, 255, 0.45) inset;
+  }
+}
+
+/* ── Info row (file size, modified date, processing badge) ── */
+.card-info-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 2px 0 6px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  opacity: 0.72;
+}
+
+.card-info-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(20, 30, 48, 0.08);
+  text-transform: lowercase;
+  white-space: nowrap;
+}
+
+.card-info-chip-processing {
+  background: rgba(120, 196, 255, 0.22);
+  color: #1f4d7a;
+  font-weight: 600;
+  animation: cardInfoChipPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes cardInfoChipPulse {
+  0%, 100% { opacity: 0.72; }
+  50% { opacity: 1; }
+}
+
 .card-header {
   display: flex;
   align-items: flex-start;

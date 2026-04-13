@@ -89,7 +89,7 @@ a {
   min-height: 0;
   width: 100%;
   --cloud-sidebar-width: 376px;
-  --cloud-sidebar-rail-width: 34px;
+  --cloud-sidebar-rail-width: 10px;
 }
 
 .app-atmosphere {
@@ -798,6 +798,36 @@ a {
 .ftr b {
   color: var(--text-strong);
   font-weight: 700;
+}
+
+.ftr-stats {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ftr-stat {
+  font: 500 12px/1 var(--font-ui);
+  color: var(--text-muted);
+  letter-spacing: 0.01em;
+}
+
+.ftr-stat b {
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+.ftr-stat--sensitive b {
+  color: #f5b8b8;
+}
+
+.ftr-stat-dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: rgba(194, 214, 239, 0.28);
+  display: inline-block;
 }
 
 .ftr-spacer {

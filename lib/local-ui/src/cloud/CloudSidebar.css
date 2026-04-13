@@ -19,12 +19,15 @@
 
 .cloud-sidebar__rail {
   position: absolute;
-  inset: 8px 8px 8px auto;
-  width: calc(var(--cloud-sidebar-rail-width) - 8px);
-  border: 1px solid rgba(198, 216, 241, 0.14);
-  border-radius: 18px;
-  background: rgba(10, 16, 27, 0.72);
-  color: rgba(207, 220, 242, 0.82);
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 120px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(146, 184, 255, 0.22);
+  color: transparent;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -33,14 +36,24 @@
   letter-spacing: 0.18em;
   text-transform: uppercase;
   font-size: 10px;
-  backdrop-filter: blur(var(--blur-panel));
-  transition: border-color var(--motion-fast) ease, background var(--motion-fast) ease, color var(--motion-fast) ease;
+  padding: 0;
+  backdrop-filter: none;
+  transition: width 0.18s ease, height 0.18s ease, background 0.18s ease, color 0.18s ease, border-radius 0.18s ease;
+}
+
+.cloud-sidebar__rail::before {
+  content: '';
+  position: absolute;
+  inset: -20px;
+  pointer-events: auto;
 }
 
 .cloud-sidebar__rail:hover {
-  border-color: rgba(198, 216, 241, 0.22);
-  background: rgba(14, 21, 34, 0.86);
-  color: var(--text-strong);
+  width: 22px;
+  height: 160px;
+  background: rgba(146, 184, 255, 0.82);
+  color: #0b1422;
+  border-radius: 14px;
 }
 
 .cloud-sidebar__panel {
