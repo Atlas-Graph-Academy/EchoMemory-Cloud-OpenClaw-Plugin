@@ -1030,7 +1030,7 @@ export default function App() {
         stopOnboarding({ completed: true, dismissed: false });
         return;
       }
-      window.open('http://localhost:3001/memories/timeline?mode=photo-first', '_blank', 'noopener,noreferrer');
+      window.open('https://iditor.com/memories/timeline?mode=photo-first', '_blank', 'noopener,noreferrer');
       stopOnboarding({ completed: true, dismissed: false });
     }
   }, [currentTourStep, goToTourStep, isConnected, pendingCount, stopOnboarding]);
@@ -2053,7 +2053,7 @@ export default function App() {
             setTotalStreamedCount(0);
           }}
           onOpenTimeline={() => {
-            window.open('http://localhost:3001/memories/timeline?mode=photo-first', '_blank', 'noopener,noreferrer');
+            window.open('https://iditor.com/memories/timeline?mode=photo-first', '_blank', 'noopener,noreferrer');
           }}
         />
 
@@ -2107,7 +2107,7 @@ export default function App() {
               </button>
             )}
             <a
-              href="http://localhost:3001/memories/timeline?mode=photo-first"
+              href="https://iditor.com/memories/timeline?mode=photo-first"
               target="_blank"
               rel="noopener noreferrer"
               className={`explore-btn${syncing && totalStreamedCount > 0 ? ' explore-btn--live' : ''}`}
