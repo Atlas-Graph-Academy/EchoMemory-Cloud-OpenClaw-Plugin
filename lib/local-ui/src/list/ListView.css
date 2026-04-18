@@ -1,0 +1,491 @@
+/* ListView — risk-axis directory view. Dense and scannable.
+
+   Color system maps directly to riskLevel:
+     secret  → red    (#e63946 family)  — never share
+     private → amber  (#f5a524 family)  — opt-in to share
+     safe    → green  (#22c55e family)  — recommended
+     shared  → muted blue/teal           — already done
+     other   → gray                      — out of scope
+*/
+
+.lv {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  padding: 16px 24px 32px;
+  overflow-y: auto;
+  color: rgba(245, 245, 245, 0.92);
+  background: transparent;
+}
+
+.lv-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding-bottom: 12px;
+  background: linear-gradient(180deg, rgba(8, 12, 22, 0.95) 60%, rgba(8, 12, 22, 0));
+}
+
+.lv-search {
+  width: 100%;
+  max-width: 640px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.lv-search:focus {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.lv-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* === SECTION === */
+
+.lv-section {
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.015);
+  overflow: hidden;
+}
+
+.lv-section--risk {
+  border-color: rgba(230, 57, 70, 0.32);
+  background:
+    linear-gradient(180deg, rgba(230, 57, 70, 0.08) 0%, rgba(230, 57, 70, 0.015) 100%);
+}
+
+.lv-section--safe {
+  border-color: rgba(34, 197, 94, 0.28);
+  background:
+    linear-gradient(180deg, rgba(34, 197, 94, 0.07) 0%, rgba(34, 197, 94, 0.012) 100%);
+}
+
+.lv-section--shared {
+  border-color: rgba(59, 130, 246, 0.18);
+}
+
+.lv-section--other {
+  border-color: rgba(148, 163, 184, 0.14);
+}
+
+.lv-section__head-row {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+}
+
+.lv-section__head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 14px 18px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
+.lv-section__head:hover {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+/* === SEND ALL CTA === */
+
+.lv-send-all {
+  align-self: center;
+  margin-right: 14px;
+  padding: 9px 18px;
+  border-radius: 10px;
+  border: 1px solid rgba(34, 197, 94, 0.45);
+  background: linear-gradient(180deg, rgba(34, 197, 94, 0.3) 0%, rgba(22, 163, 74, 0.45) 100%);
+  color: rgba(240, 253, 244, 0.98);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.015em;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.1) inset,
+    0 0 20px rgba(34, 197, 94, 0.18);
+  transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+
+.lv-send-all:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: linear-gradient(180deg, rgba(52, 211, 112, 0.35) 0%, rgba(34, 197, 94, 0.5) 100%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.14) inset,
+    0 0 26px rgba(34, 197, 94, 0.3);
+}
+
+.lv-send-all:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  background: linear-gradient(180deg, rgba(120, 130, 140, 0.22) 0%, rgba(90, 100, 110, 0.3) 100%);
+  border-color: rgba(148, 163, 184, 0.3);
+  box-shadow: none;
+}
+
+.lv-section__chevron {
+  flex: 0 0 16px;
+  font-size: 11px;
+  opacity: 0.55;
+}
+
+.lv-section__title {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.lv-section--risk .lv-section__title {
+  color: rgba(254, 184, 188, 0.96);
+}
+
+.lv-section--safe .lv-section__title {
+  color: rgba(187, 247, 208, 0.96);
+}
+
+.lv-section--shared .lv-section__title {
+  color: rgba(191, 219, 254, 0.85);
+}
+
+.lv-section--other .lv-section__title {
+  color: rgba(203, 213, 225, 0.7);
+}
+
+.lv-section__count {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.lv-section--risk .lv-section__count {
+  background: rgba(230, 57, 70, 0.18);
+  color: rgba(254, 226, 226, 0.95);
+}
+
+.lv-section--safe .lv-section__count {
+  background: rgba(34, 197, 94, 0.18);
+  color: rgba(220, 252, 231, 0.95);
+}
+
+.lv-section__blurb {
+  margin-left: auto;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+  text-align: right;
+}
+
+@media (max-width: 720px) {
+  .lv-section__blurb {
+    display: none;
+  }
+}
+
+/* === EMPTY === */
+
+.lv-empty {
+  padding: 18px 22px 24px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.4);
+  font-style: italic;
+}
+
+/* === ROW LIST === */
+
+.lv-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 8px 8px;
+}
+
+.lv-row {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto auto auto auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 9px 12px;
+  margin: 2px 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition: background-color 100ms ease;
+}
+
+.lv-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.lv-row--selected {
+  background: rgba(255, 255, 255, 0.08);
+  outline: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.lv-row--checked {
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.lv-row__risk {
+  font-size: 14px;
+  line-height: 1;
+  text-align: center;
+}
+
+.lv-row--secret .lv-row__risk {
+  color: #e63946;
+  text-shadow: 0 0 6px rgba(230, 57, 70, 0.55);
+}
+
+.lv-row--private .lv-row__risk {
+  color: #f5a524;
+}
+
+.lv-row--safe .lv-row__risk {
+  color: rgba(34, 197, 94, 0.85);
+}
+
+.lv-row--other .lv-row__risk {
+  color: rgba(148, 163, 184, 0.5);
+}
+
+.lv-row__name {
+  font-size: 13.5px;
+  color: rgba(245, 245, 245, 0.95);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.lv-row--secret .lv-row__name {
+  color: rgba(255, 230, 232, 0.98);
+  font-weight: 500;
+}
+
+.lv-row__cluster {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+}
+
+.lv-row__reason {
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.55);
+  white-space: nowrap;
+  font-style: italic;
+}
+
+.lv-row--secret .lv-row__reason {
+  color: rgba(254, 184, 188, 0.95);
+  font-style: normal;
+  font-weight: 500;
+}
+
+.lv-row--private .lv-row__reason {
+  color: rgba(252, 211, 137, 0.85);
+  font-style: normal;
+}
+
+.lv-row__chip {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.45);
+  white-space: nowrap;
+  min-width: 36px;
+  text-align: right;
+}
+
+/* === DIGEST STATES (per-row, driven by cardSyncState) ===
+
+   queued  — the file is in the upload batch but not being processed yet.
+             Dimmed with a subtle progress shimmer on the left edge.
+   syncing — Echo is actively reading this file RIGHT NOW. The row grows
+             slightly, gets a scanner-line sweep, and pulses to draw the eye.
+   done    — Echo finished digesting. Green glow fades over ~1s.
+   failed  — amber border + "failed" label.
+*/
+
+.lv-row--queued {
+  opacity: 0.72;
+  background: linear-gradient(
+    90deg,
+    rgba(59, 130, 246, 0.08) 0%,
+    rgba(59, 130, 246, 0.02) 100%
+  );
+}
+
+.lv-row--queued .lv-row__name,
+.lv-row--queued .lv-row__cluster {
+  color: rgba(191, 219, 254, 0.7);
+}
+
+.lv-row--syncing {
+  position: relative;
+  transform: scale(1.012);
+  background: linear-gradient(
+    180deg,
+    rgba(56, 189, 248, 0.18) 0%,
+    rgba(34, 211, 238, 0.09) 100%
+  );
+  outline: 1px solid rgba(56, 189, 248, 0.5);
+  box-shadow:
+    0 0 24px rgba(56, 189, 248, 0.28),
+    0 0 2px rgba(56, 189, 248, 0.55) inset;
+  animation: lv-row-breathe 1.8s ease-in-out infinite;
+  z-index: 1;
+  overflow: hidden;
+}
+
+/* Scanner sweep — a bright vertical band travels left-to-right across the
+   row, evoking the feeling of something being read word by word. */
+.lv-row--syncing::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    transparent 30%,
+    rgba(186, 230, 253, 0.22) 50%,
+    transparent 70%,
+    transparent 100%
+  );
+  animation: lv-row-sweep 2.4s linear infinite;
+}
+
+.lv-row--syncing .lv-row__name {
+  color: rgba(240, 249, 255, 0.98);
+  font-weight: 600;
+}
+
+.lv-row--syncing .lv-row__reason {
+  color: rgba(186, 230, 253, 0.98);
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.lv-row--done {
+  background: linear-gradient(
+    90deg,
+    rgba(34, 197, 94, 0.16) 0%,
+    rgba(34, 197, 94, 0.04) 100%
+  );
+  outline: 1px solid rgba(34, 197, 94, 0.3);
+  animation: lv-row-done-fade 1200ms ease-out;
+}
+
+.lv-row--done .lv-row__reason {
+  color: rgba(187, 247, 208, 0.98);
+  font-style: normal;
+  font-weight: 600;
+}
+
+.lv-row--failed {
+  background: rgba(230, 57, 70, 0.14);
+  outline: 1px solid rgba(230, 57, 70, 0.4);
+}
+
+.lv-row--failed .lv-row__reason {
+  color: rgba(254, 184, 188, 0.98);
+  font-weight: 600;
+  font-style: normal;
+}
+
+/* Pulsing dot that replaces the risk indicator while syncing. */
+.lv-row__pulse {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #7dd3fc;
+  box-shadow: 0 0 10px rgba(125, 211, 252, 0.9);
+  animation: lv-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes lv-row-breathe {
+  0%, 100% {
+    box-shadow:
+      0 0 24px rgba(56, 189, 248, 0.28),
+      0 0 2px rgba(56, 189, 248, 0.55) inset;
+  }
+  50% {
+    box-shadow:
+      0 0 30px rgba(56, 189, 248, 0.42),
+      0 0 3px rgba(125, 211, 252, 0.8) inset;
+  }
+}
+
+@keyframes lv-row-sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes lv-row-done-fade {
+  0% {
+    background: rgba(34, 197, 94, 0.32);
+    outline-color: rgba(34, 197, 94, 0.6);
+  }
+  100% {
+    background: linear-gradient(
+      90deg,
+      rgba(34, 197, 94, 0.16) 0%,
+      rgba(34, 197, 94, 0.04) 100%
+    );
+    outline-color: rgba(34, 197, 94, 0.3);
+  }
+}
+
+@keyframes lv-pulse {
+  0%, 100% {
+    transform: scale(0.85);
+    box-shadow: 0 0 6px rgba(125, 211, 252, 0.5);
+  }
+  50% {
+    transform: scale(1.1);
+    box-shadow: 0 0 14px rgba(125, 211, 252, 1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lv-row--syncing,
+  .lv-row--syncing::after,
+  .lv-row__pulse {
+    animation: none;
+  }
+  .lv-row--syncing {
+    transform: none;
+  }
+}
