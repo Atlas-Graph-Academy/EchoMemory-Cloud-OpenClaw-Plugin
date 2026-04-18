@@ -4,8 +4,9 @@ import { ReadingPanel } from './cards/ReadingPanel';
 import { CloudSidebar } from './cloud/CloudSidebar';
 import { Coachmark } from './onboarding/Coachmark';
 import { SelectionDrawer } from './selection/SelectionDrawer';
+import { ListView } from './list/ListView';
 import { buildTourSteps, ONBOARDING_STORAGE_KEY } from './onboarding/steps';
-import { computeLayout, computeSystemLayout, getTier, isSessionLog } from './layout/masonry';
+import { computeLayout, computeRiskLayout, computeSystemLayout, getTier, isSessionLog } from './layout/masonry';
 import { ProcessingTheater } from './sync/ProcessingTheater';
 import {
   fetchFiles,
@@ -491,6 +492,24 @@ export default function App() {
   const [gatewayRestartBusy, setGatewayRestartBusy] = useState(false);
   const [pluginUpdateMessage, setPluginUpdateMessage] = useState(null);
   const [view, setView] = useState('memories');
+  // layoutMode picks between the new risk-axis list and the spatial canvas.
+  // List is the default — it's where users decide what to share. Canvas is
+  // the "look at how much I have" view, kept available behind a toggle.
+  const [layoutMode, setLayoutMode] = useState(() => {
+    try {
+      const stored = window.localStorage?.getItem('echo.layoutMode');
+      return stored === 'canvas' ? 'canvas' : 'list';
+    } catch {
+      return 'list';
+    }
+  });
+  useEffect(() => {
+    try {
+      window.localStorage?.setItem('echo.layoutMode', layoutMode);
+    } catch {
+      /* ignore quota / privacy mode */
+    }
+  }, [layoutMode]);
   const [journalViewMode, setJournalViewMode] = useState('all');
   const [onboarding, setOnboarding] = useState(() => ({
     active: false,
@@ -833,6 +852,36 @@ export default function App() {
     return computeSystemLayout(layout.systemFiles || [], vpWidth, contentMap);
   }, [view, layout.systemFiles, vpWidth, contentMap]);
 
+  // Risk-banded canvas layout — replaces the cluster bands when looking at
+  // memories. The user-facing axis is "what do I share, what do I protect",
+  // not "what content type is this".
+  const [collapsedRiskSections, setCollapsedRiskSections] = useState(() => {
+    try {
+      const stored = window.localStorage?.getItem('echo.collapsedRiskSections');
+      const parsed = stored ? JSON.parse(stored) : null;
+      if (Array.isArray(parsed)) return new Set(parsed);
+    } catch {}
+    // Default: hide "already shared" and "other" (the user's first task is
+    // deciding what to upload, not reviewing what's done or out of scope).
+    return new Set(['already-shared', 'other']);
+  });
+  useEffect(() => {
+    try {
+      window.localStorage?.setItem(
+        'echo.collapsedRiskSections',
+        JSON.stringify([...collapsedRiskSections]),
+      );
+    } catch {}
+  }, [collapsedRiskSections]);
+  const toggleRiskSection = useCallback((sectionId) => {
+    setCollapsedRiskSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(sectionId)) next.delete(sectionId);
+      else next.add(sectionId);
+      return next;
+    });
+  }, []);
+
   const syncMetaByPath = useMemo(() => {
     const next = {};
     for (const status of syncStatus?.fileStatuses || []) {
@@ -927,7 +976,30 @@ export default function App() {
   const isConnected = authStatus?.connected === true;
   const autoSyncEnabled = setupDraft.autoSync === true;
   const echoOnlyMemoryModeEnabled = setupDraft.disableOpenClawMemoryToolsWhenConnected === true;
-  const activeLayout = view === 'system' && systemLayout ? systemLayout : layout;
+  // For the memories canvas we now group cards by RISK (Keep Private / Ready
+   // / Already Shared / Other) instead of by content cluster. The cluster
+   // layout is preserved for the system view and remains the data source for
+   // systemFiles.
+  const riskLayout = useMemo(
+    () =>
+      view === 'memories'
+        ? computeRiskLayout(
+            filteredAnnotated,
+            syncMap,
+            selectablePaths,
+            vpWidth,
+            contentMap,
+            collapsedRiskSections,
+          )
+        : null,
+    [view, filteredAnnotated, syncMap, selectablePaths, vpWidth, contentMap, collapsedRiskSections],
+  );
+  const activeLayout =
+    view === 'system' && systemLayout
+      ? systemLayout
+      : view === 'memories' && riskLayout
+        ? riskLayout
+        : layout;
   const representativeCardPath = useMemo(
     () => {
       const cards = (activeLayout?.cards || []).filter((card) => !isTimeGroupPath(card.key));
@@ -1834,11 +1906,36 @@ export default function App() {
                 </>
               )}
             </div>
+            {view === 'memories' && (
+              <div className="hdr-mode-toggle" role="tablist" aria-label="Layout mode">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={layoutMode === 'list'}
+                  className={`hdr-mode-btn${layoutMode === 'list' ? ' hdr-mode-btn--active' : ''}`}
+                  onClick={() => setLayoutMode('list')}
+                  title="Directory: scan files by privacy risk"
+                >
+                  List
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={layoutMode === 'canvas'}
+                  className={`hdr-mode-btn${layoutMode === 'canvas' ? ' hdr-mode-btn--active' : ''}`}
+                  onClick={() => setLayoutMode('canvas')}
+                  title="Canvas: spatial overview of all memories"
+                >
+                  Canvas
+                </button>
+              </div>
+            )}
             <select
               className="hdr-select"
               value={journalViewMode}
               title="Control how files are grouped"
               aria-label="File grouping view"
+              disabled={layoutMode === 'list'}
               onChange={(event) => {
                 setJournalViewMode(event.target.value);
                 setExpandedJournalGroup(null);
@@ -1979,6 +2076,65 @@ export default function App() {
             <div className="empty-state">Loading files...</div>
           ) : filteredAnnotated.length === 0 ? (
             <div className="empty-state">{emptyStateMessage}</div>
+          ) : view === 'memories' && layoutMode === 'list' ? (
+            <ListView
+              files={filteredAnnotated}
+              syncMap={syncMap}
+              selectablePaths={selectablePaths}
+              selectedPath={selectedPath}
+              selectMode={selectMode}
+              syncSelection={syncSelection}
+              toggleFileSelection={toggleFileSelection}
+              cardSyncState={cardSyncState}
+              syncing={syncing}
+              isConnected={isConnected}
+              onSendAllSafe={(paths) => {
+                if (!paths || paths.length === 0 || !isConnected) return;
+                setSyncing(true);
+                setSyncResult(null);
+                setSyncProgress(null);
+                setStreamedMemories([]);
+                setTotalStreamedCount(0);
+                triggerSyncSelected(paths)
+                  .then((result) => {
+                    setSyncResult(buildSyncResultState(result));
+                    loadSyncStatus();
+                    loadBackendSources();
+                  })
+                  .catch((err) => {
+                    setSyncResult({ ok: false, msg: String(err?.message || 'Sync failed') });
+                  })
+                  .finally(() => {
+                    setSyncing(false);
+                  });
+              }}
+              onCardClick={(path) => {
+                if (path === null) {
+                  setSelectedPath(null);
+                  return;
+                }
+                setSelectedPath((prev) => (prev === path ? null : path));
+              }}
+              onCardExpand={(path) => {
+                if (isTimeGroupPath(path)) return;
+                setReadingPath(path);
+                const existing = contentMap?.get(path);
+                if (existing) {
+                  setReadingContent(existing);
+                  return;
+                }
+                setReadingContent(null);
+                fetchFileContent(path).then((result) => {
+                  const content = result?.content ?? '';
+                  setReadingContent(content);
+                  setContentMap((prev) => {
+                    const next = new Map(prev || []);
+                    next.set(path, content);
+                    return next;
+                  });
+                });
+              }}
+            />
           ) : (
             <Viewport
               key={view}
@@ -1997,6 +2153,31 @@ export default function App() {
               onboardingActive={onboarding.active}
               onboardingCardPath={representativeCardPath}
               onWarningToggle={toggleWarningExpansion}
+              onSectionToggle={view === 'memories' ? toggleRiskSection : undefined}
+              onSectionCta={(sectionId, cta) => {
+                if (!cta || cta.kind !== 'send-all') return;
+                const paths = cta.eligibleRelativePaths || [];
+                if (paths.length === 0 || !isConnected) return;
+                setSyncing(true);
+                setSyncResult(null);
+                setSyncProgress(null);
+                setStreamedMemories([]);
+                setTotalStreamedCount(0);
+                triggerSyncSelected(paths)
+                  .then((result) => {
+                    setSyncResult(buildSyncResultState(result));
+                    loadSyncStatus();
+                    loadBackendSources();
+                  })
+                  .catch((err) => {
+                    setSyncResult({ ok: false, msg: String(err?.message || 'Sync failed') });
+                  })
+                  .finally(() => {
+                    setSyncing(false);
+                  });
+              }}
+              ctaDisabled={!isConnected}
+              ctaInProgress={syncing}
               onSyncFile={(path) => {
                 if (!path || !isConnected) return;
                 triggerSyncSelected([path]).catch((err) => {

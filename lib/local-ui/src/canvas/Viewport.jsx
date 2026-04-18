@@ -36,6 +36,10 @@ export function Viewport({
   onCardExpand,
   onWarningToggle,
   onSyncFile,
+  onSectionToggle,
+  onSectionCta,
+  ctaDisabled,
+  ctaInProgress,
 }) {
   const vpRef = useRef(null);
   const canvasRef = useRef(null);
@@ -203,29 +207,83 @@ export function Viewport({
         >
           {ready && (
             <>
-              {visibleSections.map((section) => (
-                <div
-                  key={section.id}
-                  className="section-label"
-                  style={{
-                    left: section.x,
-                    top: section.y,
-                    width: section.w,
-                    '--sec-color': section.color,
-                  }}
-                >
-                  <span className="section-label__bar" style={{ background: section.color }} />
-                  <span className="section-label__text" style={{ color: section.color }}>
-                    {section.label}
-                  </span>
-                  <span
-                    className="section-count-pill"
-                    style={{ background: section.color }}
+              {visibleSections.map((section) => {
+                const supportsCollapse =
+                  typeof onSectionToggle === 'function' && Object.prototype.hasOwnProperty.call(section, 'collapsed');
+                const cta = section.cta;
+                return (
+                  <div
+                    key={section.id}
+                    className={`section-label${section.collapsed ? ' section-label--collapsed' : ''}${supportsCollapse ? ' section-label--toggleable' : ''}`}
+                    style={{
+                      left: section.x,
+                      top: section.y,
+                      width: section.w,
+                      '--sec-color': section.color,
+                    }}
                   >
-                    {section.count}
-                  </span>
-                </div>
-              ))}
+                    <span className="section-label__bar" style={{ background: section.color }} />
+                    {supportsCollapse ? (
+                      <button
+                        type="button"
+                        className="section-label__head-btn"
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSectionToggle(section.id);
+                        }}
+                        title={section.collapsed ? 'Click to expand' : 'Click to collapse'}
+                      >
+                        <span className="section-label__chevron">{section.collapsed ? '▸' : '▾'}</span>
+                        <span className="section-label__text" style={{ color: section.color }}>
+                          {section.label}
+                        </span>
+                        <span
+                          className="section-count-pill"
+                          style={{ background: section.color }}
+                        >
+                          {section.count}
+                        </span>
+                      </button>
+                    ) : (
+                      <>
+                        <span className="section-label__text" style={{ color: section.color }}>
+                          {section.label}
+                        </span>
+                        <span
+                          className="section-count-pill"
+                          style={{ background: section.color }}
+                        >
+                          {section.count}
+                        </span>
+                      </>
+                    )}
+                    {cta?.kind === 'send-all' && typeof onSectionCta === 'function' && (
+                      <button
+                        type="button"
+                        className="section-label__cta"
+                        disabled={ctaDisabled || ctaInProgress}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSectionCta(section.id, cta);
+                        }}
+                        title={
+                          ctaDisabled
+                            ? 'Connect to Echo first'
+                            : ctaInProgress
+                              ? 'Sync in progress'
+                              : `Upload ${cta.count} file${cta.count === 1 ? '' : 's'} to Echo`
+                        }
+                      >
+                        {ctaInProgress
+                          ? 'Echo is digesting…'
+                          : `Send all ${cta.count} to Echo →`}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
 
               {placeholderCards.map((card) => (
                 <CardPlaceholder key={card.key} card={card} />

@@ -921,6 +921,45 @@ a {
   padding: 0 12px;
 }
 
+/* List / Canvas mode toggle. Segmented-control style. */
+.hdr-mode-toggle {
+  display: inline-flex;
+  align-items: stretch;
+  height: 38px;
+  border-radius: 14px;
+  border: 1px solid rgba(194, 214, 239, 0.12);
+  background: rgba(6, 10, 18, 0.4);
+  overflow: hidden;
+}
+
+.hdr-mode-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: rgba(194, 214, 239, 0.55);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  padding: 0 14px;
+  cursor: pointer;
+  transition: color 120ms ease, background-color 120ms ease;
+}
+
+.hdr-mode-btn + .hdr-mode-btn {
+  border-left: 1px solid rgba(194, 214, 239, 0.08);
+}
+
+.hdr-mode-btn:hover {
+  color: rgba(245, 245, 245, 0.92);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.hdr-mode-btn--active {
+  color: rgba(245, 245, 245, 0.98);
+  background: rgba(146, 184, 255, 0.14);
+}
+
 .hdr-inline-btn {
   padding: 0 14px;
   cursor: pointer;

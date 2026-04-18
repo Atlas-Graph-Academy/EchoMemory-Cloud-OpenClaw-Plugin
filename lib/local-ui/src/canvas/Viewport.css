@@ -87,6 +87,94 @@
   opacity: 0.92;
 }
 
+/* === Risk-banded section interactivity ===
+   When the layout supports collapsing, the entire header strip becomes a
+   clickable area with a chevron. The CTA button sits on the right and is
+   the page's primary action when "Ready to share" is the band. */
+
+.section-label--toggleable {
+  pointer-events: auto;
+}
+
+.section-label--collapsed {
+  border-bottom-style: dashed;
+  opacity: 0.78;
+}
+
+.section-label__head-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 4px 0 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.section-label__head-btn:hover .section-label__text {
+  opacity: 1;
+}
+
+.section-label__chevron {
+  display: inline-block;
+  width: 14px;
+  font-size: max(14px, calc(11px / var(--zoom, 1)));
+  color: var(--sec-color, rgba(146, 184, 255, 0.85));
+  opacity: 0.7;
+  transition: transform 120ms ease, opacity 120ms ease;
+}
+
+.section-label__head-btn:hover .section-label__chevron {
+  opacity: 1;
+}
+
+/* Send-all CTA — green for "Ready to share". Pinned to the right edge of
+   the section header strip so it travels with the band as cards reflow. */
+.section-label__cta {
+  margin-left: auto;
+  margin-right: 12px;
+  padding: 7px 16px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--sec-color, #22c55e) 55%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--sec-color, #22c55e) 32%, transparent) 0%,
+    color-mix(in srgb, var(--sec-color, #16a34a) 48%, transparent) 100%
+  );
+  color: rgba(240, 253, 244, 0.98);
+  font: 600 max(13px, calc(12px / var(--zoom, 1))) / 1 var(--font-ui);
+  letter-spacing: 0.015em;
+  white-space: nowrap;
+  cursor: pointer;
+  pointer-events: auto;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.1) inset,
+    0 0 22px color-mix(in srgb, var(--sec-color, #22c55e) 22%, transparent);
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.section-label__cta:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.14) inset,
+    0 0 30px color-mix(in srgb, var(--sec-color, #22c55e) 36%, transparent);
+}
+
+.section-label__cta:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  background: linear-gradient(
+    180deg,
+    rgba(120, 130, 140, 0.22) 0%,
+    rgba(90, 100, 110, 0.3) 100%
+  );
+  border-color: rgba(148, 163, 184, 0.3);
+  box-shadow: none;
+}
+
 .viewport-controls {
   position: absolute;
   top: 14px;
