@@ -112,6 +112,30 @@ export function Desktop({
 
   const [selectedFolder, setSelectedFolder] = useState(null);
 
+  // ─── Time-bucket granularity in folder view ─────────────────────────
+  //   Scale thresholds pick which calendar bucket groups items in a band:
+  //     scale < 1.5    → day      (one stack per day)
+  //     1.5..10        → 6hour    (morning / afternoon / evening / night)
+  //     10..40         → hour     (one stack per clock hour)
+  //     >= 40          → none     (each file shown individually)
+  //   Using discrete thresholds avoids re-packing on every zoom tick.
+  const pickBucketStep = useCallback((s) => {
+    const v = s || 1;
+    if (v < 1.5) return 'day';
+    if (v < 10) return '6hour';
+    if (v < 40) return 'hour';
+    return 'none';
+  }, []);
+  const [bucketStep, setBucketStep] = useState(() => pickBucketStep(cameraScale?.get?.() ?? 1));
+  useEffect(() => {
+    if (!cameraScale?.on) return;
+    const unsub = cameraScale.on('change', (v) => {
+      const next = pickBucketStep(v);
+      setBucketStep((prev) => (prev !== next ? next : prev));
+    });
+    return unsub;
+  }, [cameraScale, pickBucketStep]);
+
   // ─── Sidebar open/close state (persisted) ────────────────────────────
   const [treeOpen, setTreeOpen] = useState(() => {
     try { return localStorage.getItem('echomem.treeOpen') !== '0'; } catch { return true; }
@@ -141,8 +165,10 @@ export function Desktop({
 
   // ─── View mode: root (risk piles) vs. folder (drilled-in hierarchy) ──
   const viewMode = selectedFolder === null ? 'root' : 'folder';
-  // Keep the camera-lockY ref in sync with view mode.
-  useEffect(() => { lockYRef.current = viewMode === 'folder'; }, [viewMode]);
+  // Folder/timeline view keeps Y unlocked — the canvas is a large space users
+  // can pan vertically if they want. The HUD moves with the camera so nodes
+  // stay pinned to the timeline line.
+  useEffect(() => { lockYRef.current = false; }, [viewMode]);
 
   // ─── Bucket files into the three risk piles (ROOT mode only) ────────
   const buckets = useMemo(() => {
@@ -248,67 +274,91 @@ export function Desktop({
         ? () => 0
         : (t) => ((t - minT) / (maxT - minT)) * TIMELINE_WORLD_W - halfW;
 
-    // Pack each band into rows by time-collision (left→right).
-    //   rowsRightX[i] = rightmost edge of last card placed in row i.
-    //   `row` = 0 is nearest to the timeline axis.
-    const pack = (items) => {
-      const rowsRightX = [];
-      const placed = items.map((it) => ({ ...it, x: timeToX(it.time) }));
-      for (const it of placed) {
-        const left = it.x - CARD_W / 2;
-        let row = -1;
-        for (let r = 0; r < rowsRightX.length; r++) {
-          if (left >= rowsRightX[r] + COL_GAP) { row = r; break; }
-        }
-        if (row === -1) {
-          row = rowsRightX.length;
-          rowsRightX.push(-Infinity);
-        }
-        it.row = row;
-        rowsRightX[row] = it.x + CARD_W / 2;
+    // ─── Time-bucket each band into ONE stack per bucket ─────────────
+    //   Items that share a bucket (day / 6-hour / hour) collapse into a
+    //   single stack rendered at the bucket's average time. This kills the
+    //   "infinitely tall column" problem. Clicking a stack zooms in, which
+    //   bumps bucketStep down a level → more stacks revealed within.
+    const bucketKeyOf = (t) => {
+      const d = new Date(t);
+      if (bucketStep === 'day')   { d.setHours(0, 0, 0, 0); return d.getTime(); }
+      if (bucketStep === '6hour') { d.setHours(Math.floor(d.getHours()/6)*6, 0, 0, 0); return d.getTime(); }
+      if (bucketStep === 'hour')  { d.setMinutes(0, 0, 0); return d.getTime(); }
+      return t; // 'none' — each item is its own bucket
+    };
+    const bucketLabel = (t) => {
+      const d = new Date(t);
+      if (bucketStep === 'day')   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      if (bucketStep === '6hour') return d.toLocaleTimeString(undefined, { hour: 'numeric' }) + ' · ' + d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      if (bucketStep === 'hour')  return d.toLocaleTimeString(undefined, { hour: 'numeric' });
+      return '';
+    };
+    const bucketDurationMs = (() => {
+      if (bucketStep === 'day')   return 86_400_000;
+      if (bucketStep === '6hour') return 6 * 3_600_000;
+      if (bucketStep === 'hour')  return 3_600_000;
+      return 0;
+    })();
+
+    const bucketBand = (items) => {
+      const map = new Map();
+      for (const it of items) {
+        const k = bucketKeyOf(it.time);
+        if (!map.has(k)) map.set(k, { key: k, items: [] });
+        map.get(k).items.push(it);
       }
-      return { items: placed, rows: rowsRightX.length };
+      return [...map.values()]
+        .map((bucket) => {
+          const ts = bucket.items.map((i) => i.time);
+          const bucketMinT = Math.min(...ts);
+          const bucketMaxT = Math.max(...ts);
+          const avgT = ts.reduce((s, t) => s + t, 0) / ts.length;
+          return {
+            bucketKey: bucket.key,
+            bucketStart: bucket.key,
+            bucketEnd: bucket.key + bucketDurationMs,
+            bucketStep,
+            label: bucketLabel(bucket.key),
+            items: bucket.items,
+            minT: bucketMinT,
+            maxT: bucketMaxT,
+            x: timeToX(avgT),
+          };
+        })
+        .sort((a, b) => a.x - b.x);
     };
 
     const packed = {
-      private: pack(byRisk.private),
-      ready:   pack(byRisk.ready),
-      synced:  pack(byRisk.synced),
+      private: { items: bucketBand(byRisk.private) },
+      ready:   { items: bucketBand(byRisk.ready) },
+      synced:  { items: bucketBand(byRisk.synced) },
     };
 
-    // Position bands vertically around the timeline axis (y=0).
-    //   Ready band grows UPWARD from (axis − AXIS_GAP).
-    //   Private band sits above Ready.
-    //   Synced band grows DOWNWARD from (axis + AXIS_GAP).
-    const readyBandHeight = Math.max(0, packed.ready.rows * CARD_H + Math.max(0, packed.ready.rows - 1) * ROW_GAP);
-    const privateBandHeight = Math.max(0, packed.private.rows * CARD_H + Math.max(0, packed.private.rows - 1) * ROW_GAP);
-    const syncedBandHeight = Math.max(0, packed.synced.rows * CARD_H + Math.max(0, packed.synced.rows - 1) * ROW_GAP);
+    // Single-row band Y-positions (no more multi-row packing).
+    //   Ready sits just above the axis; Private sits above Ready;
+    //   Synced sits just below the axis. No infinite vertical growth.
+    const readyY   = TIMELINE_Y - TIMELINE_AXIS_GAP - CARD_H / 2;
+    const privateY = readyY - CARD_H - BAND_VSPACE;
+    const syncedY  = TIMELINE_Y + TIMELINE_AXIS_GAP + CARD_H / 2;
 
-    const readyBottom = TIMELINE_Y - TIMELINE_AXIS_GAP;
-    const readyTop = readyBottom - readyBandHeight;
-    const privateBottom = readyTop - BAND_VSPACE;
-    const privateTop = privateBottom - privateBandHeight;
-    const syncedTop = TIMELINE_Y + TIMELINE_AXIS_GAP;
-    const syncedBottom = syncedTop + syncedBandHeight;
+    for (const b of packed.ready.items)   b.y = readyY;
+    for (const b of packed.private.items) b.y = privateY;
+    for (const b of packed.synced.items)  b.y = syncedY;
 
-    // Apply y positions:
-    //   Ready: row=0 nearest axis (bottom of band), higher rows upward.
-    //   Private: same as ready — row=0 near its bottom, rows go upward.
-    //   Synced: row=0 nearest axis (top of band), higher rows downward.
-    const rowOffsetUp = (row) => row * (CARD_H + ROW_GAP);
-    for (const it of packed.ready.items)
-      it.y = readyBottom - CARD_H / 2 - rowOffsetUp(it.row);
-    for (const it of packed.private.items)
-      it.y = privateBottom - CARD_H / 2 - rowOffsetUp(it.row);
-    for (const it of packed.synced.items)
-      it.y = syncedTop + CARD_H / 2 + rowOffsetUp(it.row);
+    const privateTop = privateY - CARD_H / 2;
+    const privateBottom = privateY + CARD_H / 2;
+    const readyTop = readyY - CARD_H / 2;
+    const readyBottom = readyY + CARD_H / 2;
+    const syncedTop = syncedY - CARD_H / 2;
+    const syncedBottom = syncedY + CARD_H / 2;
 
     return {
       packed,
       extents: { privateTop, privateBottom, readyTop, readyBottom, syncedTop, syncedBottom },
       time: { minT, maxT, hasTime, timeToX, halfW },
+      bucketStep,
     };
-  }, [files, syncMap, selectedFolder, CARD_W, CARD_H, COL_GAP, ROW_GAP]);
+  }, [files, syncMap, selectedFolder, CARD_W, CARD_H, bucketStep]);
 
   // ─── World-space bounds of rendered content, used by fitTo() ─────────
   const contentBounds = useMemo(() => {
@@ -555,26 +605,43 @@ export function Desktop({
               // lines visually terminate on a real surface when camera is
               // centered on it.
 
-              // Items + leader lines (each item pinned to the timeline axis)
+              // Buckets + leader lines. Each bucket (day / 6hour / hour) is
+              // ONE stack per band. Clicking zooms to the bucket's time range.
+              const zoomToBucket = (bucket) => {
+                const pad = CARD_W * 0.6;
+                const rangeMs = Math.max(
+                  bucket.bucketEnd - bucket.bucketStart,
+                  bucket.maxT - bucket.minT || 1
+                );
+                const startT = bucket.bucketStart;
+                const endT = bucket.bucketStart + rangeMs;
+                const minX = time.timeToX(startT);
+                const maxX = time.timeToX(endT);
+                fitTo({
+                  minX: minX - pad,
+                  maxX: maxX + pad,
+                  minY: extents.privateTop - 120,
+                  maxY: extents.syncedBottom + 120,
+                }, { padding: 40, centerY: 0 });
+              };
+
               for (const riskKey of RISK_KEYS) {
-                for (const item of packed[riskKey].items) {
-                  // Leader line: vertical line from the card's near-axis edge
-                  // to y=0. Creates the "pin on a corkboard" feel; when items
-                  // cluster in time, the lines naturally bundle.
-                  const isAbove = item.y < 0;
+                for (const bucket of packed[riskKey].items) {
+                  // Leader line from the bucket's near-axis edge down to y=0.
+                  const isAbove = bucket.y < 0;
                   const cardEdgeY = isAbove
-                    ? item.y + CARD_H / 2
-                    : item.y - CARD_H / 2;
+                    ? bucket.y + CARD_H / 2
+                    : bucket.y - CARD_H / 2;
                   const leaderTop = Math.min(cardEdgeY, 0);
                   const leaderHeight = Math.abs(cardEdgeY);
                   if (leaderHeight > 0) {
                     nodes.push(
                       <div
-                        key={`leader-${item.key}`}
+                        key={`leader-${riskKey}-${bucket.bucketKey}`}
                         className={`timeline-leader timeline-leader--${riskKey} timeline-leader--${isAbove ? 'above' : 'below'}`}
                         style={{
                           position: 'absolute',
-                          left: item.x - 1.5,
+                          left: bucket.x - 1.5,
                           top: leaderTop,
                           width: 3,
                           height: leaderHeight,
@@ -584,14 +651,13 @@ export function Desktop({
                         aria-hidden="true"
                       />
                     );
-                    // Anchor dot at axis base of the leader
                     nodes.push(
                       <div
-                        key={`anchor-${item.key}`}
+                        key={`anchor-${riskKey}-${bucket.bucketKey}`}
                         className={`timeline-anchor timeline-anchor--${riskKey}`}
                         style={{
                           position: 'absolute',
-                          left: item.x - 4,
+                          left: bucket.x - 4,
                           top: -4,
                           width: 8,
                           height: 8,
@@ -603,36 +669,65 @@ export function Desktop({
                     );
                   }
 
-                  if (item.type === 'folder') {
+                  // Single-item bucket → render at its natural type; multi-item
+                  // bucket → render as an aggregate FolderStack labelled by the
+                  // bucket's time slot.
+                  if (bucket.items.length === 1) {
+                    const only = bucket.items[0];
+                    if (only.type === 'folder') {
+                      nodes.push(
+                        <FolderStack
+                          key={`stack-${only.key}`}
+                          name={only.name}
+                          path={only.path}
+                          files={only.files}
+                          syncMap={syncMap}
+                          variant={riskKey}
+                          totalAll={only.totalAll}
+                          translateX={bucket.x}
+                          translateY={bucket.y}
+                          zIndex={2}
+                          onDrill={drillInto}
+                        />
+                      );
+                    } else {
+                      const file = only.data;
+                      nodes.push(
+                        <FileCard
+                          key={`card-${only.key}`}
+                          file={file}
+                          content={contentFor(contentMap, file.relativePath)}
+                          variant={riskKey}
+                          syncState={cardSyncState?.[file.relativePath]}
+                          rotate={0}
+                          translateX={bucket.x}
+                          translateY={bucket.y}
+                          zIndex={2}
+                          onClick={() => onOpenCard?.(file.relativePath)}
+                        />
+                      );
+                    }
+                  } else {
+                    // Aggregate bucket stack — thickness scales with item count.
+                    // Synthesize a flat `files` list combining folder expansions
+                    // + direct files so the summary shows a real total.
+                    const flatFiles = [];
+                    for (const it of bucket.items) {
+                      if (it.type === 'folder') flatFiles.push(...it.files);
+                      else flatFiles.push(it.data);
+                    }
                     nodes.push(
                       <FolderStack
-                        key={item.key}
-                        name={item.name}
-                        path={item.path}
-                        files={item.files}
+                        key={`bucket-${riskKey}-${bucket.bucketKey}`}
+                        name={bucket.label}
+                        path={`__bucket:${riskKey}:${bucket.bucketKey}`}
+                        files={flatFiles}
                         syncMap={syncMap}
                         variant={riskKey}
-                        totalAll={item.totalAll}
-                        translateX={item.x}
-                        translateY={item.y}
+                        translateX={bucket.x}
+                        translateY={bucket.y}
                         zIndex={2}
-                        onDrill={drillInto}
-                      />
-                    );
-                  } else {
-                    const file = item.data;
-                    nodes.push(
-                      <FileCard
-                        key={item.key}
-                        file={file}
-                        content={contentFor(contentMap, file.relativePath)}
-                        variant={riskKey}
-                        syncState={cardSyncState?.[file.relativePath]}
-                        rotate={0}
-                        translateX={item.x}
-                        translateY={item.y}
-                        zIndex={2}
-                        onClick={() => onOpenCard?.(file.relativePath)}
+                        onDrill={() => zoomToBucket(bucket)}
                       />
                     );
                   }
@@ -680,10 +775,11 @@ export function Desktop({
           </AnimatePresence>
         </motion.div>
 
-        {/* ─── Timeline HUD (screen-space, always visible) ─── */}
+        {/* ─── Timeline HUD (screen-space, follows world y=0) ─── */}
         {viewMode === 'folder' && timelineBands && (
           <TimelineHud
             cameraX={cameraX}
+            cameraY={cameraY}
             cameraScale={cameraScale}
             stageRef={stageRef}
             minT={timelineBands.time.minT}
@@ -1123,16 +1219,18 @@ function TimelineAxis({ halfW, cardW, hasTime, minT, maxT, timeToX, cameraScale,
  * HUD stays put while the world scrolls underneath, giving a frozen "ruler"
  * for time reference.
  */
-function TimelineHud({ cameraX, cameraScale, stageRef, minT, maxT, hasTime, timeToX }) {
+function TimelineHud({ cameraX, cameraY, cameraScale, stageRef, minT, maxT, hasTime, timeToX }) {
   const [camX, setCamX] = useState(() => (cameraX?.get?.() ?? 0));
+  const [camY, setCamY] = useState(() => (cameraY?.get?.() ?? 0));
   const [scale, setScale] = useState(() => (cameraScale?.get?.() ?? 1));
   const [stageSize, setStageSize] = useState({ w: 1000, h: 800 });
 
   useEffect(() => {
     const unsubX = cameraX?.on?.('change', (v) => setCamX(v || 0));
+    const unsubY = cameraY?.on?.('change', (v) => setCamY(v || 0));
     const unsubS = cameraScale?.on?.('change', (v) => setScale(v || 1));
-    return () => { unsubX?.(); unsubS?.(); };
-  }, [cameraX, cameraScale]);
+    return () => { unsubX?.(); unsubY?.(); unsubS?.(); };
+  }, [cameraX, cameraY, cameraScale]);
 
   useEffect(() => {
     const update = () => {
@@ -1152,7 +1250,9 @@ function TimelineHud({ cameraX, cameraScale, stageRef, minT, maxT, hasTime, time
 
   if (!hasTime || maxT <= minT) return null;
 
-  const axisY = Math.round(stageSize.h / 2);
+  // HUD follows the world axis (y=0). World→screen: screenY = worldY*scale + camY.
+  // For worldY = 0 → screenY = camY. Clamp to stage so HUD is always visible.
+  const axisY = Math.max(16, Math.min(stageSize.h - 48, Math.round(camY)));
 
   // World → screen and time helpers
   const worldToScreen = (wx) => wx * scale + camX;
