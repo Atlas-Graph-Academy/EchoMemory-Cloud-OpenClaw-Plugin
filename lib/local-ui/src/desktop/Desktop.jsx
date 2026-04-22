@@ -540,23 +540,11 @@ export function Desktop({
                 nodes.push(bandLabel('synced', (extents.syncedTop + extents.syncedBottom) / 2));
               }
 
-              // Timeline axis (horizontal line at y=0 with dynamic date ticks).
-              // cameraScale drives tick density + counter-scales label size so
-              // labels stay legible at any zoom.
-              nodes.push(
-                <TimelineAxis
-                  key="timeline-axis"
-                  halfW={halfW}
-                  cardW={CARD_W}
-                  hasTime={time.hasTime}
-                  minT={time.minT}
-                  maxT={time.maxT}
-                  timeToX={time.timeToX}
-                  cameraScale={cameraScale}
-                  bandTop={Math.min(extents.privateTop, extents.readyTop, extents.syncedTop)}
-                  bandBottom={Math.max(extents.privateBottom, extents.readyBottom, extents.syncedBottom)}
-                />
-              );
+              // Axis itself is rendered as a screen-space HUD (see TimelineHud
+              // below) — this keeps it on screen at any pan/zoom. Only the
+              // axis "ground line" at world y=0 stays in world space so leader
+              // lines visually terminate on a real surface when camera is
+              // centered on it.
 
               // Items + leader lines (each item pinned to the timeline axis)
               for (const riskKey of RISK_KEYS) {
@@ -682,6 +670,19 @@ export function Desktop({
             })}
           </AnimatePresence>
         </motion.div>
+
+        {/* ─── Timeline HUD (screen-space, always visible) ─── */}
+        {viewMode === 'folder' && timelineBands && (
+          <TimelineHud
+            cameraX={cameraX}
+            cameraScale={cameraScale}
+            stageRef={stageRef}
+            minT={timelineBands.time.minT}
+            maxT={timelineBands.time.maxT}
+            hasTime={timelineBands.time.hasTime}
+            timeToX={timelineBands.time.timeToX}
+          />
+        )}
 
         {/* ─── Breadcrumb (folder view) ─── */}
         {viewMode === 'folder' && (
@@ -1095,5 +1096,160 @@ function TimelineAxis({ halfW, cardW, hasTime, minT, maxT, timeToX, cameraScale,
         </React.Fragment>
       ))}
     </>
+  );
+}
+
+/**
+ * TimelineHud — a SCREEN-SPACE time axis that always sits on the stage at a
+ * fixed vertical position (50%). It never pans or zooms away: as the user
+ * navigates the world, the ticks slide and the label granularity adapts, but
+ * the axis line itself is always visible at a known spot.
+ *
+ * Conceptually: world y=0 is the "true" axis. The HUD is a viewport-locked
+ * readout of it — when the camera is centered on y=0 (default), the HUD line
+ * and the world axis overlap precisely; when the user pans vertically, the
+ * HUD stays put while the world scrolls underneath, giving a frozen "ruler"
+ * for time reference.
+ */
+function TimelineHud({ cameraX, cameraScale, stageRef, minT, maxT, hasTime, timeToX }) {
+  const [camX, setCamX] = useState(() => (cameraX?.get?.() ?? 0));
+  const [scale, setScale] = useState(() => (cameraScale?.get?.() ?? 1));
+  const [stageSize, setStageSize] = useState({ w: 1000, h: 800 });
+
+  useEffect(() => {
+    const unsubX = cameraX?.on?.('change', (v) => setCamX(v || 0));
+    const unsubS = cameraScale?.on?.('change', (v) => setScale(v || 1));
+    return () => { unsubX?.(); unsubS?.(); };
+  }, [cameraX, cameraScale]);
+
+  useEffect(() => {
+    const update = () => {
+      const el = stageRef?.current;
+      if (el) setStageSize({ w: el.clientWidth, h: el.clientHeight });
+    };
+    update();
+    window.addEventListener('resize', update);
+    const ro = typeof ResizeObserver !== 'undefined' && stageRef?.current
+      ? new ResizeObserver(update) : null;
+    if (ro && stageRef.current) ro.observe(stageRef.current);
+    return () => {
+      window.removeEventListener('resize', update);
+      ro?.disconnect();
+    };
+  }, [stageRef]);
+
+  if (!hasTime || maxT <= minT) return null;
+
+  const axisY = Math.round(stageSize.h / 2);
+
+  // World → screen and time helpers
+  const worldToScreen = (wx) => wx * scale + camX;
+  const screenToWorld = (sx) => (sx - camX) / scale;
+  const worldToTime = (wx) => {
+    const norm = (wx + TIMELINE_WORLD_W / 2) / TIMELINE_WORLD_W;
+    return minT + norm * (maxT - minT);
+  };
+
+  const visibleTimeLeft = Math.max(minT, worldToTime(screenToWorld(0)));
+  const visibleTimeRight = Math.min(maxT, worldToTime(screenToWorld(stageSize.w)));
+
+  // Pick granularity so labels sit ≈ TARGET_SCREEN_PX apart.
+  // Higher target = less density = no overlap at zoom-out.
+  const TARGET_SCREEN_PX = 220;
+  const timePerLabel = (TARGET_SCREEN_PX * (maxT - minT)) / (TIMELINE_WORLD_W * Math.max(scale, 0.04));
+  let idx = 0;
+  for (let i = 0; i < TIME_LEVELS.length; i++) {
+    if (TIME_LEVELS[i].ms <= timePerLabel) idx = i;
+  }
+  if (timePerLabel > TIME_LEVELS[TIME_LEVELS.length - 1].ms) idx = TIME_LEVELS.length - 1;
+  const level = TIME_LEVELS[idx];
+
+  // Generate ticks covering the visible range, padded by one step on either side
+  const ticks = [];
+  const cursor = new Date(Math.max(minT, visibleTimeLeft) - level.ms);
+  snapCursor(cursor, level.step);
+  let guard = 0;
+  while (cursor.getTime() <= visibleTimeRight + level.ms && guard++ < 50) {
+    const t = cursor.getTime();
+    if (t >= minT && t <= maxT) {
+      const sx = worldToScreen(timeToX(t));
+      ticks.push({ t, sx });
+    }
+    advanceCursor(cursor, level.step);
+  }
+
+  // Minor ticks (one level finer, no label) — show when they don't clutter.
+  let minorTicks = [];
+  if (idx > 0) {
+    const finer = TIME_LEVELS[idx - 1];
+    const finerScreen = (finer.ms / (maxT - minT)) * TIMELINE_WORLD_W * scale;
+    if (finerScreen >= 22) {
+      const mc = new Date(Math.max(minT, visibleTimeLeft) - finer.ms);
+      snapCursor(mc, finer.step);
+      let g2 = 0;
+      while (mc.getTime() <= visibleTimeRight + finer.ms && g2++ < 120) {
+        const t = mc.getTime();
+        if (t >= minT && t <= maxT) {
+          const sx = worldToScreen(timeToX(t));
+          minorTicks.push({ t, sx });
+        }
+        advanceCursor(mc, finer.step);
+      }
+      // de-dupe positions very close to a major tick
+      minorTicks = minorTicks.filter(
+        (m) => !ticks.some((M) => Math.abs(M.sx - m.sx) < 4)
+      );
+    }
+  }
+
+  return (
+    <div className="timeline-hud" aria-hidden="true">
+      {/* Full-width axis line */}
+      <div
+        className="timeline-hud__line"
+        style={{ position: 'absolute', left: 0, right: 0, top: axisY - 1, height: 2 }}
+      />
+      {/* Minor ticks */}
+      {minorTicks.map((tick) => (
+        <div
+          key={`hmn-${tick.t}`}
+          className="timeline-hud__tick timeline-hud__tick--minor"
+          style={{
+            position: 'absolute',
+            left: tick.sx - 0.5,
+            top: axisY - 5,
+            width: 1,
+            height: 10,
+          }}
+        />
+      ))}
+      {/* Major ticks + labels */}
+      {ticks.map((tick) => (
+        <React.Fragment key={`hmj-${tick.t}`}>
+          <div
+            className="timeline-hud__tick timeline-hud__tick--major"
+            style={{
+              position: 'absolute',
+              left: tick.sx - 1,
+              top: axisY - 9,
+              width: 2,
+              height: 18,
+            }}
+          />
+          <div
+            className="timeline-hud__label"
+            style={{
+              position: 'absolute',
+              left: tick.sx,
+              top: axisY + 14,
+              transform: 'translateX(-50%)',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {formatTick(new Date(tick.t), level.step)}
+          </div>
+        </React.Fragment>
+      ))}
+    </div>
   );
 }
