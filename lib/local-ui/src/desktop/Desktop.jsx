@@ -415,17 +415,27 @@ export function Desktop({
   // ─── Re-focus when folder selection changes ──────────────────────────
   //   root   → zoom 1 on Ready pile
   //   folder → auto-fit the grid of folder-stacks + direct files
+  // Keep a ref to the latest contentBounds so the folder-change fit can read
+  // it without making `contentBounds` a useEffect dep (which would re-fit on
+  // every zoom-induced bucket change and snap the camera back to fit-out).
+  const contentBoundsRef = useRef(null);
+  useEffect(() => { contentBoundsRef.current = contentBounds; });
+
   const isFirstFolderChange = useRef(true);
   useEffect(() => {
     if (isFirstFolderChange.current) { isFirstFolderChange.current = false; return; }
     if (selectedFolder === null) {
       focusOn(STACK_ANCHORS.ready.x, STACK_ANCHORS.ready.y, 1);
-    } else if (contentBounds) {
-      // Force world y=0 to stay at stage vertical center — this is what keeps
-      // every card pinned to the HUD timeline line.
-      fitTo(contentBounds, { padding: 96, centerY: 0 });
+      return;
     }
-  }, [selectedFolder, focusOn, fitTo, contentBounds]);
+    // Wait one frame so timelineBands + contentBounds have recomputed for
+    // the new folder before we fit the camera.
+    const id = requestAnimationFrame(() => {
+      const b = contentBoundsRef.current;
+      if (b) fitTo(b, { padding: 96, centerY: 0 });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [selectedFolder, focusOn, fitTo]);
 
   // ─── Drill-down helpers ──────────────────────────────────────────────
   const drillInto = useCallback((path) => setSelectedFolder(path), []);
