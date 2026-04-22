@@ -3,6 +3,7 @@ import { Header } from './shell/Header';
 import { StatusBar } from './shell/StatusBar';
 import { SettingsModal } from './settings/SettingsModal';
 import { HomeView } from './home/HomeView';
+import { Desktop } from './desktop/Desktop';
 import { ReadingPanel } from './cards/ReadingPanel';
 import { ArchiveView } from './archive/ArchiveView';
 import { ProcessingTheater } from './sync/ProcessingTheater';
@@ -708,9 +709,33 @@ export default function App() {
         canSync={canSync}
         onSyncNow={handleSync}
         onOpenSettings={() => setSettingsOpen(true)}
+        onOpenArchive={(filter) => {
+          setArchiveInitialFilter(filter || 'all');
+          setArchiveOpen(true);
+        }}
       />
 
-      {readingPath ? (
+      {/* Desktop stays mounted so selected folder, camera, and sidebars
+          survive a reading-panel round-trip. Hidden when a file is open. */}
+      <div
+        className="app-desktop-host"
+        hidden={!!readingPath}
+        aria-hidden={!!readingPath}
+      >
+        <Desktop
+          files={files}
+          syncMap={syncMap}
+          contentMap={contentMap}
+          cardSyncState={cardSyncState}
+          syncing={syncing}
+          canSync={canSync}
+          isConnected={isConnected}
+          lastSyncLabel={lastSyncLabel}
+          onSync={handleSync}
+          onOpenCard={openReadingFor}
+        />
+      </div>
+      {readingPath && (
         <main className="app-main app-main--reading">
           <ReadingPanel
             path={readingPath}
@@ -723,24 +748,6 @@ export default function App() {
             }}
           />
         </main>
-      ) : (
-        <HomeView
-          files={files}
-          syncMap={syncMap}
-          contentMap={contentMap}
-          searchQuery={searchQuery}
-          cardSyncState={cardSyncState}
-          syncing={syncing}
-          canSync={canSync}
-          justSynced={justSynced}
-          syncedExpandedRef={syncedExpandedRef}
-          onOpenCard={openReadingFor}
-          onOpenArchive={(filterKey) => {
-            setArchiveInitialFilter(filterKey || 'all');
-            setArchiveOpen(true);
-          }}
-          onSyncReady={handleSync}
-        />
       )}
 
       <StatusBar

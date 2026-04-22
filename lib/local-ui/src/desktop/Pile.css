@@ -1,0 +1,141 @@
+/* ─────────────────────────────────────────────────────────
+ * Pile — a horizontal fan of FileCards anchored at a world point.
+ * ───────────────────────────────────────────────────────── */
+
+.pile {
+  /* the pile itself is anchored and just coordinates children */
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.pile > * { pointer-events: auto; }
+
+.pile__label {
+  position: absolute;
+  bottom: calc(var(--card-h) * 0.5 + 28px);
+  left: calc(var(--card-w) * -0.46);
+  white-space: nowrap;
+  pointer-events: auto;
+  font-family: var(--fu);
+}
+.pile__label-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.pile__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.pile__dot--private { background: var(--priv-fg); }
+.pile__dot--ready   { background: var(--ink-2); }
+.pile__dot--synced  { background: var(--sync-fg); }
+
+.pile__title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+
+.pile__count {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 10px;
+  background: var(--border-lt);
+  border-radius: 100px;
+  font-family: var(--fm);
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+
+.pile__sub {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--ink-muted);
+  max-width: 320px;
+  white-space: normal;
+  line-height: 1.45;
+}
+
+/* Accent tweaks */
+.pile--private .pile__count { background: var(--priv-surf); color: var(--priv-fg); }
+.pile--synced  .pile__count { background: var(--sync-surf); color: var(--sync-fg); }
+
+/* ─── Fan ─── */
+.pile__fan {
+  /* the fan container is a zero-size anchor; cards are absolute via FileCard */
+  position: relative;
+}
+
+/* ─── Region outline (spread mode only) — the "desk area" for a pile ─── */
+.pile__region {
+  position: absolute;
+  left: calc(var(--card-w) * -0.5 - 24px);
+  top: calc(var(--card-h) * -0.5 - 24px);
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.45) 0%, rgba(255,255,255,.18) 100%);
+  border: 1px dashed rgba(40, 24, 8, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.6);
+  pointer-events: none;
+  z-index: 0;
+}
+.pile--private .pile__region {
+  background: linear-gradient(180deg, var(--priv-surf) 0%, rgba(255,255,255,.15) 100%);
+  border-color: var(--priv-bdr);
+}
+.pile--synced .pile__region {
+  background: linear-gradient(180deg, var(--sync-surf) 0%, rgba(255,255,255,.15) 100%);
+  border-color: rgba(30, 135, 80, 0.22);
+}
+
+/* In spread mode, move the label above the region, align with top-left */
+.pile--layout-spread .pile__label {
+  bottom: auto;
+  top: calc(var(--card-h) * -0.5 - 64px);
+  left: calc(var(--card-w) * -0.5 - 16px);
+}
+
+/* ─── "+N more" overflow pill ─── */
+.pile__overflow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: calc(var(--card-w) * 0.4);
+  height: calc(var(--card-h) * 0.4);
+  margin-left: calc(var(--card-w) / -2);
+  margin-top: calc(var(--card-h) / -2);
+  background: rgba(255,255,255,0.75);
+  border: 1px dashed rgba(40,24,8,.25);
+  border-radius: 10px;
+  font-family: var(--fu);
+  color: var(--ink-muted);
+  cursor: pointer;
+  z-index: 0;
+  transition: background var(--motion-fast), border-color var(--motion-fast);
+}
+.pile__overflow:hover {
+  background: rgba(255,255,255,0.95);
+  border-color: var(--ink-muted);
+  color: var(--ink);
+}
+.pile__overflow-n {
+  font-family: var(--fm);
+  font-size: calc(var(--card-h) * 0.06);
+  font-weight: 600;
+}
+.pile__overflow-lbl {
+  font-size: calc(var(--card-h) * 0.024);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
