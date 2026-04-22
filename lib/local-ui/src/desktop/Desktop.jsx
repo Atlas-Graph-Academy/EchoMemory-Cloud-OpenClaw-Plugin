@@ -538,7 +538,8 @@ export function Desktop({
               )}
             </>
           ) : (
-            timelineBands && (() => {
+            <AnimatePresence initial={false} mode="popLayout">
+              {timelineBands && (() => {
               const { packed, extents, time } = timelineBands;
               const halfW = TIMELINE_WORLD_W / 2;
               const nodes = [];
@@ -636,15 +637,20 @@ export function Desktop({
                   const leaderHeight = Math.abs(cardEdgeY);
                   if (leaderHeight > 0) {
                     nodes.push(
-                      <div
+                      <motion.div
                         key={`leader-${riskKey}-${bucket.bucketKey}`}
                         className={`timeline-leader timeline-leader--${riskKey} timeline-leader--${isAbove ? 'above' : 'below'}`}
+                        initial={{ opacity: 0, scaleY: 0.4 }}
+                        animate={{ opacity: 1, scaleY: 1 }}
+                        exit={{ opacity: 0, scaleY: 0.4, transition: { duration: 0.18 } }}
+                        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
                         style={{
                           position: 'absolute',
                           left: bucket.x - 1.5,
                           top: leaderTop,
                           width: 3,
                           height: leaderHeight,
+                          transformOrigin: isAbove ? 'bottom center' : 'top center',
                           zIndex: 1,
                           pointerEvents: 'none',
                         }}
@@ -652,9 +658,13 @@ export function Desktop({
                       />
                     );
                     nodes.push(
-                      <div
+                      <motion.div
                         key={`anchor-${riskKey}-${bucket.bucketKey}`}
                         className={`timeline-anchor timeline-anchor--${riskKey}`}
+                        initial={{ opacity: 0, scale: 0.3 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.3, transition: { duration: 0.18 } }}
+                        transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
                         style={{
                           position: 'absolute',
                           left: bucket.x - 4,
@@ -734,7 +744,8 @@ export function Desktop({
                 }
               }
               return nodes;
-            })()
+            })()}
+            </AnimatePresence>
           )}
 
           {/* Flight layer — cards in motion during an active sync */}

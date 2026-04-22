@@ -111,12 +111,9 @@ export function FileCard({
     <motion.div
       className={classes}
       style={{ zIndex, ...style }}
-      initial={false}
-      animate={{
-        x: translateX,
-        y: translateY,
-        rotate,
-      }}
+      initial={{ x: translateX, y: translateY, rotate, opacity: 0, scale: 0.9 }}
+      animate={{ x: translateX, y: translateY, rotate, opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2, ease: [0.4, 0, 1, 1] } }}
       transition={{ duration: 0.52, ease: [0.22, 1, 0.36, 1] }}
       onClick={onClick}
       role={onClick ? 'button' : undefined}

@@ -71,9 +71,10 @@ export function FolderStack({
   return (
     <motion.div
       className={`folder-stack folder-stack--${tint}`}
-      initial={false}
-      animate={{ x: translateX, y: translateY, rotate: 0 }}
-      transition={{ duration: 0.52, ease: [0.22, 1, 0.36, 1] }}
+      initial={{ x: translateX, y: translateY, rotate: 0, opacity: 0, scale: 0.82 }}
+      animate={{ x: translateX, y: translateY, rotate: 0, opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.82, transition: { duration: 0.22, ease: [0.4, 0, 1, 1] } }}
+      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
       style={{ zIndex }}
       onClick={() => onDrill?.(path)}
       role="button"
