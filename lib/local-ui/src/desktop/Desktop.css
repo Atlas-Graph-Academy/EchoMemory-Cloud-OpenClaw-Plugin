@@ -252,13 +252,15 @@
 .timeline-axis {
   background: linear-gradient(90deg,
     rgba(40, 24, 8, 0) 0%,
-    rgba(40, 24, 8, 0.35) 8%,
-    rgba(40, 24, 8, 0.35) 92%,
+    rgba(40, 24, 8, 0.55) 6%,
+    rgba(40, 24, 8, 0.55) 94%,
     rgba(40, 24, 8, 0) 100%);
-  box-shadow: 0 0 0 1px rgba(40, 24, 8, 0.04);
+  box-shadow:
+    0 0 0 1px rgba(40, 24, 8, 0.06),
+    0 4px 18px rgba(40, 24, 8, 0.08);
 }
 .timeline-axis__tick {
-  background: rgba(40, 24, 8, 0.35);
+  background: rgba(40, 24, 8, 0.55);
 }
 .timeline-axis__label,
 .timeline-axis__single {
@@ -272,6 +274,43 @@
   color: var(--ink-2);
   font-weight: 500;
 }
+
+/* Leader lines — vertical pin from each item to the timeline axis.
+   Gradient is dense near the axis and fades toward the card, so the axis
+   reads as the "ground" and items feel grounded on it. */
+.timeline-leader {
+  --leader-color: rgba(40, 24, 8, 0.65);
+  border-radius: 2px;
+}
+.timeline-leader--private { --leader-color: rgba(178, 34, 52, 0.85); }
+.timeline-leader--ready   { --leader-color: rgba(40, 24, 8, 0.55); }
+.timeline-leader--synced  { --leader-color: rgba(30, 135, 80, 0.80); }
+
+/* Card is ABOVE axis → line grounds at bottom (near axis), fades up */
+.timeline-leader--above {
+  background: linear-gradient(to bottom,
+    color-mix(in srgb, var(--leader-color) 0%, transparent) 0%,
+    color-mix(in srgb, var(--leader-color) 18%, transparent) 35%,
+    var(--leader-color) 100%);
+}
+/* Card is BELOW axis → line grounds at top, fades down */
+.timeline-leader--below {
+  background: linear-gradient(to top,
+    color-mix(in srgb, var(--leader-color) 0%, transparent) 0%,
+    color-mix(in srgb, var(--leader-color) 18%, transparent) 35%,
+    var(--leader-color) 100%);
+}
+
+/* Anchor dot — where the leader pins to the axis */
+.timeline-anchor {
+  border-radius: 50%;
+  background: var(--bg, #FFFDF7);
+  border: 1.5px solid var(--anchor-color, rgba(40,24,8,0.65));
+  box-shadow: 0 0 0 2px rgba(40, 24, 8, 0.04);
+}
+.timeline-anchor--private { --anchor-color: rgba(178, 34, 52, 0.85); }
+.timeline-anchor--ready   { --anchor-color: rgba(40, 24, 8, 0.55); }
+.timeline-anchor--synced  { --anchor-color: rgba(30, 135, 80, 0.80); }
 
 /* ─── Folder-view region labels (float above each risk region) ─── */
 .folder-region__label {

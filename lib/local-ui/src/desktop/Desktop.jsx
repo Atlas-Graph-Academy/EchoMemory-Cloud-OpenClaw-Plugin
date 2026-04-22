@@ -553,9 +553,54 @@ export function Desktop({
                 />
               );
 
-              // Items
+              // Items + leader lines (each item pinned to the timeline axis)
               for (const riskKey of RISK_KEYS) {
                 for (const item of packed[riskKey].items) {
+                  // Leader line: vertical line from the card's near-axis edge
+                  // to y=0. Creates the "pin on a corkboard" feel; when items
+                  // cluster in time, the lines naturally bundle.
+                  const isAbove = item.y < 0;
+                  const cardEdgeY = isAbove
+                    ? item.y + CARD_H / 2
+                    : item.y - CARD_H / 2;
+                  const leaderTop = Math.min(cardEdgeY, 0);
+                  const leaderHeight = Math.abs(cardEdgeY);
+                  if (leaderHeight > 0) {
+                    nodes.push(
+                      <div
+                        key={`leader-${item.key}`}
+                        className={`timeline-leader timeline-leader--${riskKey} timeline-leader--${isAbove ? 'above' : 'below'}`}
+                        style={{
+                          position: 'absolute',
+                          left: item.x - 1.5,
+                          top: leaderTop,
+                          width: 3,
+                          height: leaderHeight,
+                          zIndex: 1,
+                          pointerEvents: 'none',
+                        }}
+                        aria-hidden="true"
+                      />
+                    );
+                    // Anchor dot at axis base of the leader
+                    nodes.push(
+                      <div
+                        key={`anchor-${item.key}`}
+                        className={`timeline-anchor timeline-anchor--${riskKey}`}
+                        style={{
+                          position: 'absolute',
+                          left: item.x - 4,
+                          top: -4,
+                          width: 8,
+                          height: 8,
+                          zIndex: 5,
+                          pointerEvents: 'none',
+                        }}
+                        aria-hidden="true"
+                      />
+                    );
+                  }
+
                   if (item.type === 'folder') {
                     nodes.push(
                       <FolderStack
