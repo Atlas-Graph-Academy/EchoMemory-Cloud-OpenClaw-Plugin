@@ -98,11 +98,16 @@ export function Desktop({
   onOpenCard,
 }) {
   const stageRef = useRef(null);
+  // Ref drives vertical-pan lock: in folder (timeline) view the HUD axis must
+  // stay aligned with world y=0, so the camera can pan horizontally and zoom,
+  // but vertical drag is disabled.
+  const lockYRef = useRef(false);
   const { cameraX, cameraY, cameraScale, focusOn, panBy, fitTo } = useCamera({
     stageRef,
     minScale: 0.08,
     maxScale: 2.0,
     initial: { x: 0, y: 0, scale: 1 },
+    lockYRef,
   });
 
   const [selectedFolder, setSelectedFolder] = useState(null);
@@ -136,6 +141,8 @@ export function Desktop({
 
   // ─── View mode: root (risk piles) vs. folder (drilled-in hierarchy) ──
   const viewMode = selectedFolder === null ? 'root' : 'folder';
+  // Keep the camera-lockY ref in sync with view mode.
+  useEffect(() => { lockYRef.current = viewMode === 'folder'; }, [viewMode]);
 
   // ─── Bucket files into the three risk piles (ROOT mode only) ────────
   const buckets = useMemo(() => {
@@ -364,7 +371,9 @@ export function Desktop({
     if (selectedFolder === null) {
       focusOn(STACK_ANCHORS.ready.x, STACK_ANCHORS.ready.y, 1);
     } else if (contentBounds) {
-      fitTo(contentBounds, { padding: 96 });
+      // Force world y=0 to stay at stage vertical center — this is what keeps
+      // every card pinned to the HUD timeline line.
+      fitTo(contentBounds, { padding: 96, centerY: 0 });
     }
   }, [selectedFolder, focusOn, fitTo, contentBounds]);
 
@@ -421,7 +430,7 @@ export function Desktop({
   // the three pile anchors don't exist — fall back to Fit-all for all three.
   const zoomTo = useCallback((pileKey, scale) => {
     if (viewMode === 'folder') {
-      if (contentBounds) fitTo(contentBounds, { padding: 96 });
+      if (contentBounds) fitTo(contentBounds, { padding: 96, centerY: 0 });
       return;
     }
     focusOn(STACK_ANCHORS[pileKey].x, STACK_ANCHORS[pileKey].y, scale ?? 1);
@@ -838,7 +847,10 @@ export function Desktop({
         <button
           type="button"
           className="desktop__zoombtn"
-          onClick={() => contentBounds && fitTo(contentBounds, { padding: 96 })}
+          onClick={() => contentBounds && fitTo(contentBounds, {
+            padding: 96,
+            ...(viewMode === 'folder' ? { centerY: 0 } : {}),
+          })}
           title="Fit all piles in view"
           disabled={!contentBounds}
         >
