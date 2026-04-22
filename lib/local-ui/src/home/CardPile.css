@@ -1,0 +1,52 @@
+.card-pile {
+  position: relative;
+  width: 210px;
+  height: 276px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.pile-ghost {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--r);
+  border: 1px solid var(--priv-bdr);
+  background: var(--priv-surf);
+  box-shadow: var(--sh-card);
+  transition: transform var(--motion-base) var(--ease-spring),
+              opacity var(--motion-base) var(--ease-spring);
+  pointer-events: none;
+}
+.pile-ghost:nth-child(1) {
+  transform: rotate(-6deg) translate(-13px, 8px);
+  opacity: 0.40;
+  z-index: 1;
+}
+.pile-ghost:nth-child(2) {
+  transform: rotate(-3deg) translate(-6px, 3px);
+  opacity: 0.68;
+  z-index: 2;
+}
+
+.card-pile:hover .pile-ghost:nth-child(1) {
+  transform: rotate(-11deg) translate(-22px, 12px);
+  opacity: 0.50;
+}
+.card-pile:hover .pile-ghost:nth-child(2) {
+  transform: rotate(-5.5deg) translate(-10px, 5px);
+  opacity: 0.75;
+}
+
+.card-pile > .home-card {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 3;
+}
+
+.card-pile:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 4px;
+  border-radius: var(--r);
+}

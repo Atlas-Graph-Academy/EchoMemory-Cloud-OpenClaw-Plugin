@@ -1,0 +1,67 @@
+.statusbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: var(--sb-h);
+  background: rgba(248, 247, 244, 0.96);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 48px;
+  gap: 14px;
+  z-index: 65;
+}
+
+.stat {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: var(--ink-muted);
+}
+.stat strong {
+  color: var(--ink-2);
+  font-weight: 500;
+}
+
+.stat-sep {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+.stat-right {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--ink-faint);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.local-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--ink-faint);
+  flex-shrink: 0;
+}
+
+.stat-version {
+  font-family: var(--fm);
+  color: var(--ink-faint);
+  margin-left: 4px;
+}
+
+@media (max-width: 640px) {
+  .statusbar { padding: 0 16px; gap: 8px; }
+  .stat-right { display: none; }
+}

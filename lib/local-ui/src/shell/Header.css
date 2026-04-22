@@ -1,0 +1,109 @@
+.hdr {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  height: var(--hdr-h);
+  background: rgba(248, 247, 244, 0.90);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 48px;
+  gap: 18px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--fd);
+  font-size: 17px;
+  color: var(--ink);
+  text-decoration: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.logo-mark {
+  width: 24px;
+  height: 24px;
+  background: var(--ink);
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.search-wrap {
+  flex: 1;
+  max-width: 300px;
+  position: relative;
+}
+.search-wrap input {
+  width: 100%;
+  height: 33px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  padding: 0 14px 0 34px;
+  font-family: var(--fu);
+  font-size: 12.5px;
+  color: var(--ink);
+  outline: none;
+  transition: border-color var(--motion-fast), box-shadow var(--motion-fast);
+}
+.search-wrap input:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px var(--blue-glow);
+}
+.search-wrap input::placeholder { color: var(--ink-faint); }
+.search-ico {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.hdr-gap { flex: 1; }
+
+.hdr-r {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.conn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--ink-muted);
+  padding: 0 4px;
+}
+.conn-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--sync-fg);
+  box-shadow: 0 0 0 2px rgba(26, 122, 69, .18);
+}
+.conn--off .conn-dot {
+  background: var(--ink-faint);
+  box-shadow: 0 0 0 2px rgba(122, 117, 111, .18);
+}
+
+.hdr-sync {
+  height: 33px;
+}
+
+/* Responsive: hide some chrome when cramped */
+@media (max-width: 900px) {
+  .hdr { padding: 0 24px; }
+  .hdr-r .btn-ghost { display: none; }
+}
+@media (max-width: 640px) {
+  .search-wrap { max-width: 160px; }
+  .conn { display: none; }
+}

@@ -1,0 +1,193 @@
+.home-card {
+  width: 210px;
+  min-height: 276px;
+  border-radius: var(--r);
+  border: 1px solid var(--border);
+  background: var(--white);
+  box-shadow: var(--sh-card);
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  position: relative;
+  transition: transform var(--motion-base) var(--ease-spring),
+              box-shadow var(--motion-base),
+              border-color var(--motion-fast);
+}
+
+.home-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--sh-raise);
+}
+
+.home-card:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+/* Inside a CardPile, the hover bump is applied via .card-pile:hover > .home-card */
+.card-pile > .home-card:hover {
+  transform: none; /* hover bump handled by .card-pile:hover */
+}
+.card-pile:hover > .home-card {
+  transform: translateY(-4px);
+  box-shadow: var(--sh-raise);
+}
+
+.home-card--priv {
+  background: var(--priv-surf);
+  border-color: var(--priv-bdr);
+}
+
+.home-card--sync {
+  background: var(--sync-surf);
+  border-color: var(--sync-bdr);
+}
+
+/* ─── Head ─── */
+.home-card__head {
+  padding: 13px 14px 10px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  flex-shrink: 0;
+}
+.home-card__fname {
+  font-family: var(--fm);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 5px;
+}
+.home-card__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* ─── Body ─── */
+.home-card__body {
+  padding: 12px 14px;
+  flex: 1;
+  position: relative;
+  min-height: 116px;
+}
+.home-card__preview {
+  font-size: 10.5px;
+  line-height: 1.7;
+  color: var(--ink-2);
+  display: -webkit-box;
+  -webkit-line-clamp: 7;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.home-card__preview--blurred {
+  filter: blur(3.5px);
+  user-select: none;
+}
+.home-card__priv-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  background: linear-gradient(
+    to bottom,
+    rgba(254, 244, 241, 0) 0%,
+    rgba(254, 244, 241, 0.80) 45%,
+    rgba(254, 244, 241, 0.97) 100%
+  );
+  pointer-events: none;
+}
+.home-card__lock-icon {
+  font-size: 20px;
+  opacity: 0.28;
+}
+.home-card__lock-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .10em;
+  text-transform: uppercase;
+  color: var(--priv-fg);
+  opacity: 0.6;
+}
+
+/* ─── Foot ─── */
+.home-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 14px;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  flex-shrink: 0;
+}
+.home-card__meta {
+  font-family: var(--fm);
+  font-size: 10px;
+  color: var(--ink-faint);
+}
+
+/* ─── Transient sync states ─── */
+.home-card--queued {
+  opacity: 0.75;
+}
+.home-card--queued::after {
+  content: 'QUEUED';
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-family: var(--fm);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  color: var(--ink-muted);
+  padding: 2px 6px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.home-card--syncing {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 2px var(--blue-glow), var(--sh-card);
+}
+.home-card--syncing::after {
+  content: 'SYNCING…';
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-family: var(--fm);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  color: var(--blue);
+  padding: 2px 6px;
+  background: var(--white);
+  border: 1px solid var(--blue);
+  border-radius: 4px;
+  animation: home-card-pulse 1.2s infinite;
+}
+@keyframes home-card-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.5; }
+}
+
+.home-card--done {
+  border-color: var(--sync-bdr);
+  background: var(--sync-surf);
+  animation: home-card-done var(--motion-slow) var(--ease-spring);
+}
+@keyframes home-card-done {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}
+
+.home-card--failed {
+  border-color: var(--priv-bdr);
+  background: var(--priv-surf);
+}
