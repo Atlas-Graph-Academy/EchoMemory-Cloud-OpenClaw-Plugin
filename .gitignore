@@ -47,6 +47,9 @@ package/
 workspace/
 memory/
 
+# Dev mode flag (local dev only, never commit)
+.devmode
+
 # Test and temp artifacts
 tmp/
 temp/
