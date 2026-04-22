@@ -540,7 +540,9 @@ export function Desktop({
                 nodes.push(bandLabel('synced', (extents.syncedTop + extents.syncedBottom) / 2));
               }
 
-              // Timeline axis (horizontal line at y=0 with date ticks)
+              // Timeline axis (horizontal line at y=0 with dynamic date ticks).
+              // cameraScale drives tick density + counter-scales label size so
+              // labels stay legible at any zoom.
               nodes.push(
                 <TimelineAxis
                   key="timeline-axis"
@@ -550,6 +552,9 @@ export function Desktop({
                   minT={time.minT}
                   maxT={time.maxT}
                   timeToX={time.timeToX}
+                  cameraScale={cameraScale}
+                  bandTop={Math.min(extents.privateTop, extents.readyTop, extents.syncedTop)}
+                  bandBottom={Math.max(extents.privateBottom, extents.readyBottom, extents.syncedBottom)}
                 />
               );
 
@@ -848,62 +853,148 @@ export function Desktop({
   );
 }
 
+// Time granularities used by the dynamic axis, ordered by ms ascending.
+const TIME_LEVELS = [
+  { ms: 60 * 60 * 1000,                                     step: 'hour'   },
+  { ms: 6 * 60 * 60 * 1000,                                 step: '6hour'  },
+  { ms: 24 * 60 * 60 * 1000,                                step: 'day'    },
+  { ms: 7 * 24 * 60 * 60 * 1000,                            step: 'week'   },
+  { ms: 30.4375 * 24 * 60 * 60 * 1000,                      step: 'month'  },
+  { ms: 91.3125 * 24 * 60 * 60 * 1000,                      step: 'quarter' },
+  { ms: 365.25 * 24 * 60 * 60 * 1000,                       step: 'year'   },
+  { ms: 10 * 365.25 * 24 * 60 * 60 * 1000,                  step: 'decade' },
+];
+
+function snapCursor(cursor, step) {
+  if (step === 'decade') {
+    cursor.setFullYear(Math.floor(cursor.getFullYear() / 10) * 10, 0, 1);
+    cursor.setHours(0, 0, 0, 0);
+  } else if (step === 'year') {
+    cursor.setMonth(0, 1); cursor.setHours(0, 0, 0, 0);
+  } else if (step === 'quarter') {
+    cursor.setMonth(Math.floor(cursor.getMonth() / 3) * 3, 1);
+    cursor.setHours(0, 0, 0, 0);
+  } else if (step === 'month') {
+    cursor.setDate(1); cursor.setHours(0, 0, 0, 0);
+  } else if (step === 'week') {
+    cursor.setDate(cursor.getDate() - cursor.getDay());
+    cursor.setHours(0, 0, 0, 0);
+  } else if (step === 'day') {
+    cursor.setHours(0, 0, 0, 0);
+  } else if (step === '6hour') {
+    cursor.setHours(Math.floor(cursor.getHours() / 6) * 6, 0, 0, 0);
+  } else if (step === 'hour') {
+    cursor.setMinutes(0, 0, 0);
+  }
+}
+function advanceCursor(cursor, step) {
+  if (step === 'decade') cursor.setFullYear(cursor.getFullYear() + 10);
+  else if (step === 'year') cursor.setFullYear(cursor.getFullYear() + 1);
+  else if (step === 'quarter') cursor.setMonth(cursor.getMonth() + 3);
+  else if (step === 'month') cursor.setMonth(cursor.getMonth() + 1);
+  else if (step === 'week') cursor.setDate(cursor.getDate() + 7);
+  else if (step === 'day') cursor.setDate(cursor.getDate() + 1);
+  else if (step === '6hour') cursor.setHours(cursor.getHours() + 6);
+  else cursor.setHours(cursor.getHours() + 1);
+}
+function formatTick(d, step) {
+  if (step === 'decade')  return d.getFullYear() + 's';
+  if (step === 'year')    return String(d.getFullYear());
+  if (step === 'quarter') return `Q${Math.floor(d.getMonth() / 3) + 1} ${d.getFullYear()}`;
+  if (step === 'month')   return d.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
+  if (step === 'week' || step === 'day')
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  if (step === '6hour')   return d.toLocaleTimeString(undefined, { hour: 'numeric' });
+  return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+}
+
 /**
- * TimelineAxis — horizontal line at world y=0 with date tick marks along its
- * length. Adapts tick granularity to the visible date range (months for small
- * ranges, years otherwise). Rendered inside the pannable world.
+ * TimelineAxis — horizontal date axis with dynamic tick density.
+ *
+ * Tick granularity adapts to camera zoom so labels always sit ~140 screen px
+ * apart. Labels counter-scale against cameraScale so they stay legible at any
+ * zoom. Minor ticks (one level finer, no label) add visual rhythm between
+ * major ticks when zoom is high enough. Faint vertical guide lines at each
+ * major tick run through the full band region.
  */
-function TimelineAxis({ halfW, cardW, hasTime, minT, maxT, timeToX }) {
+function TimelineAxis({ halfW, cardW, hasTime, minT, maxT, timeToX, cameraScale, bandTop, bandBottom }) {
+  const [scale, setScale] = useState(() => {
+    if (!cameraScale) return 1;
+    if (typeof cameraScale.get === 'function') return cameraScale.get() || 1;
+    return 1;
+  });
+  useEffect(() => {
+    if (!cameraScale || typeof cameraScale.on !== 'function') return;
+    const unsub = cameraScale.on('change', (v) => setScale(v || 1));
+    return unsub;
+  }, [cameraScale]);
+
   const axisLeft = -halfW - cardW / 2 - 40;
   const axisWidth = halfW * 2 + cardW + 80;
 
-  // Generate ticks
-  const ticks = [];
-  if (hasTime && maxT > minT) {
-    const rangeDays = (maxT - minT) / (24 * 3600 * 1000);
-    // Pick granularity
-    let step = 'month';
-    if (rangeDays > 365 * 3) step = 'year';
-    else if (rangeDays > 180) step = 'quarter';
-    else if (rangeDays > 30) step = 'month';
-    else step = 'week';
+  // Pick the coarsest granularity whose step >= target ms, so labels are
+  // about TARGET_SCREEN_PX apart.
+  const { majorLevelIdx, majorTicks, minorTicks } = useMemo(() => {
+    if (!hasTime || maxT <= minT) return { majorLevelIdx: -1, majorTicks: [], minorTicks: [] };
+    const TARGET_SCREEN_PX = 140;
+    const worldPerLabel = TARGET_SCREEN_PX / Math.max(scale, 0.04);
+    const timeRange = maxT - minT;
+    const msPerLabel = (worldPerLabel / TIMELINE_WORLD_W) * timeRange;
 
-    const start = new Date(minT);
-    const end = new Date(maxT);
-    const cursor = new Date(start);
-    // Snap cursor to the boundary
-    if (step === 'year') {
-      cursor.setMonth(0, 1); cursor.setHours(0, 0, 0, 0);
-    } else if (step === 'quarter') {
-      const q = Math.floor(cursor.getMonth() / 3) * 3;
-      cursor.setMonth(q, 1); cursor.setHours(0, 0, 0, 0);
-    } else if (step === 'month') {
-      cursor.setDate(1); cursor.setHours(0, 0, 0, 0);
-    } else { // week
-      const dow = cursor.getDay();
-      cursor.setDate(cursor.getDate() - dow); cursor.setHours(0, 0, 0, 0);
+    let majorIdx = 0;
+    for (let i = 0; i < TIME_LEVELS.length; i++) {
+      if (TIME_LEVELS[i].ms <= msPerLabel) majorIdx = i;
+    }
+    // If msPerLabel is larger than our largest level (decade), still cap at decade.
+    if (msPerLabel > TIME_LEVELS[TIME_LEVELS.length - 1].ms) {
+      majorIdx = TIME_LEVELS.length - 1;
     }
 
-    let guard = 0;
-    while (cursor.getTime() <= end.getTime() + 1 && guard++ < 80) {
-      const t = cursor.getTime();
-      if (t >= minT && t <= maxT) {
-        let label;
-        if (step === 'year') label = String(cursor.getFullYear());
-        else if (step === 'quarter') label = `Q${Math.floor(cursor.getMonth() / 3) + 1} ${cursor.getFullYear()}`;
-        else if (step === 'month') label = cursor.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
-        else label = cursor.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-        ticks.push({ t, label, x: timeToX(t) });
+    const MAX = 140;
+    const genTicks = (level) => {
+      const out = [];
+      const cursor = new Date(minT);
+      snapCursor(cursor, level.step);
+      let guard = 0;
+      while (cursor.getTime() <= maxT + level.ms && guard++ < MAX) {
+        const t = cursor.getTime();
+        out.push({ t, x: timeToX(t), step: level.step });
+        advanceCursor(cursor, level.step);
       }
-      if (step === 'year') cursor.setFullYear(cursor.getFullYear() + 1);
-      else if (step === 'quarter') cursor.setMonth(cursor.getMonth() + 3);
-      else if (step === 'month') cursor.setMonth(cursor.getMonth() + 1);
-      else cursor.setDate(cursor.getDate() + 7);
+      return out;
+    };
+    const major = genTicks(TIME_LEVELS[majorIdx]);
+
+    // Minor ticks: one level finer, no label. Only show when camera zoom
+    // keeps them reasonably spaced (>= 20 screen px apart).
+    let minor = [];
+    if (majorIdx > 0) {
+      const finer = TIME_LEVELS[majorIdx - 1];
+      const minorScreenPx = (finer.ms / timeRange) * TIMELINE_WORLD_W * scale;
+      if (minorScreenPx >= 20) {
+        minor = genTicks(finer).filter(
+          (t) => !major.some((m) => Math.abs(m.t - t.t) < finer.ms * 0.1)
+        );
+      }
     }
-  }
+    return { majorLevelIdx: majorIdx, majorTicks: major, minorTicks: minor };
+  }, [hasTime, minT, maxT, timeToX, scale]);
+
+  // Counter-scale for labels: world children are scaled by cameraScale, so to
+  // keep labels at a constant on-screen size we multiply by 1/scale. Clamp to
+  // avoid pathological extremes at very low zoom.
+  const labelScale = 1 / Math.max(scale, 0.25);
+  const majorLevel = majorLevelIdx >= 0 ? TIME_LEVELS[majorLevelIdx] : null;
+
+  // Band-height guide lines (faint vertical) at major ticks.
+  const guideHeight = Number.isFinite(bandTop) && Number.isFinite(bandBottom)
+    ? bandBottom - bandTop
+    : 0;
+  const guideTop = Number.isFinite(bandTop) ? bandTop : 0;
 
   return (
     <>
+      {/* Axis line */}
       <div
         className="timeline-axis"
         style={{
@@ -917,32 +1008,70 @@ function TimelineAxis({ halfW, cardW, hasTime, minT, maxT, timeToX }) {
         }}
         aria-hidden="true"
       />
+
+      {/* Single-date case */}
       {hasTime && minT === maxT && (
         <div
           className="timeline-axis__single"
           style={{
             position: 'absolute',
-            left: -120,
+            left: 0,
             top: 14,
-            width: 240,
-            textAlign: 'center',
+            transform: `translateX(-50%) scale(${labelScale})`,
+            transformOrigin: 'top center',
             zIndex: 4,
             pointerEvents: 'none',
+            whiteSpace: 'nowrap',
           }}
         >
           {new Date(minT).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
         </div>
       )}
-      {ticks.map((tick) => (
-        <React.Fragment key={tick.t}>
+
+      {/* Minor ticks (no label) */}
+      {minorTicks.map((tick) => (
+        <div
+          key={`minor-${tick.t}`}
+          className="timeline-axis__tick timeline-axis__tick--minor"
+          style={{
+            position: 'absolute',
+            left: tick.x - 0.5,
+            top: -4,
+            width: 1,
+            height: 8,
+            zIndex: 4,
+            pointerEvents: 'none',
+          }}
+          aria-hidden="true"
+        />
+      ))}
+
+      {/* Major ticks: guide line across bands + axis tick + label */}
+      {majorTicks.map((tick) => (
+        <React.Fragment key={`major-${tick.t}`}>
+          {guideHeight > 0 && (
+            <div
+              className="timeline-axis__guide"
+              style={{
+                position: 'absolute',
+                left: tick.x - 0.5,
+                top: guideTop,
+                width: 1,
+                height: guideHeight,
+                zIndex: 0,
+                pointerEvents: 'none',
+              }}
+              aria-hidden="true"
+            />
+          )}
           <div
-            className="timeline-axis__tick"
+            className="timeline-axis__tick timeline-axis__tick--major"
             style={{
               position: 'absolute',
-              left: tick.x - 0.5,
-              top: -7,
-              width: 1,
-              height: 14,
+              left: tick.x - 1,
+              top: -8,
+              width: 2,
+              height: 16,
               zIndex: 4,
               pointerEvents: 'none',
             }}
@@ -952,15 +1081,16 @@ function TimelineAxis({ halfW, cardW, hasTime, minT, maxT, timeToX }) {
             className="timeline-axis__label"
             style={{
               position: 'absolute',
-              left: tick.x - 60,
+              left: tick.x,
               top: 14,
-              width: 120,
-              textAlign: 'center',
+              transform: `translateX(-50%) scale(${labelScale})`,
+              transformOrigin: 'top center',
               zIndex: 4,
               pointerEvents: 'none',
+              whiteSpace: 'nowrap',
             }}
           >
-            {tick.label}
+            {formatTick(new Date(tick.t), majorLevel?.step || 'day')}
           </div>
         </React.Fragment>
       ))}

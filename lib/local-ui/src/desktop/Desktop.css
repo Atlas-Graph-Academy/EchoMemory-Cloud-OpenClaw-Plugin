@@ -262,6 +262,22 @@
 .timeline-axis__tick {
   background: rgba(40, 24, 8, 0.55);
 }
+.timeline-axis__tick--major {
+  background: rgba(40, 24, 8, 0.7);
+  border-radius: 1px;
+}
+.timeline-axis__tick--minor {
+  background: rgba(40, 24, 8, 0.28);
+}
+
+/* Faint vertical guide that runs the full band region at a major tick */
+.timeline-axis__guide {
+  background: linear-gradient(to bottom,
+    transparent 0%,
+    rgba(40, 24, 8, 0.06) 20%,
+    rgba(40, 24, 8, 0.06) 80%,
+    transparent 100%);
+}
 .timeline-axis__label,
 .timeline-axis__single {
   font-family: var(--fm);
