@@ -1,0 +1,133 @@
+/* ─────────────────────────────────────────────────────────
+ * FolderStack — tilted pile of blank sheets with a labeled
+ * top card. Sizing driven by --card-h / --card-w on .desktop.
+ * ───────────────────────────────────────────────────────── */
+
+.folder-stack {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--card-w);
+  height: var(--card-h);
+  margin-left: calc(var(--card-w) / -2);
+  margin-top: calc(var(--card-h) / -2);
+  cursor: pointer;
+  user-select: none;
+  will-change: transform;
+}
+
+/* Back sheets — the thickness illusion */
+.folder-stack__sheet {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(rgba(40,24,8,.02) 1px, transparent 1.5px) 0 0 / 4px 4px,
+    linear-gradient(180deg, #FDFBF5 0%, #F6F1E3 100%);
+  border: 1px solid rgba(40, 24, 8, 0.09);
+  border-radius: 6px;
+  box-shadow:
+    0 1px 2px rgba(40, 24, 8, 0.06),
+    0 3px 8px rgba(40, 24, 8, 0.04);
+  transform-origin: center center;
+}
+
+/* Top label card — the face of the folder */
+.folder-stack__label {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(rgba(40,24,8,.02) 1px, transparent 1.5px) 0 0 / 4px 4px,
+    linear-gradient(180deg, #FFFFFF 0%, #FAF7F0 100%);
+  border: 1px solid rgba(40, 24, 8, 0.12);
+  border-radius: 6px;
+  box-shadow:
+    0 2px 4px rgba(40, 24, 8, 0.08),
+    0 10px 24px rgba(40, 24, 8, 0.10);
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: calc(var(--card-h) * 0.08);
+  gap: calc(var(--card-h) * 0.028);
+  font-family: var(--fu);
+  transition: transform var(--motion-base) var(--ease-out),
+              box-shadow var(--motion-base) var(--ease-out);
+}
+
+.folder-stack:hover .folder-stack__label {
+  transform: translate(-3px, -5px);
+  box-shadow:
+    0 4px 8px rgba(40, 24, 8, 0.12),
+    0 16px 36px rgba(40, 24, 8, 0.18);
+}
+
+.folder-stack__icon {
+  color: var(--ink-2);
+  width: calc(var(--card-w) * 0.24);
+  display: grid;
+  place-items: center;
+  margin-bottom: calc(var(--card-h) * 0.01);
+}
+
+.folder-stack__name {
+  font-size: calc(var(--card-h) * 0.044);
+  font-weight: 600;
+  color: var(--ink);
+  text-align: center;
+  max-width: 92%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+}
+
+.folder-stack__count {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  font-family: var(--fm);
+}
+.folder-stack__count strong {
+  color: var(--ink);
+  font-weight: 600;
+  font-size: calc(var(--card-h) * 0.05);
+}
+.folder-stack__count span {
+  font-size: calc(var(--card-h) * 0.028);
+  color: var(--ink-muted);
+}
+
+.folder-stack__risk {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  margin-top: calc(var(--card-h) * 0.018);
+}
+.folder-stack__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: calc(var(--card-h) * 0.04);
+  min-height: 16px;
+  padding: 0 8px;
+  border-radius: 100px;
+  background: rgba(40, 24, 8, 0.05);
+  font-family: var(--fm);
+  font-size: calc(var(--card-h) * 0.024);
+  color: var(--ink-2);
+}
+.folder-stack__chip--priv  { background: var(--priv-surf); color: var(--priv-fg); }
+.folder-stack__chip--sync  { background: var(--sync-surf); color: var(--sync-fg); }
+
+.folder-stack__dot {
+  width: 5px; height: 5px; border-radius: 50%;
+}
+.folder-stack__dot--priv  { background: var(--priv-fg); }
+.folder-stack__dot--ready { background: var(--ink-2); }
+.folder-stack__dot--sync  { background: var(--sync-fg); }
+
+/* Tint variants — subtle edge color of the top card */
+.folder-stack--private .folder-stack__label { border-color: var(--priv-bdr); }
+.folder-stack--synced  .folder-stack__label { border-color: rgba(30, 135, 80, 0.26); }

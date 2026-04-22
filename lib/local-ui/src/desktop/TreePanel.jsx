@@ -140,7 +140,10 @@ function FolderNode({
           className={`tree-folder ${isSelected ? 'is-selected' : ''}`}
           onClick={() => {
             toggle(node.path);
-            onSelectFolder?.(isSelected ? null : node.path);
+            // Always drill INTO this folder on click — the canvas replaces
+            // its contents with this folder's direct children. Use breadcrumbs
+            // or [ shortcut to go back up.
+            onSelectFolder?.(node.path);
           }}
         >
           <span className={`tree-chev ${isOpen ? 'is-open' : ''}`} aria-hidden="true">▸</span>
