@@ -2,19 +2,22 @@ import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import './TreePanel.css';
 
+const MEMORY_PREFIX = 'workspace/memory/';
+const PROFILE_FILES = ['SOUL.md', 'USER.md', 'IDENTITY.md', 'MEMORY.md'];
+
 /**
  * Build a nested folder tree from file relativePaths.
- *
- * Returns:
- *   { name, path, folders: Tree[], files: [{ file, relativePath }] }
+ * Only includes files under workspace/memory/.
  */
-function buildTree(files) {
-  const root = { name: '', path: '', folders: new Map(), files: [] };
+function buildMemoryTree(files) {
+  const root = { name: 'memory', path: 'workspace/memory', folders: new Map(), files: [] };
 
   for (const file of files || []) {
     const rel = file?.relativePath;
-    if (!rel) continue;
-    const parts = rel.split('/');
+    if (!rel || !rel.startsWith(MEMORY_PREFIX)) continue;
+    const inner = rel.slice(MEMORY_PREFIX.length);
+    if (!inner) continue;
+    const parts = inner.split('/');
     let node = root;
     for (let i = 0; i < parts.length - 1; i++) {
       const seg = parts[i];
@@ -36,6 +39,29 @@ function buildTree(files) {
   return sortNode(root);
 }
 
+/**
+ * Extract profile files (SOUL.md, USER.md, etc.) from the workspace/ root.
+ */
+function extractProfile(files) {
+  const out = [];
+  for (const file of files || []) {
+    const rel = file?.relativePath;
+    if (!rel) continue;
+    const name = rel.split('/').pop();
+    if (rel.startsWith('workspace/') && !rel.startsWith('workspace/memory/') && PROFILE_FILES.includes(name)) {
+      // Only take files directly under workspace/ (depth 1)
+      if (rel.split('/').length === 2) {
+        out.push({ file, relativePath: rel });
+      }
+    }
+  }
+  return out.sort((a, b) => {
+    const ai = PROFILE_FILES.indexOf(a.file.fileName || a.relativePath.split('/').pop());
+    const bi = PROFILE_FILES.indexOf(b.file.fileName || b.relativePath.split('/').pop());
+    return ai - bi;
+  });
+}
+
 /** Count total files under a node (recursive). */
 function countFiles(node) {
   let n = node.files.length;
@@ -46,14 +72,14 @@ function countFiles(node) {
 export function TreePanel({
   files,
   syncMap,
-  selectedFolder,
-  onSelectFolder,
   onOpenFile,
   isOpen = true,
   onClose,
 }) {
-  const tree = useMemo(() => buildTree(files), [files]);
-  const [openSet, setOpenSet] = useState(() => new Set(['']));
+  const tree = useMemo(() => buildMemoryTree(files), [files]);
+  const profile = useMemo(() => extractProfile(files), [files]);
+  const total = useMemo(() => countFiles(tree) + profile.length, [tree, profile]);
+  const [openSet, setOpenSet] = useState(() => new Set(['workspace/memory', '__profile']));
 
   const toggle = (path) => {
     setOpenSet((prev) => {
@@ -89,7 +115,7 @@ export function TreePanel({
           <span>Memory</span>
         </div>
         <div className="tree-panel__meta">
-          <span className="tree-panel__total">{countFiles(tree)} files</span>
+          <span className="tree-panel__total">{total} files</span>
           {onClose && (
             <button
               type="button"
@@ -106,14 +132,58 @@ export function TreePanel({
         </div>
       </div>
 
+      <div className="tree-panel__path">
+        <span className="tree-panel__path-seg">~/.openclaw</span>
+        <span className="tree-panel__path-sep">/</span>
+        <span className="tree-panel__path-seg">workspace</span>
+        <span className="tree-panel__path-sep">/</span>
+        <span className="tree-panel__path-seg tree-panel__path-seg--active">memory</span>
+      </div>
+
       <div className="tree-panel__body">
-        <FolderNode
+        {/* ─── Profile section ─── */}
+        {profile.length > 0 && (
+          <div className="tree-section">
+            <button
+              type="button"
+              className="tree-section__head"
+              onClick={() => toggle('__profile')}
+            >
+              Profile
+            </button>
+            {openSet.has('__profile') && (
+              <div className="tree-section__children">
+                {profile.map(({ file, relativePath }) => {
+                  const status = syncMap?.[relativePath];
+                  const isPrivate = file.riskLevel === 'secret'
+                    || file.riskLevel === 'private'
+                    || file.privacyLevel === 'private'
+                    || status === 'sealed';
+                  return (
+                    <div key={relativePath} className="tree-branch__item">
+                      <button
+                        type="button"
+                        className={`tree-branch__leaf tree-branch__leaf--profile ${isPrivate ? 'is-priv' : ''}`}
+                        onClick={() => onOpenFile?.(relativePath)}
+                        title={relativePath}
+                      >
+                        {file.fileName || relativePath.split('/').pop()}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ─── Memory tree ─── */}
+        <TreeBranch
           node={tree}
+          isRoot
           depth={0}
           openSet={openSet}
           toggle={toggle}
-          selectedFolder={selectedFolder}
-          onSelectFolder={onSelectFolder}
           onOpenFile={onOpenFile}
           syncMap={syncMap}
         />
@@ -122,67 +192,56 @@ export function TreePanel({
   );
 }
 
-function FolderNode({
-  node, depth, openSet, toggle, selectedFolder, onSelectFolder, onOpenFile, syncMap,
-}) {
-  const isRoot = depth === 0;
+function TreeBranch({ node, isRoot, depth = 0, openSet, toggle, onOpenFile, syncMap }) {
   const isOpen = isRoot || openSet.has(node.path);
   const childFolders = node.folders || [];
   const childFiles = node.files || [];
-  const total = countFiles(node);
-  const isSelected = selectedFolder === node.path;
+  const hasChildren = childFolders.length > 0 || childFiles.length > 0;
 
   return (
-    <div className="tree-node" style={{ '--depth': depth }}>
+    <div className={`tree-branch ${isRoot ? 'tree-branch--root' : ''}`} style={{ '--depth': depth }}>
       {!isRoot && (
         <button
           type="button"
-          className={`tree-folder ${isSelected ? 'is-selected' : ''}`}
-          onClick={() => {
-            toggle(node.path);
-            // Always drill INTO this folder on click — the canvas replaces
-            // its contents with this folder's direct children. Use breadcrumbs
-            // or [ shortcut to go back up.
-            onSelectFolder?.(node.path);
-          }}
+          className="tree-branch__label"
+          onClick={() => toggle(node.path)}
         >
-          <span className={`tree-chev ${isOpen ? 'is-open' : ''}`} aria-hidden="true">▸</span>
-          <span className="tree-folder__name">{node.name}</span>
-          <span className="tree-folder__count">{total}</span>
+          {node.name}
         </button>
       )}
 
-      {isOpen && (
-        <div className="tree-children">
+      {isOpen && hasChildren && (
+        <div className="tree-branch__children">
           {childFolders.map((child) => (
-            <FolderNode
-              key={child.path}
-              node={child}
-              depth={depth + 1}
-              openSet={openSet}
-              toggle={toggle}
-              selectedFolder={selectedFolder}
-              onSelectFolder={onSelectFolder}
-              onOpenFile={onOpenFile}
-              syncMap={syncMap}
-            />
+            <div key={child.path} className="tree-branch__item">
+              <TreeBranch
+                node={child}
+                depth={depth + 1}
+                openSet={openSet}
+                toggle={toggle}
+                onOpenFile={onOpenFile}
+                syncMap={syncMap}
+              />
+            </div>
           ))}
           {childFiles.map(({ file, relativePath }) => {
             const status = syncMap?.[relativePath];
-            const isPrivate = file.riskLevel === 'secret' || file.riskLevel === 'private' || file.privacyLevel === 'private' || status === 'sealed';
+            const isPrivate = file.riskLevel === 'secret'
+              || file.riskLevel === 'private'
+              || file.privacyLevel === 'private'
+              || status === 'sealed';
             const isSynced = status === 'synced';
-            const iconCls = isPrivate ? 'is-priv' : isSynced ? 'is-sync' : 'is-ready';
             return (
-              <button
-                key={relativePath}
-                type="button"
-                className="tree-file"
-                onClick={() => onOpenFile?.(relativePath)}
-                title={relativePath}
-              >
-                <span className={`tree-file__dot ${iconCls}`} aria-hidden="true" />
-                <span className="tree-file__name">{file.fileName || relativePath.split('/').pop()}</span>
-              </button>
+              <div key={relativePath} className="tree-branch__item">
+                <button
+                  type="button"
+                  className={`tree-branch__leaf ${isPrivate ? 'is-priv' : isSynced ? 'is-sync' : ''}`}
+                  onClick={() => onOpenFile?.(relativePath)}
+                  title={relativePath}
+                >
+                  {file.fileName || relativePath.split('/').pop()}
+                </button>
+              </div>
             );
           })}
         </div>
