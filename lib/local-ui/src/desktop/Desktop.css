@@ -257,36 +257,20 @@
   font-family: var(--fu);
 }
 .timeline-hud__line {
-  background: linear-gradient(90deg,
-    rgba(40, 24, 8, 0) 0%,
-    rgba(40, 24, 8, 0.55) 3%,
-    rgba(40, 24, 8, 0.55) 97%,
-    rgba(40, 24, 8, 0) 100%);
-  box-shadow:
-    0 0 0 1px rgba(40, 24, 8, 0.05),
-    0 4px 18px rgba(40, 24, 8, 0.10);
+  background: rgba(40, 24, 8, 0.10);
 }
-.timeline-hud__tick {
-  background: rgba(40, 24, 8, 0.7);
-  border-radius: 1px;
+.timeline-hud__gridline {
+  background: rgba(40, 24, 8, 0.06);
 }
-.timeline-hud__tick--minor {
-  background: rgba(40, 24, 8, 0.28);
-}
-.timeline-hud__tick--major {
-  background: rgba(40, 24, 8, 0.78);
+.timeline-hud__gridline--minor {
+  background: rgba(40, 24, 8, 0.03);
 }
 .timeline-hud__label {
   font-family: var(--fm);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
-  color: var(--ink-2);
-  letter-spacing: 0.02em;
-  padding: 2px 6px;
-  background: rgba(255, 253, 247, 0.72);
-  backdrop-filter: blur(8px) saturate(140%);
-  -webkit-backdrop-filter: blur(8px) saturate(140%);
-  border-radius: 4px;
+  color: rgba(40, 24, 8, 0.25);
+  letter-spacing: 0.01em;
 }
 
 /* Timeline axis — horizontal line + tick labels */

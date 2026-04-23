@@ -334,6 +334,30 @@ export function Desktop({
       synced:  { items: bucketBand(byRisk.synced) },
     };
 
+    const MIN_BUCKET_SPACING = CARD_W * 0.55;
+    const spreadOverlaps = (buckets) => {
+      if (buckets.length < 2) return;
+      const origCenter = (buckets[0].x + buckets[buckets.length - 1].x) / 2;
+      for (let i = 1; i < buckets.length; i++) {
+        const minX = buckets[i - 1].x + MIN_BUCKET_SPACING;
+        if (buckets[i].x < minX) buckets[i].x = minX;
+      }
+      const newCenter = (buckets[0].x + buckets[buckets.length - 1].x) / 2;
+      const shift = origCenter - newCenter;
+      for (const b of buckets) b.x += shift;
+    };
+    spreadOverlaps(packed.private.items);
+    spreadOverlaps(packed.ready.items);
+    spreadOverlaps(packed.synced.items);
+
+    let actualMinX = -halfW, actualMaxX = halfW;
+    for (const r of RISK_KEYS) {
+      for (const b of packed[r].items) {
+        if (b.x < actualMinX) actualMinX = b.x;
+        if (b.x > actualMaxX) actualMaxX = b.x;
+      }
+    }
+
     // Single-row band Y-positions (no more multi-row packing).
     //   Ready sits just above the axis; Private sits above Ready;
     //   Synced sits just below the axis. No infinite vertical growth.
@@ -1030,8 +1054,8 @@ function advanceCursor(cursor, step) {
 function formatTick(d, step) {
   if (step === 'decade')  return d.getFullYear() + 's';
   if (step === 'year')    return String(d.getFullYear());
-  if (step === 'quarter') return `Q${Math.floor(d.getMonth() / 3) + 1} ${d.getFullYear()}`;
-  if (step === 'month')   return d.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
+  if (step === 'quarter') return d.toLocaleDateString(undefined, { month: 'long' });
+  if (step === 'month')   return d.toLocaleDateString(undefined, { month: 'long' });
   if (step === 'week' || step === 'day')
     return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   if (step === '6hour')   return d.toLocaleTimeString(undefined, { hour: 'numeric' });
@@ -1335,38 +1359,39 @@ function TimelineHud({ cameraX, cameraY, cameraScale, stageRef, minT, maxT, hasT
     }
   }
 
+  const LABEL_STRIP_H = 48;
+
   return (
     <div className="timeline-hud" aria-hidden="true">
-      {/* Full-width axis line */}
       <div
         className="timeline-hud__line"
-        style={{ position: 'absolute', left: 0, right: 0, top: axisY - 1, height: 2 }}
+        style={{ position: 'absolute', left: 0, right: 0, top: axisY, height: 1 }}
       />
-      {/* Minor ticks */}
+
       {minorTicks.map((tick) => (
         <div
-          key={`hmn-${tick.t}`}
-          className="timeline-hud__tick timeline-hud__tick--minor"
+          key={`hmg-${tick.t}`}
+          className="timeline-hud__gridline timeline-hud__gridline--minor"
           style={{
             position: 'absolute',
-            left: tick.sx - 0.5,
-            top: axisY - 5,
+            left: tick.sx,
+            top: 0,
+            bottom: LABEL_STRIP_H,
             width: 1,
-            height: 10,
           }}
         />
       ))}
-      {/* Major ticks + labels */}
+
       {ticks.map((tick) => (
         <React.Fragment key={`hmj-${tick.t}`}>
           <div
-            className="timeline-hud__tick timeline-hud__tick--major"
+            className="timeline-hud__gridline"
             style={{
               position: 'absolute',
-              left: tick.sx - 1,
-              top: axisY - 9,
-              width: 2,
-              height: 18,
+              left: tick.sx,
+              top: 0,
+              bottom: LABEL_STRIP_H,
+              width: 1,
             }}
           />
           <div
@@ -1374,7 +1399,7 @@ function TimelineHud({ cameraX, cameraY, cameraScale, stageRef, minT, maxT, hasT
             style={{
               position: 'absolute',
               left: tick.sx,
-              top: axisY + 14,
+              bottom: 14,
               transform: 'translateX(-50%)',
               whiteSpace: 'nowrap',
             }}
