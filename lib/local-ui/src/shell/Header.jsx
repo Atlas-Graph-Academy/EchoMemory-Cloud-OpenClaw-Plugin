@@ -1,5 +1,8 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import './Header.css';
+
+// BETA:header-info-popup — remove before merging to main
+const MODULE_LOAD_TIME = new Date();
 
 export function Header({
   searchQuery,
@@ -14,6 +17,10 @@ export function Header({
   onOpenSettings,
   onOpenArchive,
 }) {
+  // BETA:header-info-popup
+  const [infoOpen, setInfoOpen] = useState(false);
+  const infoRef = useRef(null);
+
   const primaryLabel = syncing
     ? 'Syncing…'
     : readyCount > 0
@@ -22,7 +29,12 @@ export function Header({
 
   return (
     <header className="hdr">
-      <a href="#" className="logo" onClick={(e) => e.preventDefault()}>
+      <a
+        href="#"
+        className="logo"
+        ref={infoRef}
+        onClick={(e) => { e.preventDefault(); setInfoOpen((v) => !v); }}
+      >
         <div className="logo-mark" aria-hidden="true">
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
             <circle cx="6" cy="6" r="3.5" stroke="white" strokeWidth="1.2"/>
@@ -31,6 +43,14 @@ export function Header({
         </div>
         Echo Memory
       </a>
+
+      {/* BETA:header-info-popup */}
+      {infoOpen && (
+        <div className="hdr-info-popup" onClick={() => setInfoOpen(false)}>
+          <p><strong>Today:</strong> {new Date().toLocaleDateString()}</p>
+          <p><strong>Last reload:</strong> {MODULE_LOAD_TIME.toLocaleTimeString()}</p>
+        </div>
+      )}
 
       <div className="search-wrap">
         <svg className="search-ico" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
