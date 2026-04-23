@@ -16,6 +16,8 @@ export function Header({
   onSyncNow,
   onOpenSettings,
   onOpenArchive,
+  view,
+  onViewChange,
 }) {
   // BETA:header-info-popup
   const [infoOpen, setInfoOpen] = useState(false);
@@ -67,6 +69,38 @@ export function Header({
       </div>
 
       <div className="hdr-gap" />
+
+      {typeof onViewChange === 'function' && (
+        <div className="ws-view-toggle" role="tablist" aria-label="View mode">
+          <button
+            type="button"
+            className={view === 'list' ? 'is-active' : ''}
+            aria-selected={view === 'list'}
+            onClick={() => onViewChange('list')}
+            title="List view"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 7h16M4 12h16M4 17h16" />
+            </svg>
+            List
+          </button>
+          <button
+            type="button"
+            className={view === 'canvas' ? 'is-active' : ''}
+            aria-selected={view === 'canvas'}
+            onClick={() => onViewChange('canvas')}
+            title="Canvas view"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="7" height="7" rx="1" />
+              <rect x="14" y="3" width="7" height="7" rx="1" />
+              <rect x="3" y="14" width="7" height="7" rx="1" />
+              <rect x="14" y="14" width="7" height="7" rx="1" />
+            </svg>
+            Canvas
+          </button>
+        </div>
+      )}
 
       <div className="hdr-r">
         <div className={`conn ${isConnected ? 'conn--ok' : 'conn--off'}`}>

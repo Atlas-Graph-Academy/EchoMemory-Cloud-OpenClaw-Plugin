@@ -4,6 +4,7 @@ import { StatusBar } from './shell/StatusBar';
 import { SettingsModal } from './settings/SettingsModal';
 import { HomeView } from './home/HomeView';
 import { Desktop } from './desktop/Desktop';
+import { WorkspaceView } from './workspace/WorkspaceView';
 import { ReadingPanel } from './cards/ReadingPanel';
 import { ArchiveView } from './archive/ArchiveView';
 import { ProcessingTheater } from './sync/ProcessingTheater';
@@ -144,6 +145,12 @@ export default function App() {
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [archiveInitialFilter, setArchiveInitialFilter] = useState('all');
   const [justSynced, setJustSynced] = useState(false);
+  const [view, setView] = useState(() => {
+    try { return window.localStorage.getItem('echo-view') || 'list'; } catch { return 'list'; }
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem('echo-view', view); } catch {}
+  }, [view]);
 
   const serverInstanceIdRef = useRef(null);
   const clientIdRef = useRef(buildLocalUiClientId());
@@ -498,6 +505,31 @@ export default function App() {
     }
   }, [loadBackendSources, loadSyncStatus]);
 
+  const handleSyncSelected = useCallback(async (paths) => {
+    if (!Array.isArray(paths) || paths.length === 0) return;
+    setSyncing(true);
+    setSyncResult(null);
+    setSyncProgress(null);
+    setStreamedMemories([]);
+    setTotalStreamedCount(0);
+    setJustSynced(false);
+    try {
+      const result = await triggerSyncSelected(paths);
+      const nextResult = buildSyncResultState(result);
+      setSyncResult(nextResult);
+      loadSyncStatus();
+      loadBackendSources();
+      if (nextResult.ok) {
+        setJustSynced(true);
+        window.setTimeout(() => setJustSynced(false), 1200);
+      }
+    } catch (error) {
+      setSyncResult({ ok: false, msg: String(error?.message || 'Sync failed') });
+    } finally {
+      setSyncing(false);
+    }
+  }, [loadBackendSources, loadSyncStatus]);
+
   const handleSetupFieldChange = useCallback((key, value) => {
     setSetupDraft((prev) => ({ ...prev, [key]: value }));
   }, []);
@@ -713,14 +745,17 @@ export default function App() {
           setArchiveInitialFilter(filter || 'all');
           setArchiveOpen(true);
         }}
+        view={view}
+        onViewChange={setView}
       />
 
-      {/* Desktop stays mounted so selected folder, camera, and sidebars
-          survive a reading-panel round-trip. Hidden when a file is open. */}
+      {/* Desktop (canvas) stays mounted so selected folder, camera, and sidebars
+          survive a reading-panel round-trip. Hidden when a file is open or when
+          the list view is active. */}
       <div
         className="app-desktop-host"
-        hidden={!!readingPath}
-        aria-hidden={!!readingPath}
+        hidden={view !== 'canvas'}
+        aria-hidden={view !== 'canvas' || !!readingPath}
       >
         <Desktop
           files={files}
@@ -735,6 +770,19 @@ export default function App() {
           onOpenCard={openReadingFor}
         />
       </div>
+      {view === 'list' && !readingPath && (
+        <WorkspaceView
+          files={files}
+          syncMap={syncMap}
+          contentMap={contentMap}
+          searchQuery={searchQuery}
+          syncing={syncing}
+          canSync={canSync}
+          lastSyncLabel={lastSyncLabel}
+          onOpenCard={openReadingFor}
+          onSyncSelected={handleSyncSelected}
+        />
+      )}
       {readingPath && (
         <main className="app-main app-main--reading">
           <ReadingPanel

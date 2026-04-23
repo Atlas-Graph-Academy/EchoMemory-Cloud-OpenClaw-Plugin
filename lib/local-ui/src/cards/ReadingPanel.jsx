@@ -206,6 +206,12 @@ export function ReadingPanel({ path, content, file, onClose, onSave, onboardingA
   return (
     <div className="reading-panel-wrapper">
       <div className="reading-panel">
+        <div className="rp-spine" aria-hidden="true">
+          <span className="rp-punch" />
+          <span className="rp-punch" />
+          <span className="rp-punch" />
+        </div>
+        <div className="rp-dogear" aria-hidden="true" />
         <div className="rp-header" data-tour={onboardingActive ? 'reading-header' : undefined}>
           <button className="rp-back" data-tour={onboardingActive ? 'reading-back' : undefined} onClick={onClose} title="Back to archive">
             {'<-'}

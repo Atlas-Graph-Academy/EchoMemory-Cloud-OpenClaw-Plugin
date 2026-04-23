@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--prefix", "lib/local-ui"],
       "port": 5173
+    },
+    {
+      "name": "design-preview",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "51397", "--directory", "/Users/echoget/.gstack/projects/Atlas-Graph-Academy-EchoMemory-Cloud-OpenClaw-Plugin/designs/listview-20260423"],
+      "port": 51397
     }
   ]
 }

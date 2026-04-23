@@ -1,8 +1,11 @@
 .reading-panel-wrapper {
   display: flex;
-  flex: 1;
+  flex: 0 1 auto;
+  width: 100%;
+  max-width: 860px;
+  max-height: 100%;
   min-height: 0;
-  padding: 14px;
+  margin: 0 auto;
   animation: rpFadeIn var(--motion-slow) ease-out;
 }
 
@@ -18,19 +21,76 @@
 }
 
 .reading-panel {
+  position: relative;
   display: flex;
   flex: 1;
   flex-direction: column;
   min-width: 0;
-  border-radius: 24px;
+  border-radius: 8px;
   overflow: hidden;
-  border: 1px solid rgba(194, 214, 239, 0.1);
+  border: 1px solid rgba(40, 24, 8, 0.08);
   background:
-    linear-gradient(180deg, rgba(248, 244, 236, 0.96), rgba(244, 238, 228, 0.98)),
-    linear-gradient(135deg, rgba(225, 181, 138, 0.08), transparent 32%);
+    radial-gradient(rgba(40, 24, 8, 0.02) 1px, transparent 1.5px) 0 0 / 4px 4px,
+    linear-gradient(180deg, #FEFCF7 0%, #FAF7F0 100%);
   box-shadow:
-    0 26px 54px rgba(3, 8, 16, 0.24),
-    0 1px 0 rgba(255, 255, 255, 0.8) inset;
+    0 1px 2px rgba(40, 24, 8, 0.08),
+    0 18px 44px rgba(40, 24, 8, 0.14);
+}
+
+/* ─── Left binding spine with 3 punch dots (matches FileCard) ─── */
+.rp-spine {
+  position: absolute;
+  left: 18px;
+  top: 22px;
+  bottom: 22px;
+  width: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  pointer-events: none;
+  z-index: 2;
+}
+.rp-spine::before {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  left: 50%;
+  width: 1px;
+  border-left: 1px dashed rgba(40, 24, 8, 0.15);
+  transform: translateX(-0.5px);
+}
+.rp-punch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(40, 24, 8, 0.08);
+  box-shadow: inset 0 1px 1px rgba(40, 24, 8, 0.12);
+  position: relative;
+  z-index: 1;
+}
+
+/* ─── Folded top-right corner (matches FileCard dogear) ─── */
+.rp-dogear {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 24px;
+  height: 24px;
+  background: linear-gradient(225deg, rgba(40, 24, 8, 0.08) 0%, rgba(40, 24, 8, 0) 60%);
+  border-bottom-left-radius: 3px;
+  pointer-events: none;
+  z-index: 2;
+}
+.rp-dogear::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  border-style: solid;
+  border-width: 0 24px 24px 0;
+  border-color: transparent var(--bg) transparent transparent;
+  filter: drop-shadow(-1px 1px 1px rgba(40, 24, 8, 0.08));
 }
 
 .rp-header {
@@ -38,21 +98,19 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 10px 16px;
-  padding: 20px 24px 16px;
-  border-bottom: 1px solid rgba(105, 91, 73, 0.12);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.32), rgba(255, 255, 255, 0)),
-    linear-gradient(180deg, rgba(247, 243, 234, 0.92), rgba(242, 236, 225, 0.84));
+  padding: 22px 28px 14px 56px;
+  border-bottom: 1px solid rgba(40, 24, 8, 0.08);
+  background: transparent;
 }
 
 .rp-back {
-  width: 36px;
-  height: 36px;
-  border: 1px solid rgba(109, 93, 70, 0.12);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.55);
-  color: #5e5143;
-  font-size: 15px;
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(40, 24, 8, 0.12);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.6);
+  color: var(--ink-2);
+  font: 500 13px/1 var(--fu);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -62,16 +120,16 @@
 
 .rp-back:hover {
   transform: translateY(-1px);
-  border-color: rgba(109, 93, 70, 0.24);
-  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(40, 24, 8, 0.24);
+  background: rgba(255, 255, 255, 0.85);
 }
 
 .rp-title {
   flex: 1;
   min-width: 220px;
-  color: #281f17;
-  font: 700 25px/1.16 var(--font-serif);
-  letter-spacing: -0.02em;
+  color: var(--ink);
+  font: 700 22px/1.2 var(--fu);
+  letter-spacing: -0.01em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -85,14 +143,14 @@
 }
 
 .rp-action-btn {
-  min-height: 38px;
-  padding: 0 16px;
-  border: 1px solid rgba(113, 92, 68, 0.18);
-  border-radius: 999px;
-  background: linear-gradient(135deg, rgba(132, 104, 72, 0.96), rgba(104, 82, 59, 0.96));
-  color: #fff9f0;
-  font: 700 11px/1 var(--font-ui);
-  letter-spacing: 0.12em;
+  min-height: 32px;
+  padding: 0 14px;
+  border: 1px solid rgba(40, 24, 8, 0.18);
+  border-radius: 6px;
+  background: rgba(40, 24, 8, 0.9);
+  color: #FEFCF7;
+  font: 600 11px/1 var(--fu);
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   cursor: pointer;
   transition: transform var(--motion-fast) ease, filter var(--motion-fast) ease, opacity var(--motion-fast) ease;
@@ -109,50 +167,52 @@
 }
 
 .rp-action-btn--ghost {
-  background: rgba(255, 255, 255, 0.65);
-  color: #6a5640;
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--ink-2);
+  border-color: rgba(40, 24, 8, 0.16);
 }
 
 .rp-dirty-pill {
   display: inline-flex;
   align-items: center;
-  min-height: 34px;
-  padding: 0 12px;
-  border-radius: 999px;
-  background: rgba(111, 88, 64, 0.08);
-  color: #6f5840;
-  font: 700 10px/1 var(--font-ui);
-  letter-spacing: 0.12em;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 4px;
+  background: rgba(40, 24, 8, 0.06);
+  color: var(--ink-muted);
+  font: 600 10px/1 var(--fu);
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
 .rp-dirty-pill.is-dirty {
-  background: rgba(167, 88, 44, 0.12);
-  color: #8a4f25;
+  background: rgba(184, 52, 36, 0.12);
+  color: #a54030;
 }
 
 .rp-path {
-  padding: 12px 24px 0;
-  color: #8e806e;
-  font: 500 11px/1.45 var(--font-ui);
+  padding: 10px 28px 0 56px;
+  color: var(--ink-faint);
+  font: 500 11px/1.45 var(--fu);
+  letter-spacing: 0.02em;
   word-break: break-all;
 }
 
 .rp-body {
   flex: 1;
   overflow-y: auto;
-  padding: 24px 24px 56px;
-  color: #382f28;
-  font: 400 17px/1.85 var(--font-serif);
+  padding: 20px 28px 48px 56px;
+  color: var(--ink-2);
+  font: 400 14px/1.7 var(--fu);
   -webkit-font-smoothing: antialiased;
 }
 
-.rp-h1 { font-size: 32px; font-weight: 800; margin: 34px 0 14px; color: #1f1711; line-height: 1.22; }
-.rp-h2 { font-size: 24px; font-weight: 700; margin: 30px 0 12px; color: #2a2119; line-height: 1.28; border-bottom: 1px solid rgba(109, 93, 70, 0.12); padding-bottom: 8px; }
-.rp-h3 { font-size: 20px; font-weight: 700; margin: 24px 0 8px; color: #352b23; line-height: 1.3; }
-.rp-h4 { font-size: 17px; font-weight: 700; margin: 18px 0 6px; color: #433930; line-height: 1.35; }
-.rp-h5 { font-size: 15px; font-weight: 700; margin: 16px 0 4px; color: #574b41; }
-.rp-h6 { font-size: 12px; font-weight: 700; margin: 14px 0 4px; color: #6d6052; text-transform: uppercase; letter-spacing: 0.12em; }
+.rp-h1 { font-family: var(--fu); font-size: 24px; font-weight: 700; margin: 26px 0 12px; color: var(--ink); line-height: 1.22; letter-spacing: -0.01em; }
+.rp-h2 { font-family: var(--fu); font-size: 20px; font-weight: 700; margin: 24px 0 10px; color: var(--ink); line-height: 1.28; border-bottom: 1px solid rgba(40, 24, 8, 0.08); padding-bottom: 6px; }
+.rp-h3 { font-family: var(--fu); font-size: 17px; font-weight: 700; margin: 20px 0 8px; color: var(--ink); line-height: 1.3; }
+.rp-h4 { font-family: var(--fu); font-size: 15px; font-weight: 700; margin: 16px 0 6px; color: var(--ink-2); line-height: 1.35; }
+.rp-h5 { font-family: var(--fu); font-size: 13px; font-weight: 700; margin: 14px 0 4px; color: var(--ink-2); }
+.rp-h6 { font-family: var(--fu); font-size: 11px; font-weight: 700; margin: 12px 0 4px; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.1em; }
 
 .rp-p {
   margin: 0 0 4px;
@@ -172,51 +232,52 @@
 }
 
 .rp-quote {
-  margin: 16px 0;
-  padding: 12px 18px;
-  border-left: 3px solid #c6aa83;
-  background: rgba(198, 170, 131, 0.12);
-  color: #6a6050;
+  margin: 14px 0;
+  padding: 10px 16px;
+  border-left: 2px solid rgba(40, 24, 8, 0.24);
+  background: rgba(40, 24, 8, 0.04);
+  color: var(--ink-muted);
   font-style: italic;
 }
 
 .rp-code-block {
-  margin: 16px 0;
-  padding: 16px 18px;
-  border-radius: 14px;
-  background: rgba(237, 231, 221, 0.88);
+  margin: 14px 0;
+  padding: 14px 16px;
+  border-radius: 6px;
+  background: rgba(40, 24, 8, 0.05);
+  border: 1px solid rgba(40, 24, 8, 0.06);
   overflow-x: auto;
-  font: 400 13.5px/1.6 var(--font-mono);
-  color: #463d35;
+  font: 400 12.5px/1.6 var(--fm);
+  color: var(--ink-2);
 }
 
 .rp-inline-code {
-  background: rgba(233, 225, 214, 0.82);
-  padding: 2px 6px;
-  border-radius: 6px;
-  font: 400 13px/1 var(--font-mono);
-  color: #6a5540;
+  background: rgba(40, 24, 8, 0.06);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font: 400 12.5px/1 var(--fm);
+  color: var(--ink);
 }
 
 .rp-body a {
-  color: #765b3d;
+  color: var(--ink);
   text-decoration: underline;
-  text-decoration-color: rgba(118, 91, 61, 0.28);
+  text-decoration-color: rgba(40, 24, 8, 0.3);
   transition: text-decoration-color var(--motion-fast) ease;
 }
 
 .rp-body a:hover {
-  text-decoration-color: rgba(118, 91, 61, 0.7);
+  text-decoration-color: rgba(40, 24, 8, 0.7);
 }
 
 .rp-hr {
   border: none;
-  border-top: 1px solid rgba(109, 93, 70, 0.18);
-  margin: 28px 0;
+  border-top: 1px solid rgba(40, 24, 8, 0.12);
+  margin: 24px 0;
 }
 
 .rp-body strong {
-  color: #241c15;
+  color: var(--ink);
   font-weight: 700;
 }
 
