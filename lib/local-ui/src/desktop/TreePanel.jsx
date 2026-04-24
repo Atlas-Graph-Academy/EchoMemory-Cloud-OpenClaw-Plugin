@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { memo, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import './TreePanel.css';
 
@@ -69,7 +69,7 @@ function countFiles(node) {
   return n;
 }
 
-export function TreePanel({
+export const TreePanel = memo(function TreePanel({
   files,
   syncMap,
   onOpenFile,
@@ -190,7 +190,7 @@ export function TreePanel({
       </div>
     </motion.aside>
   );
-}
+});
 
 function TreeBranch({ node, isRoot, depth = 0, openSet, toggle, onOpenFile, syncMap }) {
   const isOpen = isRoot || openSet.has(node.path);

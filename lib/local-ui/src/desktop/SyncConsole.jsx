@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import './SyncConsole.css';
 
@@ -37,7 +37,7 @@ function basename(rel) {
  *   onStop            : optional; first-cut may be disabled (no backend yet)
  *   isConnected       : account state
  */
-export function SyncConsole({
+export const SyncConsole = memo(function SyncConsole({
   readyItems,
   privateCount,
   syncedCount,
@@ -268,4 +268,4 @@ export function SyncConsole({
       </AnimatePresence>
     </motion.aside>
   );
-}
+});

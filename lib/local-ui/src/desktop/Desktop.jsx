@@ -198,6 +198,266 @@ function stackBounds(stacks) {
   return Number.isFinite(minX) ? { minX, maxX, minY, maxY } : null;
 }
 
+const EMPTY_ID_SET = new Set();
+
+function setEquals(a, b) {
+  if (a === b) return true;
+  if (!a || !b || a.size !== b.size) return false;
+  for (const item of a) {
+    if (!b.has(item)) return false;
+  }
+  return true;
+}
+
+function hasAnyCardId(cardIds, ids) {
+  if (!ids || ids.size === 0) return false;
+  for (const id of cardIds || []) {
+    if (ids.has(id)) return true;
+  }
+  return false;
+}
+
+function selectionChangedForStack(cardIds, prevSelection, nextSelection) {
+  if (prevSelection === nextSelection) return false;
+  for (const id of cardIds || []) {
+    if (prevSelection?.has(id) !== nextSelection?.has(id)) return true;
+  }
+  return false;
+}
+
+function containsCardId(cardIds, id) {
+  return Boolean(id && (cardIds || []).includes(id));
+}
+
+function cardShadow(isHighlighted, isTop) {
+  if (isHighlighted) {
+    return '0 0 0 3px #3b82f6, 0 12px 32px rgba(59,130,246,0.25)';
+  }
+  return isTop
+    ? '0 18px 34px rgba(46,35,20,0.12), 0 5px 12px rgba(46,35,20,0.07), 0 1px 2px rgba(0,0,0,0.04)'
+    : '0 5px 12px rgba(46,35,20,0.07), 0 1px 2px rgba(0,0,0,0.035)';
+}
+
+const StackView = memo(function StackView({
+  stack,
+  fileMap,
+  syncMap,
+  contentMap,
+  draggedIds,
+  selection,
+  highlightCard,
+  isHovered,
+  isHoverSuppressed,
+  isEditing,
+  isAbsorb,
+  onHoverChange,
+  onStackHandleDown,
+  onCardDown,
+  renameStack,
+  setEditingStackId,
+}) {
+  const visible = stack.cardIds.filter((id) => !draggedIds.has(id)).slice(0, VISIBLE_LAYERS);
+  if (visible.length === 0 && !hasAnyCardId(stack.cardIds, draggedIds)) return null;
+
+  const total = stack.cardIds.length;
+  const extra = Math.min(Math.max(0, total - VISIBLE_LAYERS), 16);
+  const showHead = total > 1 || stack.name;
+  const isHov = isHovered && !isHoverSuppressed;
+  const mul = isHov ? 1.8 : 1;
+  const lift = isHov ? -4 : 0;
+  const firstFile = fileMap[stack.cardIds[0]];
+  const stackRisk = firstFile ? classify(firstFile, syncMap?.[stack.cardIds[0]]) : 'ready';
+
+  return (
+    <div
+      data-no-pan
+      onMouseEnter={() => onHoverChange(stack.id, true)}
+      onMouseLeave={() => onHoverChange(stack.id, false)}
+      style={{
+        position: 'absolute',
+        left: stack.x,
+        top: stack.y,
+        transition: 'transform 200ms ease',
+        transform: `translateY(${lift}px)`,
+        zIndex: isHov ? 20 : 10,
+      }}
+    >
+      {showHead && (
+        <div data-no-pan className="stack-head">
+          <button
+            type="button"
+            data-no-pan
+            className="stack-drag-handle"
+            onPointerDown={(e) => onStackHandleDown(e, stack.id)}
+            title="Drag pile"
+            aria-label="Drag pile"
+          >
+            <span />
+            <span />
+            <span />
+          </button>
+          {isEditing ? (
+            <input
+              autoFocus
+              defaultValue={stack.name || ''}
+              data-no-pan
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+              onBlur={(e) => { renameStack(stack.id, e.target.value); setEditingStackId(null); }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') { renameStack(stack.id, e.target.value); setEditingStackId(null); }
+                if (e.key === 'Escape') setEditingStackId(null);
+              }}
+              placeholder="Name this pile"
+              className="stack-title-input"
+            />
+          ) : (
+            <button
+              type="button"
+              data-no-pan
+              className={`stack-title-btn ${stack.name ? '' : 'stack-title-btn--untitled'}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditingStackId(stack.id);
+              }}
+              title="Click to name this pile"
+            >
+              {stack.name || 'Untitled pile'}
+            </button>
+          )}
+          <span className="stack-count">{total}</span>
+        </div>
+      )}
+
+      {isAbsorb && (
+        <div
+          style={{
+            position: 'absolute',
+            left: -20,
+            top: HEADER_H - 8,
+            width: ABSORB_W,
+            height: ABSORB_H,
+            border: `2px dashed ${TONE[stackRisk].accent}`,
+            borderRadius: 14,
+            background: `${TONE[stackRisk].accent}14`,
+            pointerEvents: 'none',
+          }}
+        />
+      )}
+
+      <div style={{ position: 'relative', width: CARD_W, height: CARD_H }}>
+        {extra > 0 && Array.from({ length: extra }).map((_, i) => {
+          const d = i + 1;
+          const last = fanOffset(VISIBLE_LAYERS - 1);
+          const j = ((i * 2654435761) >>> 0) / 0xffffffff;
+          return (
+            <div
+              key={`e${i}`}
+              style={{
+                position: 'absolute',
+                left: last.x * mul + d * 1.2,
+                top: last.y * mul + d * 0.5,
+                width: CARD_W,
+                height: CARD_H,
+                background: TONE[stackRisk].bg,
+                borderRadius: 4,
+                border: '1px solid rgba(40,24,8,0.06)',
+                boxShadow: '0 1px 1px rgba(0,0,0,0.04)',
+                transform: `rotate(${last.rot + (j - 0.5) * 1.2}deg)`,
+                zIndex: 90 - d,
+              }}
+            />
+          );
+        })}
+
+        {visible.slice().reverse().map((cardId, ri) => {
+          const li = visible.length - 1 - ri;
+          const off = fanOffset(li);
+          const isTop = li === 0;
+          const file = fileMap[cardId];
+          if (!file) return null;
+          const risk = classify(file, syncMap?.[cardId]);
+          const tone = TONE[risk];
+          const name = file.fileName || cardId.split('/').pop();
+          const parsed = parseCardName(name);
+          const content = isTop ? contentFor(contentMap, cardId) : '';
+          const isHL = highlightCard === cardId;
+          const isSel = selection.has(cardId);
+
+          return (
+            <div
+              key={cardId}
+              data-card={cardId}
+              data-card-top={isTop ? 'true' : undefined}
+              data-no-pan
+              onPointerDown={isTop ? (e) => {
+                const topX = stack.x + off.x * mul;
+                const topY = stack.y + (showHead ? HEADER_H : 0) + off.y * mul;
+                onCardDown(e, cardId, topX, topY);
+              } : undefined}
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                width: CARD_W,
+                height: CARD_H,
+                background: tone.bg,
+                borderRadius: 4,
+                overflow: 'hidden',
+                boxShadow: cardShadow(isHL, isTop),
+                outline: isSel ? '2.5px solid #3b82f6' : 'none',
+                outlineOffset: isSel ? 2 : 0,
+                transform: `translate(${off.x * mul}px, ${off.y * mul}px) rotate(${isHL ? 0 : off.rot}deg)${isHL ? ' scale(1.04)' : ''}`,
+                transition: 'transform 220ms cubic-bezier(.2,.8,.2,1), box-shadow 300ms ease, outline 150ms ease',
+                zIndex: isHL ? 200 : isSel ? 150 : 100 - li,
+                cursor: isTop ? 'grab' : 'default',
+                padding: '20px 22px',
+                fontFamily: 'var(--fm)',
+                color: tone.ink,
+              }}
+            >
+              <div style={{ position: 'absolute', top: 0, right: 0, width: 0, height: 0, borderTop: '16px solid rgba(0,0,0,0.05)', borderLeft: '16px solid transparent' }} />
+              {isTop && (
+                <>
+                  <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.3, marginBottom: 8, paddingBottom: 8, borderBottom: `1px solid ${tone.ink}18`, wordBreak: 'break-word' }}>
+                    {parsed.topic || parsed.date || name}
+                  </div>
+                  {parsed.date && parsed.topic && (
+                    <div style={{ fontSize: 10, opacity: 0.5, marginBottom: 6 }}>{parsed.date}</div>
+                  )}
+                  {content && (
+                    <div style={{ fontSize: 11, lineHeight: 1.55, opacity: 0.75, maxHeight: 170, overflow: 'hidden', whiteSpace: 'pre-wrap' }}>
+                      {content.slice(0, 300)}
+                    </div>
+                  )}
+                  {tone.stamp && (
+                    <div style={{ position: 'absolute', right: 16, bottom: 14, padding: '3px 8px', border: `1.5px solid ${tone.accent}`, color: tone.accent, fontSize: 9, fontWeight: 700, letterSpacing: 1.5, borderRadius: 3 }}>
+                      {tone.stamp === 'SYNCED' ? '\u2713 SYNCED' : tone.stamp}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}, (prev, next) => {
+  if (prev.stack !== next.stack) return false;
+  if (prev.fileMap !== next.fileMap || prev.syncMap !== next.syncMap || prev.contentMap !== next.contentMap) return false;
+  if (prev.isHovered !== next.isHovered || prev.isEditing !== next.isEditing || prev.isAbsorb !== next.isAbsorb) return false;
+  if ((prev.isHovered || next.isHovered) && prev.isHoverSuppressed !== next.isHoverSuppressed) return false;
+  if (prev.draggedIds !== next.draggedIds && (
+    hasAnyCardId(prev.stack.cardIds, prev.draggedIds) || hasAnyCardId(next.stack.cardIds, next.draggedIds)
+  )) return false;
+  if (selectionChangedForStack(next.stack.cardIds, prev.selection, next.selection)) return false;
+  if (prev.highlightCard !== next.highlightCard && (
+    containsCardId(next.stack.cardIds, prev.highlightCard) || containsCardId(next.stack.cardIds, next.highlightCard)
+  )) return false;
+  return true;
+});
+
 /* ── Desktop component ─────────────────────────────────── */
 export function Desktop({
   files, syncMap, contentMap, cardSyncState,
@@ -354,9 +614,34 @@ export function Desktop({
   /* ── Drag state ── */
   const [drag, setDrag] = useState(null);
   const [sDrag, setSDrag] = useState(null);
-  const draggedSet = useMemo(() => new Set(drag?.ids || []), [drag]);
+  const draggedSet = useMemo(() => (
+    drag?.ids?.length ? new Set(drag.ids) : EMPTY_ID_SET
+  ), [drag?.ids]);
+  const stackList = useMemo(() => Object.values(stacks), [stacks]);
+  const selectionRef = useRef(selection);
+  const dragRef = useRef(drag);
+  const sDragRef = useRef(sDrag);
+  const dragFrameRef = useRef(null);
   const stacksRef = useRef(stacks);
   useEffect(() => { stacksRef.current = stacks; });
+  useEffect(() => { selectionRef.current = selection; }, [selection]);
+  useEffect(() => { dragRef.current = drag; }, [drag]);
+  useEffect(() => { sDragRef.current = sDrag; }, [sDrag]);
+  useEffect(() => () => {
+    if (dragFrameRef.current) {
+      cancelAnimationFrame(dragFrameRef.current);
+      dragFrameRef.current = null;
+    }
+  }, []);
+
+  const publishDragFrame = useCallback((nextDrag) => {
+    dragRef.current = nextDrag;
+    if (dragFrameRef.current) return;
+    dragFrameRef.current = requestAnimationFrame(() => {
+      dragFrameRef.current = null;
+      setDrag(dragRef.current);
+    });
+  }, []);
 
   const screenToWorld = useCallback((cx, cy) => {
     const rect = stageRef.current?.getBoundingClientRect();
@@ -371,25 +656,30 @@ export function Desktop({
   const onCardDown = useCallback((e, cardId, wx, wy) => {
     e.stopPropagation(); e.preventDefault();
     const cursor = screenToWorld(e.clientX, e.clientY);
-    const selectedIds = selection.has(cardId) ? Array.from(selection) : [];
+    const currentSelection = selectionRef.current;
+    const selectedIds = currentSelection.has(cardId) ? Array.from(currentSelection) : [];
     const ids = selectedIds.length > 0
       ? [cardId, ...selectedIds.filter((id) => id !== cardId)]
       : [cardId];
-    setDrag({
+    const nextDrag = {
       ids,
       anchorId: cardId,
       offsets: Object.fromEntries(ids.map((id, index) => [id, groupDragOffset(index)])),
       grab: { dx: cursor.wx - wx, dy: cursor.wy - wy },
       worldX: wx, worldY: wy, absorbId: null, moved: false,
-    });
-  }, [screenToWorld, selection]);
+    };
+    dragRef.current = nextDrag;
+    setDrag(nextDrag);
+  }, [screenToWorld]);
 
   /* Stack handle drag start. Title click is reserved for naming the pile. */
   const onStackHandleDown = useCallback((e, stackId) => {
     if (e.button != null && e.button !== 0) return;
     e.stopPropagation(); e.preventDefault();
     setEditingStackId(null);
-    setSDrag({ stackId, lx: e.clientX, ly: e.clientY });
+    const nextSDrag = { stackId, lx: e.clientX, ly: e.clientY };
+    sDragRef.current = nextSDrag;
+    setSDrag(nextSDrag);
   }, []);
 
   const renameStack = useCallback((id, name) => {
@@ -414,40 +704,61 @@ export function Desktop({
     });
   }, [onOpenCard, renameStack]);
 
+  const hasActiveDrag = Boolean(drag || sDrag);
+
   /* Global move / up */
   useEffect(() => {
-    if (!drag && !sDrag) return;
+    if (!hasActiveDrag) return;
     const onMove = (e) => {
-      if (sDrag) {
+      const activeSDrag = sDragRef.current;
+      const activeDrag = dragRef.current;
+      if (activeSDrag) {
         const s = cameraScale.get();
-        const dx = (e.clientX - sDrag.lx) / s;
-        const dy = (e.clientY - sDrag.ly) / s;
+        const dx = (e.clientX - activeSDrag.lx) / s;
+        const dy = (e.clientY - activeSDrag.ly) / s;
         setStacks(prev => {
-          const st = prev[sDrag.stackId];
-          return st ? { ...prev, [sDrag.stackId]: { ...st, x: st.x + dx, y: st.y + dy } } : prev;
+          const st = prev[activeSDrag.stackId];
+          return st ? { ...prev, [activeSDrag.stackId]: { ...st, x: st.x + dx, y: st.y + dy } } : prev;
         });
-        setSDrag(d => ({ ...d, lx: e.clientX, ly: e.clientY }));
+        const nextSDrag = { ...activeSDrag, lx: e.clientX, ly: e.clientY };
+        sDragRef.current = nextSDrag;
+        setSDrag(nextSDrag);
         return;
       }
-      if (drag) {
+      if (activeDrag) {
         const { wx, wy } = screenToWorld(e.clientX, e.clientY);
-        const newX = wx - drag.grab.dx;
-        const newY = wy - drag.grab.dy;
+        const newX = wx - activeDrag.grab.dx;
+        const newY = wy - activeDrag.grab.dy;
         let absorbId = null;
         for (const st of Object.values(stacksRef.current)) {
-          if (drag.ids.every(id => st.cardIds.includes(id))) continue;
+          if (activeDrag.ids.every(id => st.cardIds.includes(id))) continue;
           if (wx >= st.x - 20 && wx <= st.x + ABSORB_W && wy >= st.y + HEADER_H - 10 && wy <= st.y + HEADER_H + ABSORB_H) {
             absorbId = st.id; break;
           }
         }
-        setDrag(d => d ? { ...d, worldX: newX, worldY: newY, absorbId, moved: true } : d);
+        publishDragFrame({ ...activeDrag, worldX: newX, worldY: newY, absorbId, moved: true });
       }
     };
     const onUp = () => {
-      if (sDrag) { setSDrag(null); return; }
-      if (!drag) return;
-      if (!drag.moved) { openCardInStack(drag.ids[0]); setDrag(null); return; }
-      const { ids, worldX, worldY, absorbId } = drag;
+      const activeSDrag = sDragRef.current;
+      const activeDrag = dragRef.current;
+      if (activeSDrag) {
+        sDragRef.current = null;
+        setSDrag(null);
+        return;
+      }
+      if (!activeDrag) return;
+      if (!activeDrag.moved) {
+        openCardInStack(activeDrag.ids[0]);
+        if (dragFrameRef.current) {
+          cancelAnimationFrame(dragFrameRef.current);
+          dragFrameRef.current = null;
+        }
+        dragRef.current = null;
+        setDrag(null);
+        return;
+      }
+      const { ids, worldX, worldY, absorbId } = activeDrag;
       setStacks(prev => {
         const next = { ...prev };
         for (const sid of Object.keys(next)) {
@@ -465,12 +776,17 @@ export function Desktop({
       });
       setSelection(new Set());
       setSelectMode(false);
+      if (dragFrameRef.current) {
+        cancelAnimationFrame(dragFrameRef.current);
+        dragFrameRef.current = null;
+      }
+      dragRef.current = null;
       setDrag(null);
     };
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
     return () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); };
-  }, [drag, sDrag, screenToWorld, cameraScale, openCardInStack]);
+  }, [hasActiveDrag, screenToWorld, cameraScale, openCardInStack, publishDragFrame]);
 
   /* ── Marquee selection (active in select mode) ── */
   const onMarqueeDown = useCallback((e) => {
@@ -508,7 +824,7 @@ export function Desktop({
           for (const id of st.cardIds) hits.add(id);
         }
       }
-      setSelection(hits);
+      setSelection((prev) => (setEquals(prev, hits) ? prev : hits));
     };
     const onUp = () => { setMarquee(null); };
     window.addEventListener('pointermove', onMove);
@@ -540,6 +856,20 @@ export function Desktop({
       }
       return !prev;
     });
+  }, []);
+
+  const handleStackHoverChange = useCallback((stackId, hovered) => {
+    setHoverStackId((prev) => {
+      if (hovered) return stackId;
+      return prev === stackId ? null : prev;
+    });
+  }, []);
+
+  const closeTreePanel = useCallback(() => setTreeOpen(false), []);
+  const closeSyncPanel = useCallback(() => setSyncOpen(false), []);
+  const startSelecting = useCallback(() => {
+    setSelectMode(true);
+    setSyncOpen(true);
   }, []);
 
   const canvasControls = useMemo(() => ({
@@ -679,136 +1009,27 @@ export function Desktop({
             );
           })()}
 
-          {Object.values(stacks).map(s => {
-            const visible = s.cardIds.filter(id => !draggedSet.has(id)).slice(0, VISIBLE_LAYERS);
-            if (visible.length === 0 && !s.cardIds.some(id => draggedSet.has(id))) return null;
-            const isHov = hoverStackId === s.id && !drag && !sDrag;
-            const isAbsorb = drag?.absorbId === s.id;
-            const total = s.cardIds.length;
-            const extra = Math.min(Math.max(0, total - VISIBLE_LAYERS), 16);
-            const showHead = total > 1 || s.name;
-            const mul = isHov ? 1.8 : 1;
-            const lift = isHov ? -4 : 0;
-            const firstFile = fileMap[s.cardIds[0]];
-            const stackRisk = firstFile ? classify(firstFile, syncMap?.[s.cardIds[0]]) : 'ready';
-
-            return (
-              <div key={s.id} data-no-pan
-                onMouseEnter={() => setHoverStackId(s.id)} onMouseLeave={() => setHoverStackId(null)}
-                style={{ position: 'absolute', left: s.x, top: s.y, transition: drag || sDrag ? 'none' : 'transform 200ms ease', transform: `translateY(${lift}px)`, zIndex: isHov ? 20 : 10 }}>
-
-                {showHead && (
-                  <div data-no-pan className="stack-head">
-                    <button
-                      type="button"
-                      data-no-pan
-                      className="stack-drag-handle"
-                      onPointerDown={e => onStackHandleDown(e, s.id)}
-                      title="Drag pile"
-                      aria-label="Drag pile"
-                    >
-                      <span />
-                      <span />
-                      <span />
-                    </button>
-                    {editingStackId === s.id ? (
-                      <input autoFocus defaultValue={s.name || ''} data-no-pan
-                        onPointerDown={e => e.stopPropagation()}
-                        onClick={e => e.stopPropagation()}
-                        onBlur={e => { renameStack(s.id, e.target.value); setEditingStackId(null); }}
-                        onKeyDown={e => { if (e.key === 'Enter') { renameStack(s.id, e.target.value); setEditingStackId(null); } if (e.key === 'Escape') setEditingStackId(null); }}
-                        placeholder="Name this pile"
-                        className="stack-title-input" />
-                    ) : (
-                      <button
-                        type="button"
-                        data-no-pan
-                        className={`stack-title-btn ${s.name ? '' : 'stack-title-btn--untitled'}`}
-                        onClick={e => {
-                          e.stopPropagation();
-                          setEditingStackId(s.id);
-                        }}
-                        title="Click to name this pile"
-                      >
-                        {s.name || 'Untitled pile'}
-                      </button>
-                    )}
-                    <span className="stack-count">{total}</span>
-                  </div>
-                )}
-
-                {isAbsorb && (
-                  <div style={{ position: 'absolute', left: -20, top: HEADER_H - 8, width: ABSORB_W, height: ABSORB_H, border: `2px dashed ${TONE[stackRisk].accent}`, borderRadius: 14, background: `${TONE[stackRisk].accent}14`, pointerEvents: 'none' }} />
-                )}
-
-                <div style={{ position: 'relative', width: CARD_W, height: CARD_H }}>
-                  {extra > 0 && Array.from({ length: extra }).map((_, i) => {
-                    const d = i + 1;
-                    const last = fanOffset(VISIBLE_LAYERS - 1);
-                    const j = ((i * 2654435761) >>> 0) / 0xffffffff;
-                    return (<div key={`e${i}`} style={{ position: 'absolute', left: last.x * mul + d * 1.2, top: last.y * mul + d * 0.5, width: CARD_W, height: CARD_H, background: TONE[stackRisk].bg, borderRadius: 4, border: '1px solid rgba(40,24,8,0.06)', boxShadow: '0 1px 1px rgba(0,0,0,0.04)', transform: `rotate(${last.rot + (j - 0.5) * 1.2}deg)`, zIndex: 90 - d }} />);
-                  })}
-
-                  {visible.slice().reverse().map((cardId, ri) => {
-                    const li = visible.length - 1 - ri;
-                    const off = fanOffset(li);
-                    const isTop = li === 0;
-                    const file = fileMap[cardId];
-                    if (!file) return null;
-                    const risk = classify(file, syncMap?.[cardId]);
-                    const tone = TONE[risk];
-                    const name = file.fileName || cardId.split('/').pop();
-                    const parsed = parseCardName(name);
-                    const content = isTop ? contentFor(contentMap, cardId) : '';
-                    const isHL = highlightCard === cardId;
-                    const isSel = selection.has(cardId);
-
-                    return (
-                      <div key={cardId} data-card={cardId} data-no-pan
-                        onPointerDown={isTop ? (e) => {
-                          const topX = s.x + off.x * mul;
-                          const topY = s.y + (showHead ? HEADER_H : 0) + off.y * mul;
-                          onCardDown(e, cardId, topX, topY);
-                        } : undefined}
-                        style={{
-                          position: 'absolute', left: 0, top: 0, width: CARD_W, height: CARD_H,
-                          background: tone.bg, borderRadius: 4, overflow: 'hidden',
-                          boxShadow: isHL
-                            ? '0 0 0 3px #3b82f6, 0 12px 32px rgba(59,130,246,0.25)'
-                            : isTop ? '0 8px 20px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04)' : '0 2px 6px rgba(0,0,0,0.05)',
-                          outline: isSel ? '2.5px solid #3b82f6' : 'none',
-                          outlineOffset: isSel ? 2 : 0,
-                          transform: `translate(${off.x * mul}px, ${off.y * mul}px) rotate(${isHL ? 0 : off.rot}deg)${isHL ? ' scale(1.04)' : ''}`,
-                          transition: drag ? 'none' : 'transform 220ms cubic-bezier(.2,.8,.2,1), box-shadow 300ms ease, outline 150ms ease',
-                          zIndex: isHL ? 200 : isSel ? 150 : 100 - li, cursor: isTop ? 'grab' : 'default',
-                          padding: '20px 22px', fontFamily: 'var(--fm)', color: tone.ink,
-                        }}>
-                        <div style={{ position: 'absolute', top: 0, right: 0, width: 0, height: 0, borderTop: '16px solid rgba(0,0,0,0.05)', borderLeft: '16px solid transparent' }} />
-                        {isTop && (<>
-                          <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.3, marginBottom: 8, paddingBottom: 8, borderBottom: `1px solid ${tone.ink}18`, wordBreak: 'break-word' }}>
-                            {parsed.topic || parsed.date || name}
-                          </div>
-                          {parsed.date && parsed.topic && (
-                            <div style={{ fontSize: 10, opacity: 0.5, marginBottom: 6 }}>{parsed.date}</div>
-                          )}
-                          {content && (
-                            <div style={{ fontSize: 11, lineHeight: 1.55, opacity: 0.75, maxHeight: 170, overflow: 'hidden', whiteSpace: 'pre-wrap' }}>
-                              {content.slice(0, 300)}
-                            </div>
-                          )}
-                          {tone.stamp && (
-                            <div style={{ position: 'absolute', right: 16, bottom: 14, padding: '3px 8px', border: `1.5px solid ${tone.accent}`, color: tone.accent, fontSize: 9, fontWeight: 700, letterSpacing: 1.5, borderRadius: 3 }}>
-                              {tone.stamp === 'SYNCED' ? '\u2713 SYNCED' : tone.stamp}
-                            </div>
-                          )}
-                        </>)}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
+          {stackList.map((stack) => (
+            <StackView
+              key={stack.id}
+              stack={stack}
+              fileMap={fileMap}
+              syncMap={syncMap}
+              contentMap={contentMap}
+              draggedIds={draggedSet}
+              selection={selection}
+              highlightCard={highlightCard}
+              isHovered={hoverStackId === stack.id}
+              isHoverSuppressed={hasActiveDrag}
+              isEditing={editingStackId === stack.id}
+              isAbsorb={drag?.absorbId === stack.id}
+              onHoverChange={handleStackHoverChange}
+              onStackHandleDown={onStackHandleDown}
+              onCardDown={onCardDown}
+              renameStack={renameStack}
+              setEditingStackId={setEditingStackId}
+            />
+          ))}
 
           {/* Drag ghost — full card content, not just title */}
           {drag?.moved && drag.ids.map(id => {
@@ -879,7 +1100,7 @@ export function Desktop({
         )}
       </div>
 
-      <TreePanel files={files} syncMap={syncMap} onOpenFile={locateAndOpen} isOpen={treeOpen} onClose={() => setTreeOpen(false)} />
+      <TreePanel files={files} syncMap={syncMap} onOpenFile={locateAndOpen} isOpen={treeOpen} onClose={closeTreePanel} />
 
       {/* Right panel: selection workflow while selecting, otherwise SyncConsole */}
       {(selectMode || selection.size > 0) ? (
@@ -958,7 +1179,7 @@ export function Desktop({
           </div>
         </motion.aside>
       ) : (
-        <SyncConsole readyItems={buckets.ready} privateCount={buckets.private.length} syncedCount={buckets.synced.length} syncing={syncing} syncStateByPath={cardSyncState} lastSyncLabel={lastSyncLabel} canSync={canSync} onSync={onSync} onStartSelecting={() => { setSelectMode(true); setSyncOpen(true); }} isConnected={isConnected} isOpen={syncOpen} onClose={() => setSyncOpen(false)} />
+        <SyncConsole readyItems={buckets.ready} privateCount={buckets.private.length} syncedCount={buckets.synced.length} syncing={syncing} syncStateByPath={cardSyncState} lastSyncLabel={lastSyncLabel} canSync={canSync} onSync={onSync} onStartSelecting={startSelecting} isConnected={isConnected} isOpen={syncOpen} onClose={closeSyncPanel} />
       )}
 
     </div>

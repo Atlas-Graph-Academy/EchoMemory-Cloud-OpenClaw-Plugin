@@ -37,6 +37,8 @@
   height: 0;
   /* children use absolute positioning in world coords */
   transform-origin: 0 0;
+  will-change: transform;
+  backface-visibility: hidden;
   pointer-events: none;
 }
 .desktop__world > * { pointer-events: auto; }
@@ -46,11 +48,12 @@
 .desktop [data-card] {
   border: 1px solid rgba(58, 42, 22, 0.105);
   border-radius: 7px !important;
-  filter: drop-shadow(12px 18px 18px rgba(46, 35, 20, 0.105));
+  backface-visibility: hidden;
+  contain: layout paint style;
   transform-origin: center center;
 }
 
-.desktop [data-card]::before {
+.desktop [data-card-top="true"]::before {
   content: '';
   position: absolute;
   inset: 0;
@@ -70,15 +73,11 @@
   z-index: 1;
 }
 
-.desktop [data-card]:hover {
-  filter: drop-shadow(16px 23px 22px rgba(46, 35, 20, 0.14));
-}
-
-.desktop [data-card] > div:nth-child(2) {
+.desktop [data-card-top="true"] > div:nth-child(2) {
   color: rgba(27, 24, 20, 0.92) !important;
 }
 
-.desktop [data-card] > div:nth-child(4) {
+.desktop [data-card-top="true"] > div:nth-child(4) {
   color: rgba(45, 39, 31, 0.82) !important;
   opacity: .88 !important;
 }
