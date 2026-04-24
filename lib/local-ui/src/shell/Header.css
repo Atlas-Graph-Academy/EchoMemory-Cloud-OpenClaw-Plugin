@@ -112,15 +112,8 @@
   box-shadow: 0 0 0 2px rgba(122, 117, 111, .18);
 }
 
-.hdr-sync {
-  height: 30px;
-  padding: 0 13px;
-  border-radius: 999px;
-}
-
 .hdr .btn,
-.hdr .btn-icon,
-.ws-view-toggle button {
+.hdr .btn-icon {
   height: 30px;
   border-radius: 999px;
   font-size: 11.5px;
@@ -142,31 +135,6 @@
 .hdr .btn-dark {
   background: #111;
   box-shadow: 0 9px 18px rgba(0,0,0,.16);
-}
-
-.ws-view-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 2px;
-  border-radius: 999px;
-  background: rgba(248, 247, 244, 0.64);
-  border: 1px solid rgba(26, 25, 23, 0.055);
-}
-
-.ws-view-toggle button {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 0 10px;
-  color: var(--ink-muted);
-  transition: background var(--motion-fast), color var(--motion-fast), box-shadow var(--motion-fast);
-}
-
-.ws-view-toggle button.is-active {
-  background: rgba(255, 255, 255, 0.92);
-  color: var(--ink);
-  box-shadow: 0 1px 6px rgba(22, 20, 16, 0.08);
 }
 
 /* Responsive: hide some chrome when cramped */
