@@ -4,7 +4,7 @@ OpenClaw plugin for syncing local markdown memories into EchoMem Cloud and makin
 
 ## What This Plugin Does
 
-- scans top-level `.md` files from your OpenClaw memory directory
+- scans `.md` files anywhere under your OpenClaw memory directory (subfolders included)
 - syncs markdown content into EchoMem Cloud
 - exposes manual commands for status, identity, sync, and search
 - registers an `echo_memory_search` tool so OpenClaw can use EchoMem during normal Slack conversations
