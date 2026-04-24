@@ -41,6 +41,48 @@
 }
 .desktop__world > * { pointer-events: auto; }
 
+/* Physical depth for the existing canvas cards. Keep the current geometry and
+   data model intact; this only adds paper-like edge, light, and contact shadow. */
+.desktop [data-card] {
+  border: 1px solid rgba(58, 42, 22, 0.105);
+  border-radius: 7px !important;
+  filter: drop-shadow(12px 18px 18px rgba(46, 35, 20, 0.105));
+  transform-origin: center center;
+}
+
+.desktop [data-card]::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(115deg, rgba(255,255,255,.62) 0%, rgba(255,255,255,.24) 24%, rgba(255,255,255,0) 54%),
+    linear-gradient(180deg, rgba(255,255,255,.14) 0%, rgba(255,255,255,0) 42%, rgba(64, 44, 22, .018) 100%);
+}
+
+.desktop [data-card]::after {
+  display: none;
+}
+
+.desktop [data-card] > * {
+  position: relative;
+  z-index: 1;
+}
+
+.desktop [data-card]:hover {
+  filter: drop-shadow(16px 23px 22px rgba(46, 35, 20, 0.14));
+}
+
+.desktop [data-card] > div:nth-child(2) {
+  color: rgba(27, 24, 20, 0.92) !important;
+}
+
+.desktop [data-card] > div:nth-child(4) {
+  color: rgba(45, 39, 31, 0.82) !important;
+  opacity: .88 !important;
+}
+
 
 /* ─── Canvas tools: secondary options sit near the header, not on edges ─── */
 .desktop__tooldock {
