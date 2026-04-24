@@ -121,6 +121,29 @@ function formatFindingCount(finding) {
   return `${finding.count} ${label}`;
 }
 
+function formatFileTimestamp(file) {
+  const candidates = [
+    ['Modified', file?.modifiedTime || file?.updatedAt],
+    ['Created', file?.createdTime],
+  ];
+  const found = candidates.find(([, value]) => {
+    const time = value ? new Date(value).getTime() : NaN;
+    return Number.isFinite(time);
+  });
+  if (!found) return 'Timestamp unavailable';
+
+  const [label, value] = found;
+  const date = new Date(value);
+  const formatted = new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date);
+  return `${label} ${formatted}`;
+}
+
 function WarningNotice({ file }) {
   if (!file?.hasSensitiveContent && file?.privacyLevel !== 'private') {
     return null;
@@ -168,6 +191,7 @@ export function ReadingPanel({
   const [saveBusy, setSaveBusy] = useState(false);
   const [saveError, setSaveError] = useState('');
   const displayName = (file?.fileName || path.split('/').pop()).replace(/\.md$/i, '');
+  const timestampLabel = formatFileTimestamp(file);
   const isContentReady = typeof content === 'string';
   const resolvedContent = typeof content === 'string' ? content : '';
   const htmlContent = useMemo(() => renderMarkdown(resolvedContent), [resolvedContent]);
@@ -224,10 +248,10 @@ export function ReadingPanel({
         </div>
         <div className="rp-dogear" aria-hidden="true" />
         <div className="rp-header" data-tour={onboardingActive ? 'reading-header' : undefined}>
-          <button className="rp-back" data-tour={onboardingActive ? 'reading-back' : undefined} onClick={onClose} title="Back to archive">
-            {'<-'}
-          </button>
-          <div className="rp-title">{displayName}</div>
+          <div className="rp-titleblock">
+            <div className="rp-title">{displayName}</div>
+            <div className="rp-timestamp">{timestampLabel}</div>
+          </div>
           {syncStatus === 'synced' ? (
             <span className="rp-sync-pill rp-sync-pill--synced" aria-label="File is synced to Echo">
               <svg width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
@@ -243,14 +267,28 @@ export function ReadingPanel({
               disabled={!isConnected || syncing}
               title={!isConnected ? 'Connect to Echo to sync' : 'Sync this file to Echo'}
             >
-              {syncing ? 'Syncing…' : 'Sync'}
+              <span>{syncing ? 'Syncing…' : 'Sync'}</span>
+              <svg className="rp-sync-pill__arrow" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                <path d="M2 6h7M6 3l3 3-3 3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
             </button>
           ) : null}
           {typeof onSave === 'function' && isContentReady && !isEditing && (
-            <button type="button" className="rp-action-btn" data-tour={onboardingActive ? 'reading-edit' : undefined} onClick={() => setIsEditing(true)}>
+            <button type="button" className="rp-action-btn rp-action-btn--ghost" data-tour={onboardingActive ? 'reading-edit' : undefined} onClick={() => setIsEditing(true)}>
               Edit
             </button>
           )}
+          <button
+            className="rp-back"
+            data-tour={onboardingActive ? 'reading-back' : undefined}
+            onClick={onClose}
+            title="Back to archive"
+            aria-label="Back to archive"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <path d="M9 3L5 7l4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
           {typeof onSave === 'function' && isContentReady && isEditing && (
             <div className="rp-actions">
               <span className={`rp-dirty-pill ${hasUnsavedChanges ? 'is-dirty' : ''}`}>
