@@ -9,7 +9,7 @@
   --glass-line: rgba(255, 255, 255, 0.62);
   --glass-stroke: rgba(26, 25, 23, 0.052);
   --glass-shadow: 0 22px 64px rgba(22, 20, 16, 0.075), inset 0 1px 0 rgba(255, 255, 255, 0.88);
-  position: fixed;
+  position: absolute;
   inset: 0;
   overflow: hidden;
   background:
@@ -20,7 +20,7 @@
 /* ─── Stage: receives wheel + pan via native pointer events ─── */
 .desktop__stage {
   position: absolute;
-  inset: 58px 0 52px;
+  inset: 58px 0 0;
   overflow: hidden;
   cursor: grab;
   touch-action: none;  /* block page scroll / pinch so we can pan cleanly */

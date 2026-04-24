@@ -297,10 +297,55 @@ a { color: inherit; text-decoration: none; }
 
 /* =============== App shell =============== */
 .app-shell {
-  min-height: 100%;
+  height: 100vh;
   display: flex;
   flex-direction: column;
-  padding-bottom: 70px;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.app-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+}
+
+.app-body > .app-desktop-host {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+
+.app-memory-log {
+  flex-shrink: 0;
+  width: 420px;
+  max-width: 40vw;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--line, rgba(0, 0, 0, 0.08));
+  padding: 16px 18px;
+  box-sizing: border-box;
+  background: var(--bone, #fbf8f1);
+}
+
+/* When the cloud memory-log panel is open, shrink the floating header so
+   its right edge stops at the canvas/panel boundary instead of overlapping
+   the panel. The `--log-panel-width` variable keeps the header math and
+   the panel width in sync. */
+.app-shell {
+  --log-panel-width: 0px;
+}
+
+.app-shell.is-cloud-open {
+  --log-panel-width: min(420px, 40vw);
+}
+
+.app-shell.is-cloud-open .hdr {
+  left: calc((100vw - var(--log-panel-width)) / 2);
+  width: min(1360px, calc(100vw - var(--log-panel-width) - 48px));
 }
 
 .app-main {

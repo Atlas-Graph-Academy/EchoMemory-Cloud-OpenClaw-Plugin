@@ -14,6 +14,7 @@ import {
   fetchAuthStatus,
   fetchSyncStatus,
   fetchBackendSources,
+  fetchCloudMemories,
   triggerSync,
   triggerSyncSelected,
   connectSSE,
@@ -26,6 +27,9 @@ import {
   triggerPluginUpdate,
   verifyAuthOtp,
 } from './sync/api';
+import { CloudMemoryLog } from './memory-log/CloudMemoryLog';
+import '@echomem/memory_log_ui/theme.css';
+import '@echomem/memory_log_ui/styles.css';
 import './styles/global.css';
 import pluginPkg from '../../../package.json';
 
@@ -139,11 +143,14 @@ export default function App() {
   const [pluginUpdateMessage, setPluginUpdateMessage] = useState(null);
   const [readingPath, setReadingPath] = useState(null);
   const [readingContent, setReadingContent] = useState(null);
+  const [readingGroup, setReadingGroup] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [archiveInitialFilter, setArchiveInitialFilter] = useState('all');
   const [justSynced, setJustSynced] = useState(false);
   const [canvasControls, setCanvasControls] = useState(null);
+  const [cloudMemoryOpen, setCloudMemoryOpen] = useState(false);
+  const [cloudMemoryStats, setCloudMemoryStats] = useState({ totalCount: 0, countWithSource: 0 });
 
   const serverInstanceIdRef = useRef(null);
   const clientIdRef = useRef(buildLocalUiClientId());
@@ -173,6 +180,20 @@ export default function App() {
   const loadBackendSources = useCallback(async () => {
     const data = await fetchBackendSources();
     setBackendSources(data?.ok ? data : null);
+  }, []);
+
+  const loadCloudMemoryStats = useCallback(async () => {
+    try {
+      const data = await fetchCloudMemories();
+      const totalCount = Number(data?.count);
+      const countWithSource = Number(data?.countWithSource);
+      setCloudMemoryStats({
+        totalCount: Number.isFinite(totalCount) ? totalCount : (Array.isArray(data?.data) ? data.data.length : 0),
+        countWithSource: Number.isFinite(countWithSource) ? countWithSource : 0,
+      });
+    } catch {
+      setCloudMemoryStats({ totalCount: 0, countWithSource: 0 });
+    }
   }, []);
 
   const loadSetupStatus = useCallback(async () => {
@@ -423,6 +444,15 @@ export default function App() {
 
   const canSync = isConnected && readyCount > 0;
 
+  useEffect(() => {
+    if (!isConnected) {
+      setCloudMemoryOpen(false);
+      setCloudMemoryStats({ totalCount: 0, countWithSource: 0 });
+      return;
+    }
+    loadCloudMemoryStats();
+  }, [isConnected, loadCloudMemoryStats]);
+
   const pluginVersion = pluginPkg?.version || '';
   const canTriggerPluginUpdate = Boolean(
     pluginUpdateState
@@ -431,9 +461,19 @@ export default function App() {
   );
 
   // Handlers
-  const openReadingFor = useCallback((path) => {
+  const openReadingFor = useCallback((path, context = null) => {
     if (!path) return;
     setReadingPath(path);
+    if (context?.paths?.length) {
+      const normalizedPaths = Array.from(new Set(context.paths.filter(Boolean)));
+      setReadingGroup({
+        paths: normalizedPaths,
+        name: context.name || '',
+        onRename: typeof context.onRename === 'function' ? context.onRename : null,
+      });
+    } else {
+      setReadingGroup(null);
+    }
     const existing = contentMap?.get?.(path);
     if (existing) {
       setReadingContent(existing);
@@ -450,6 +490,10 @@ export default function App() {
       });
     });
   }, [contentMap]);
+
+  const openReadingPathInGroup = useCallback((path) => {
+    openReadingFor(path, readingGroup);
+  }, [openReadingFor, readingGroup]);
 
   const handleReadingSave = useCallback(async (nextContent) => {
     if (!readingPath) throw new Error('No file selected');
@@ -470,6 +514,11 @@ export default function App() {
     try { await loadSyncStatus(); } catch {}
   }, [loadSyncStatus, readingPath]);
 
+  const handleReadingGroupRename = useCallback((nextName) => {
+    readingGroup?.onRename?.(nextName);
+    setReadingGroup((prev) => (prev ? { ...prev, name: nextName } : prev));
+  }, [readingGroup]);
+
   const handleSync = useCallback(async () => {
     setSyncing(true);
     setSyncResult(null);
@@ -483,6 +532,7 @@ export default function App() {
       setSyncResult(nextResult);
       loadSyncStatus();
       loadBackendSources();
+      loadCloudMemoryStats();
       if (nextResult.ok) {
         setJustSynced(true);
         window.setTimeout(() => setJustSynced(false), 1200);
@@ -492,7 +542,7 @@ export default function App() {
     } finally {
       setSyncing(false);
     }
-  }, [loadBackendSources, loadSyncStatus]);
+  }, [loadBackendSources, loadCloudMemoryStats, loadSyncStatus]);
 
   const handleSyncFile = useCallback(async (relativePath) => {
     if (!relativePath || syncing) return;
@@ -507,12 +557,13 @@ export default function App() {
       setSyncResult(nextResult);
       loadSyncStatus();
       loadBackendSources();
+      loadCloudMemoryStats();
     } catch (error) {
       setSyncResult({ ok: false, msg: String(error?.message || 'Sync failed') });
     } finally {
       setSyncing(false);
     }
-  }, [loadBackendSources, loadSyncStatus, syncing]);
+  }, [loadBackendSources, loadCloudMemoryStats, loadSyncStatus, syncing]);
 
   const handleSyncSelected = useCallback(async (relativePaths) => {
     const paths = Array.isArray(relativePaths) ? relativePaths.filter(Boolean) : [];
@@ -528,12 +579,13 @@ export default function App() {
       setSyncResult(nextResult);
       loadSyncStatus();
       loadBackendSources();
+      loadCloudMemoryStats();
     } catch (error) {
       setSyncResult({ ok: false, msg: String(error?.message || 'Sync failed') });
     } finally {
       setSyncing(false);
     }
-  }, [loadBackendSources, loadSyncStatus, syncing]);
+  }, [loadBackendSources, loadCloudMemoryStats, loadSyncStatus, syncing]);
 
   const handleSetupFieldChange = useCallback((key, value) => {
     setSetupDraft((prev) => ({ ...prev, [key]: value }));
@@ -734,14 +786,25 @@ export default function App() {
   const lastSyncLabel = timeAgo(syncStatus?.lastSyncAt);
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell${isConnected && cloudMemoryOpen ? ' is-cloud-open' : ''}`}>
       <Header
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         isConnected={isConnected}
         authLabel={authLabel}
         lastSyncLabel={lastSyncLabel}
+        cloudMemoryOpen={cloudMemoryOpen}
+        cloudMemoryCount={cloudMemoryStats.totalCount}
+        newMemoryCount={totalStreamedCount}
         canvasControls={readingPath ? null : canvasControls}
+        onCloudMemoryClick={() => {
+          if (!isConnected) {
+            setSettingsOpen(true);
+            return;
+          }
+          setCloudMemoryOpen((open) => !open);
+          loadCloudMemoryStats();
+        }}
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenArchive={(filter) => {
           setArchiveInitialFilter(filter || 'all');
@@ -749,34 +812,58 @@ export default function App() {
         }}
       />
 
-      {/* Desktop (canvas) stays mounted so selected folder, camera, and sidebars
-          survive a reading-panel round-trip. */}
-      <div
-        className="app-desktop-host"
-        aria-hidden={!!readingPath}
-      >
-        <Desktop
-          files={files}
-          syncMap={syncMap}
-          contentMap={contentMap}
-          cardSyncState={cardSyncState}
-          syncing={syncing}
-          canSync={canSync}
-          isConnected={isConnected}
-          lastSyncLabel={lastSyncLabel}
-          onCanvasControlsChange={setCanvasControls}
-          onSync={handleSync}
-          onSyncSelected={handleSyncSelected}
-          onOpenCard={openReadingFor}
-        />
+      <div className="app-body">
+        {/* Desktop (canvas) stays mounted so selected folder, camera, and sidebars
+            survive a reading-panel round-trip. */}
+        <div
+          className="app-desktop-host"
+          aria-hidden={!!readingPath}
+        >
+          <Desktop
+            files={files}
+            syncMap={syncMap}
+            contentMap={contentMap}
+            cardSyncState={cardSyncState}
+            syncing={syncing}
+            canSync={canSync}
+            isConnected={isConnected}
+            lastSyncLabel={lastSyncLabel}
+            onCanvasControlsChange={setCanvasControls}
+            onSync={handleSync}
+            onSyncSelected={handleSyncSelected}
+            onOpenCard={openReadingFor}
+          />
+        </div>
+        {isConnected && cloudMemoryOpen && (
+          <aside className="app-memory-log" aria-label="Cloud memory log">
+            <CloudMemoryLog
+              isConnected={isConnected}
+              onStatsChange={setCloudMemoryStats}
+            />
+          </aside>
+        )}
       </div>
       {readingPath && (
-        <main className="app-main app-main--reading">
+        <main
+          className="app-main app-main--reading"
+          onPointerDown={(event) => {
+            if (event.target !== event.currentTarget) return;
+            setReadingPath(null);
+            setReadingContent(null);
+            setReadingGroup(null);
+          }}
+        >
           <ReadingPanel
             path={readingPath}
             content={readingContent ?? contentMap?.get?.(readingPath) ?? null}
             file={readingFile}
             syncStatus={syncMap?.[readingPath]}
+            galleryFiles={(readingGroup?.paths || [])
+              .map((groupPath) => files.find((candidate) => candidate.relativePath === groupPath))
+              .filter(Boolean)}
+            galleryTitle={readingGroup?.name || ''}
+            onGalleryTitleChange={readingGroup?.onRename ? handleReadingGroupRename : null}
+            onNavigateFile={openReadingPathInGroup}
             isConnected={isConnected}
             syncing={syncing}
             onSyncFile={handleSyncFile}
@@ -784,6 +871,7 @@ export default function App() {
             onClose={() => {
               setReadingPath(null);
               setReadingContent(null);
+              setReadingGroup(null);
             }}
           />
         </main>

@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@echomem/memory_log_ui": "file:../../../EchoMemory_log/packages/memory_log_ui",
     "framer-motion": "^12.38.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

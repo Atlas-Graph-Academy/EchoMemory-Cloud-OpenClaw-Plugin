@@ -144,6 +144,15 @@ function formatFileTimestamp(file) {
   return `${label} ${formatted}`;
 }
 
+function displayFileName(file, fallbackPath = '') {
+  return (file?.fileName || fallbackPath.split('/').pop() || 'Untitled').replace(/\.md$/i, '');
+}
+
+function compactPath(path) {
+  const parts = String(path || '').split('/').filter(Boolean);
+  return parts.slice(-3).join('/');
+}
+
 function WarningNotice({ file }) {
   if (!file?.hasSensitiveContent && file?.privacyLevel !== 'private') {
     return null;
@@ -179,6 +188,10 @@ export function ReadingPanel({
   content,
   file,
   syncStatus,
+  galleryFiles = [],
+  galleryTitle = '',
+  onGalleryTitleChange,
+  onNavigateFile,
   isConnected,
   syncing,
   onSyncFile,
@@ -188,10 +201,27 @@ export function ReadingPanel({
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [draftContent, setDraftContent] = useState('');
+  const [titleDraft, setTitleDraft] = useState('');
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [saveBusy, setSaveBusy] = useState(false);
   const [saveError, setSaveError] = useState('');
-  const displayName = (file?.fileName || path.split('/').pop()).replace(/\.md$/i, '');
+  const displayName = displayFileName(file, path);
   const timestampLabel = formatFileTimestamp(file);
+  const normalizedGallery = useMemo(() => {
+    const seen = new Set();
+    const items = [];
+    for (const item of galleryFiles || []) {
+      if (!item?.relativePath || seen.has(item.relativePath)) continue;
+      seen.add(item.relativePath);
+      items.push(item);
+    }
+    if (file?.relativePath && !seen.has(file.relativePath)) items.unshift(file);
+    return items;
+  }, [file, galleryFiles]);
+  const galleryIndex = Math.max(0, normalizedGallery.findIndex((item) => item.relativePath === path));
+  const hasGallery = normalizedGallery.length > 1;
+  const effectiveGalleryTitle = galleryTitle || (hasGallery ? 'Memory stack' : displayName);
+  const canRenameGallery = typeof onGalleryTitleChange === 'function';
   const isPrivateFile = file?.riskLevel === 'secret'
     || file?.riskLevel === 'private'
     || file?.privacyLevel === 'private'
@@ -215,6 +245,29 @@ export function ReadingPanel({
       setDraftContent(typeof content === 'string' ? content : '');
     }
   }, [content, isEditing]);
+
+  useEffect(() => {
+    setTitleDraft(effectiveGalleryTitle);
+    setIsEditingTitle(false);
+  }, [effectiveGalleryTitle, path]);
+
+  useEffect(() => {
+    if (!hasGallery || isEditing) return undefined;
+    const onKeyDown = (event) => {
+      const tag = (event.target?.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || event.target?.isContentEditable) return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        navigateGallery(-1);
+      } else if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        navigateGallery(1);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [galleryIndex, hasGallery, isEditing, normalizedGallery, onNavigateFile]);
 
   async function handleSave() {
     if (typeof onSave !== 'function' || saveBusy || !hasUnsavedChanges) return;
@@ -243,8 +296,22 @@ export function ReadingPanel({
     }
   }
 
+  function commitTitle() {
+    const nextTitle = titleDraft.trim();
+    setIsEditingTitle(false);
+    if (!canRenameGallery) return;
+    onGalleryTitleChange(nextTitle);
+  }
+
+  function navigateGallery(direction) {
+    if (!hasGallery || isEditing || typeof onNavigateFile !== 'function') return;
+    const nextIndex = (galleryIndex + direction + normalizedGallery.length) % normalizedGallery.length;
+    const nextPath = normalizedGallery[nextIndex]?.relativePath;
+    if (nextPath && nextPath !== path) onNavigateFile(nextPath);
+  }
+
   return (
-    <div className={`reading-panel-wrapper ${isEditing ? 'reading-panel-wrapper--editing' : ''}`}>
+    <div className={`reading-panel-wrapper ${isEditing ? 'reading-panel-wrapper--editing' : ''} ${hasGallery && !isEditing ? 'reading-panel-wrapper--gallery' : ''}`}>
       <div className={`reading-panel reading-panel--${readingStatus}`}>
         <div className="rp-spine" aria-hidden="true">
           <span className="rp-punch" />
@@ -352,7 +419,79 @@ export function ReadingPanel({
             <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
           )}
         </div>
+        {hasGallery && !isEditing && (
+          <div className="rp-nav">
+            <button type="button" className="rp-nav__btn" onClick={() => navigateGallery(-1)} aria-label="Previous markdown">
+              <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+                <path d="M9.5 3.5 5.5 7.5l4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+            <span className="rp-nav__label">{galleryIndex + 1} of {normalizedGallery.length}</span>
+            <button type="button" className="rp-nav__btn" onClick={() => navigateGallery(1)} aria-label="Next markdown">
+              <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+                <path d="m5.5 3.5 4 4-4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          </div>
+        )}
       </div>
+      {hasGallery && !isEditing && (
+        <aside className="rp-gallery" aria-label="Stack gallery">
+          <div className="rp-gallery-head">
+            <div className="rp-gallery-head__label">Stack</div>
+            <div className="rp-gallery-head__row">
+              {isEditingTitle ? (
+                <input
+                  className="rp-gallery-title-input"
+                  value={titleDraft}
+                  onChange={(event) => setTitleDraft(event.target.value)}
+                  onBlur={commitTitle}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') commitTitle();
+                    if (event.key === 'Escape') {
+                      setTitleDraft(effectiveGalleryTitle);
+                      setIsEditingTitle(false);
+                    }
+                  }}
+                  autoFocus
+                />
+              ) : (
+                <button
+                  type="button"
+                  className="rp-gallery-title-btn"
+                  onClick={() => canRenameGallery && setIsEditingTitle(true)}
+                  title={canRenameGallery ? 'Rename this pile' : undefined}
+                >
+                  {effectiveGalleryTitle}
+                </button>
+              )}
+              <span className="rp-gallery-head__count">{galleryIndex + 1} / {normalizedGallery.length}</span>
+            </div>
+          </div>
+          <div className="rp-gallery__rail">
+            {normalizedGallery.map((item, index) => {
+              const active = item.relativePath === path;
+              const privateTone = item.riskLevel === 'secret' || item.riskLevel === 'private' || item.privacyLevel === 'private';
+              return (
+                <button
+                  key={item.relativePath}
+                  type="button"
+                  className={`rp-gallery-card ${active ? 'is-active' : ''} ${privateTone ? 'is-private' : ''}`}
+                  onClick={() => onNavigateFile?.(item.relativePath)}
+                  style={{
+                    '--rp-card-offset': `${Math.min(index, 8) * 12}px`,
+                    '--rp-card-rotate': `${Math.max(-3.5, Math.min(3.5, (index - galleryIndex) * 0.32))}deg`,
+                  }}
+                >
+                  <span className="rp-gallery-card__index">{String(index + 1).padStart(2, '0')}</span>
+                  <span className="rp-gallery-card__title">{displayFileName(item, item.relativePath)}</span>
+                  <span className="rp-gallery-card__path">{compactPath(item.relativePath)}</span>
+                </button>
+              );
+            })}
+          </div>
+        </aside>
+      )}
     </div>
   );
 }

@@ -392,6 +392,28 @@ export function Desktop({
     setSDrag({ stackId, lx: e.clientX, ly: e.clientY });
   }, []);
 
+  const renameStack = useCallback((id, name) => {
+    const normalizedName = String(name || '').trim() || null;
+    setStacks(prev => (
+      prev[id] ? { ...prev, [id]: { ...prev[id], name: normalizedName } } : prev
+    ));
+  }, []);
+
+  const openCardInStack = useCallback((cardId) => {
+    const stack = Object.values(stacksRef.current).find((candidate) => (
+      candidate.cardIds?.includes(cardId)
+    ));
+    if (!stack) {
+      onOpenCard?.(cardId);
+      return;
+    }
+    onOpenCard?.(cardId, {
+      paths: stack.cardIds || [cardId],
+      name: stack.name || '',
+      onRename: (nextName) => renameStack(stack.id, nextName),
+    });
+  }, [onOpenCard, renameStack]);
+
   /* Global move / up */
   useEffect(() => {
     if (!drag && !sDrag) return;
@@ -424,7 +446,7 @@ export function Desktop({
     const onUp = () => {
       if (sDrag) { setSDrag(null); return; }
       if (!drag) return;
-      if (!drag.moved) { onOpenCard?.(drag.ids[0]); setDrag(null); return; }
+      if (!drag.moved) { openCardInStack(drag.ids[0]); setDrag(null); return; }
       const { ids, worldX, worldY, absorbId } = drag;
       setStacks(prev => {
         const next = { ...prev };
@@ -448,7 +470,7 @@ export function Desktop({
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
     return () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); };
-  }, [drag, sDrag, screenToWorld, cameraScale, onOpenCard]);
+  }, [drag, sDrag, screenToWorld, cameraScale, openCardInStack]);
 
   /* ── Marquee selection (active in select mode) ── */
   const onMarqueeDown = useCallback((e) => {
@@ -501,13 +523,6 @@ export function Desktop({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
-
-  const renameStack = useCallback((id, name) => {
-    const normalizedName = String(name || '').trim() || null;
-    setStacks(prev => (
-      prev[id] ? { ...prev, [id]: { ...prev[id], name: normalizedName } } : prev
-    ));
   }, []);
 
   const fitAll = useCallback(() => {
@@ -572,7 +587,7 @@ export function Desktop({
         }
         clearTimeout(highlightTimer.current);
         setHighlightCard(relPath);
-        highlightTimer.current = setTimeout(() => { onOpenCard?.(relPath); setHighlightCard(null); }, 700);
+        highlightTimer.current = setTimeout(() => { openCardInStack(relPath); setHighlightCard(null); }, 700);
         return;
       }
     }
@@ -623,8 +638,8 @@ export function Desktop({
       break;
     }
 
-    if (!found) onOpenCard?.(relPath);
-  }, [cameraX, cameraY, cameraScale, onOpenCard]);
+    if (!found) openCardInStack(relPath);
+  }, [cameraX, cameraY, cameraScale, openCardInStack]);
 
   /* ── Render ── */
   return (
@@ -900,11 +915,11 @@ export function Desktop({
                   className={`select-panel__item select-panel__item--${risk}`}
                   role="button"
                   tabIndex={0}
-                  onClick={() => onOpenCard?.(cardId)}
+                  onClick={() => onOpenCard?.(cardId, { paths: Array.from(selection), name: 'Selected memories' })}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      onOpenCard?.(cardId);
+                      onOpenCard?.(cardId, { paths: Array.from(selection), name: 'Selected memories' });
                     }
                   }}
                   title="Open preview"

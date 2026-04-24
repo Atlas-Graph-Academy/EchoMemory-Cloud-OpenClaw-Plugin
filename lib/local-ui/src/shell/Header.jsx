@@ -7,11 +7,20 @@ export function Header({
   isConnected,
   authLabel,
   lastSyncLabel,
+  cloudMemoryOpen,
+  cloudMemoryCount,
+  newMemoryCount,
   canvasControls,
+  onCloudMemoryClick,
   onOpenSettings,
   onOpenArchive,
 }) {
   const actions = canvasControls?.actions || {};
+  const memoryCount = Number.isFinite(Number(cloudMemoryCount)) ? Number(cloudMemoryCount) : 0;
+  const freshCount = Number.isFinite(Number(newMemoryCount)) ? Number(newMemoryCount) : 0;
+  const memoryLabel = isConnected
+    ? `${memoryCount.toLocaleString()} ${memoryCount === 1 ? 'memory' : 'memories'}`
+    : null;
 
   return (
     <header className="hdr">
@@ -74,10 +83,18 @@ export function Header({
       )}
 
       <div className="hdr-r">
-        <div className={`conn ${isConnected ? 'conn--ok' : 'conn--off'}`}>
+        <button
+          type="button"
+          className={`conn ${isConnected ? 'conn--ok' : 'conn--off'} ${cloudMemoryOpen ? 'is-active' : ''}`}
+          onClick={onCloudMemoryClick}
+          title={isConnected ? 'Open cloud memories' : 'Connect to Echo Cloud'}
+          aria-label={isConnected ? `Echo Cloud connected, ${memoryLabel}` : 'Connect to Echo Cloud'}
+        >
           <div className="conn-dot" />
-          {authLabel || (isConnected ? 'Connected' : 'Local-only')}
-        </div>
+          <span>{authLabel || (isConnected ? 'Connected' : 'Local-only')}</span>
+          {memoryLabel && <span className="conn-meta">{memoryLabel}</span>}
+          {freshCount > 0 && <span className="conn-badge">+{freshCount}</span>}
+        </button>
 
         <button
           type="button"
