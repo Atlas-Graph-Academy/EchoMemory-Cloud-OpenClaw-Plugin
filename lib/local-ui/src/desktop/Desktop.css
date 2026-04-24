@@ -186,6 +186,110 @@
   user-select: none;
 }
 
+/* ─── Stack title: click to name, drag the surrounding header to move pile ─── */
+.stack-head {
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: default;
+  padding: 2px 0;
+  font-family: var(--fu);
+}
+
+.stack-drag-handle {
+  width: 22px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  flex-shrink: 0;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  color: rgba(26, 25, 23, 0.24);
+  cursor: grab;
+  opacity: .68;
+  transition: opacity var(--motion-fast), background var(--motion-fast), border-color var(--motion-fast), color var(--motion-fast), transform var(--motion-fast);
+}
+
+.stack-drag-handle:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.82);
+  border-color: rgba(26, 25, 23, 0.08);
+  color: rgba(26, 25, 23, 0.58);
+  transform: translateY(-1px);
+}
+
+.stack-drag-handle:active {
+  cursor: grabbing;
+  transform: translateY(0);
+}
+
+.stack-drag-handle span {
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.stack-title-btn,
+.stack-title-input {
+  min-width: 100px;
+  max-width: 210px;
+  height: 24px;
+  border-radius: 999px;
+  font-family: var(--fu);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.stack-title-btn {
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.5);
+  color: var(--ink);
+  cursor: text;
+  padding: 0 10px;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: background var(--motion-fast), border-color var(--motion-fast), color var(--motion-fast);
+}
+
+.stack-title-btn:hover {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(26, 25, 23, 0.08);
+}
+
+.stack-title-btn--untitled {
+  color: var(--ink-faint);
+  font-style: italic;
+}
+
+.stack-title-input {
+  border: 1px solid rgba(26, 25, 23, 0.12);
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--ink);
+  outline: none;
+  padding: 0 10px;
+  box-shadow: 0 8px 18px rgba(22, 20, 16, 0.08);
+}
+
+.stack-title-input:focus {
+  border-color: rgba(26, 25, 23, 0.22);
+}
+
+.stack-count {
+  flex-shrink: 0;
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(40, 24, 8, 0.06);
+  color: var(--ink-muted);
+}
+
 /* ─── Selection panel (replaces SyncConsole when files are selected) ─── */
 .select-panel {
   position: fixed;

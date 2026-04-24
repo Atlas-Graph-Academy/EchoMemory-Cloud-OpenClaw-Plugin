@@ -369,9 +369,11 @@ export function Desktop({
     });
   }, [screenToWorld, selection]);
 
-  /* Stack header drag start */
-  const onHeaderDown = useCallback((e, stackId) => {
+  /* Stack handle drag start. Title click is reserved for naming the pile. */
+  const onStackHandleDown = useCallback((e, stackId) => {
+    if (e.button != null && e.button !== 0) return;
     e.stopPropagation(); e.preventDefault();
+    setEditingStackId(null);
     setSDrag({ stackId, lx: e.clientX, ly: e.clientY });
   }, []);
 
@@ -487,7 +489,10 @@ export function Desktop({
   }, []);
 
   const renameStack = useCallback((id, name) => {
-    setStacks(prev => ({ ...prev, [id]: { ...prev[id], name } }));
+    const normalizedName = String(name || '').trim() || null;
+    setStacks(prev => (
+      prev[id] ? { ...prev, [id]: { ...prev[id], name: normalizedName } } : prev
+    ));
   }, []);
 
   const fitAll = useCallback(() => {
@@ -611,21 +616,42 @@ export function Desktop({
                 style={{ position: 'absolute', left: s.x, top: s.y, transition: drag || sDrag ? 'none' : 'transform 200ms ease', transform: `translateY(${lift}px)`, zIndex: isHov ? 20 : 10 }}>
 
                 {showHead && (
-                  <div data-no-pan onPointerDown={e => onHeaderDown(e, s.id)}
-                    onDoubleClick={e => { e.stopPropagation(); setEditingStackId(s.id); }}
-                    style={{ marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8, cursor: 'grab', padding: '2px 0', fontFamily: 'var(--fu)' }}>
+                  <div data-no-pan className="stack-head">
+                    <button
+                      type="button"
+                      data-no-pan
+                      className="stack-drag-handle"
+                      onPointerDown={e => onStackHandleDown(e, s.id)}
+                      title="Drag pile"
+                      aria-label="Drag pile"
+                    >
+                      <span />
+                      <span />
+                      <span />
+                    </button>
                     {editingStackId === s.id ? (
                       <input autoFocus defaultValue={s.name || ''} data-no-pan
                         onPointerDown={e => e.stopPropagation()}
-                        onBlur={e => { renameStack(s.id, e.target.value || null); setEditingStackId(null); }}
-                        onKeyDown={e => { if (e.key === 'Enter') { renameStack(s.id, e.target.value || null); setEditingStackId(null); } if (e.key === 'Escape') setEditingStackId(null); }}
-                        style={{ fontFamily: 'var(--fu)', fontWeight: 600, fontSize: 13, border: '1px solid #ccc', borderRadius: 4, padding: '2px 6px', outline: 'none', minWidth: 100, background: '#fff' }} />
+                        onClick={e => e.stopPropagation()}
+                        onBlur={e => { renameStack(s.id, e.target.value); setEditingStackId(null); }}
+                        onKeyDown={e => { if (e.key === 'Enter') { renameStack(s.id, e.target.value); setEditingStackId(null); } if (e.key === 'Escape') setEditingStackId(null); }}
+                        placeholder="Name this pile"
+                        className="stack-title-input" />
                     ) : (
-                      <span style={{ fontWeight: 600, fontSize: 13, color: s.name ? 'var(--ink)' : 'var(--ink-faint)', fontStyle: s.name ? 'normal' : 'italic' }}>
+                      <button
+                        type="button"
+                        data-no-pan
+                        className={`stack-title-btn ${s.name ? '' : 'stack-title-btn--untitled'}`}
+                        onClick={e => {
+                          e.stopPropagation();
+                          setEditingStackId(s.id);
+                        }}
+                        title="Click to name this pile"
+                      >
                         {s.name || 'Untitled pile'}
-                      </span>
+                      </button>
                     )}
-                    <span style={{ fontSize: 11, padding: '1px 7px', borderRadius: 9, background: 'rgba(40,24,8,0.06)', color: 'var(--ink-muted)' }}>{total}</span>
+                    <span className="stack-count">{total}</span>
                   </div>
                 )}
 
