@@ -1,24 +1,27 @@
-import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useEffect, useMemo, useRef, useState, useCallback, memo } from 'react';
+import { motion, AnimatePresence, animate } from 'framer-motion';
 import { useCamera } from './useCamera';
-import { Pile } from './Pile';
-import { FileCard } from './FileCard';
 import { TreePanel } from './TreePanel';
 import { SyncConsole } from './SyncConsole';
 import './Desktop.css';
 
-/**
- * Pile anchor positions in world coordinates.
- */
-const STACK_ANCHORS = {
-  private: { x: -1100, y: 0 },
-  ready:   { x:     0, y: 0 },
-  synced:  { x:  1100, y: 0 },
+/* ── Constants ─────────────────────────────────────────── */
+const MEMORY_PREFIX = 'workspace/memory/';
+const CARD_W = 260;
+const CARD_H = 330;
+const VISIBLE_LAYERS = 8;
+const HEADER_H = 34;
+const ABSORB_W = 320;
+const ABSORB_H = 400;
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+const TONE = {
+  private: { bg: '#fbeeee', ink: '#7a3b3b', accent: '#c45a5a', stamp: 'PRIVATE' },
+  ready:   { bg: '#f8f4ea', ink: '#3d3a33', accent: '#7a7060', stamp: null },
+  synced:  { bg: '#e8f3eb', ink: '#2f5a40', accent: '#3e8f5e', stamp: 'SYNCED' },
 };
 
-/**
- * Classify a file into one of the three piles.
- */
+/* ── Helpers ────────────────────────────────────────────── */
 function classify(file, syncStatus) {
   if (file?.riskLevel === 'secret') return 'private';
   if (file?.riskLevel === 'private' || file?.privacyLevel === 'private') return 'private';
@@ -27,78 +30,143 @@ function classify(file, syncStatus) {
   return 'ready';
 }
 
-function dateDesc(a, b) {
-  const at = new Date(a.modifiedTime || a.updatedAt || 0).getTime();
-  const bt = new Date(b.modifiedTime || b.updatedAt || 0).getTime();
-  return bt - at;
-}
-
 function contentFor(contentMap, rel) {
   if (!contentMap || !rel) return '';
   if (contentMap.get) return contentMap.get(rel) || '';
   return contentMap[rel] || '';
 }
 
-/**
- * Top-level desktop view — canvas with three risk piles.
- *
- * Props (all passed from App.jsx):
- *   files, syncMap, contentMap
- *   cardSyncState : { [rel]: 'queued'|'syncing'|'done'|'failed' }
- *   syncing, canSync, isConnected
- *   readyCount, privateCount, syncedCount, lastSyncLabel
- *   onSync, onOpenCard
- */
+function parseCardName(name) {
+  const noExt = name.replace(/\.(md|json)$/, '');
+  const m = noExt.match(/^(\d{4}-\d{2}-\d{2})(?:-(\d{4}))?(?:-(.+))?$/);
+  if (m) {
+    const [, date, , topic] = m;
+    return { date, topic: topic ? topic.replace(/-/g, ' ') : null };
+  }
+  return { date: null, topic: noExt.replace(/-/g, ' ') };
+}
+
+/** Deterministic fan offset for stacked cards. */
+function fanOffset(i) {
+  const r  = ((i * 2654435761) >>> 0) / 0xffffffff;
+  const r2 = (((i + 7) * 40503) >>> 0) / 0xffff;
+  return {
+    x: i * 10 + (r - 0.5) * 3,
+    y: i * -1.5 + (r2 - 0.5) * 4,
+    rot: (r - 0.5) * 4 - i * 0.3,
+  };
+}
+
+/** Group memory files into initial named stacks by risk + month. */
+function buildInitialStacks(memoryFiles, syncMap) {
+  const groups = { private: [], ready: [], synced: [] };
+  for (const f of memoryFiles) {
+    const risk = classify(f, syncMap?.[f.relativePath] || null);
+    groups[risk].push(f.relativePath);
+  }
+  const stacks = {};
+  let num = 1;
+
+  const makeStacks = (paths, zoneX, zoneY) => {
+    if (paths.length === 0) return;
+    const byMonth = {};
+    const misc = [];
+    for (const rel of paths) {
+      const name = rel.split('/').pop();
+      const m = name.match(/^(\d{4})-(\d{2})/);
+      if (m) {
+        const key = `${m[1]}-${m[2]}`;
+        (byMonth[key] || (byMonth[key] = [])).push(rel);
+      } else {
+        misc.push(rel);
+      }
+    }
+    const buckets = [];
+    for (const [key, items] of Object.entries(byMonth)) {
+      const [y, mo] = key.split('-');
+      const label = `${MONTHS[parseInt(mo) - 1]} ${y}`;
+      if (items.length > 30) {
+        const mid = Math.ceil(items.length / 2);
+        buckets.push({ label: `${label} (1)`, items: items.slice(0, mid) });
+        buckets.push({ label: `${label} (2)`, items: items.slice(mid) });
+      } else {
+        buckets.push({ label, items });
+      }
+    }
+    if (misc.length > 0) buckets.push({ label: 'misc', items: misc });
+    buckets.sort((a, b) => b.items[0].localeCompare(a.items[0]));
+
+    buckets.forEach((b, i) => {
+      const col = i % 2;
+      const row = Math.floor(i / 2);
+      const id = `s${num++}`;
+      stacks[id] = { id, name: b.label, x: zoneX + col * 340, y: zoneY + row * 480, cardIds: b.items };
+    });
+  };
+
+  makeStacks(groups.private, 60,  60);
+  makeStacks(groups.ready,   500, 60);
+  makeStacks(groups.synced,  1100, 60);
+  return { stacks, nextStackNum: num };
+}
+
+function stackBounds(stacks) {
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const s of Object.values(stacks)) {
+    minX = Math.min(minX, s.x - 30);
+    maxX = Math.max(maxX, s.x + CARD_W + 120);
+    minY = Math.min(minY, s.y - 30);
+    maxY = Math.max(maxY, s.y + HEADER_H + CARD_H + 100);
+  }
+  return Number.isFinite(minX) ? { minX, maxX, minY, maxY } : null;
+}
+
+/* ── Desktop component ─────────────────────────────────── */
 export function Desktop({
-  files,
-  syncMap,
-  contentMap,
-  cardSyncState,
-  syncing,
-  canSync,
-  isConnected,
-  lastSyncLabel,
-  onSync,
-  onOpenCard,
+  files, syncMap, contentMap, cardSyncState,
+  syncing, canSync, isConnected, lastSyncLabel,
+  onSync, onOpenCard,
 }) {
   const stageRef = useRef(null);
   const lockYRef = useRef(false);
-  const { cameraX, cameraY, cameraScale, focusOn, panBy, fitTo } = useCamera({
-    stageRef,
-    minScale: 0.08,
-    maxScale: 2.0,
-    initial: { x: 0, y: 0, scale: 1 },
-    lockYRef,
+  const { cameraX, cameraY, cameraScale, focusOn, fitTo } = useCamera({
+    stageRef, minScale: 0.05, maxScale: 3.0,
+    initial: { x: 0, y: 0, scale: 1 }, lockYRef,
   });
 
-  // ─── Sidebar open/close state (persisted) ────────────────────────────
+  /* ── Sidebar state ── */
   const [treeOpen, setTreeOpen] = useState(() => {
     try { return localStorage.getItem('echomem.treeOpen') !== '0'; } catch { return true; }
   });
   const [syncOpen, setSyncOpen] = useState(() => {
     try { return localStorage.getItem('echomem.syncOpen') !== '0'; } catch { return true; }
   });
-  useEffect(() => {
-    try { localStorage.setItem('echomem.treeOpen', treeOpen ? '1' : '0'); } catch { /* ignore */ }
-  }, [treeOpen]);
-  useEffect(() => {
-    try { localStorage.setItem('echomem.syncOpen', syncOpen ? '1' : '0'); } catch { /* ignore */ }
-  }, [syncOpen]);
-
-  // Keyboard shortcuts: [ toggles left, ] toggles right
+  useEffect(() => { try { localStorage.setItem('echomem.treeOpen', treeOpen ? '1' : '0'); } catch {} }, [treeOpen]);
+  useEffect(() => { try { localStorage.setItem('echomem.syncOpen', syncOpen ? '1' : '0'); } catch {} }, [syncOpen]);
   useEffect(() => {
     const onKey = (e) => {
       const tag = (e.target?.tagName || '').toLowerCase();
       if (tag === 'input' || tag === 'textarea' || e.target?.isContentEditable) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.key === '[') { e.preventDefault(); setTreeOpen((v) => !v); }
-      else if (e.key === ']') { e.preventDefault(); setSyncOpen((v) => !v); }
+      if (e.key === '[') { e.preventDefault(); setTreeOpen(v => !v); }
+      else if (e.key === ']') { e.preventDefault(); setSyncOpen(v => !v); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  // ─── Bucket files into the three risk piles ────────────────────────
+  /* ── Memory files ── */
+  const memoryFiles = useMemo(() =>
+    (files || []).filter(f => f?.relativePath?.startsWith(MEMORY_PREFIX))
+      .sort((a, b) => b.relativePath.split('/').pop().localeCompare(a.relativePath.split('/').pop())),
+    [files]);
+  const fileMap = useMemo(() => {
+    const m = {};
+    for (const f of memoryFiles) m[f.relativePath] = f;
+    return m;
+  }, [memoryFiles]);
+
+  /* ── SyncConsole buckets ── */
   const buckets = useMemo(() => {
     const priv = [], ready = [], synced = [];
     for (const file of files || []) {
@@ -106,295 +174,528 @@ export function Desktop({
       const status = syncMap?.[file.relativePath] || null;
       const key = classify(file, status);
       const row = { file, content: contentFor(contentMap, file.relativePath), syncStatus: status };
-      if (key === 'private') priv.push(row);
-      else if (key === 'synced') synced.push(row);
-      else ready.push(row);
+      if (key === 'private') priv.push(row); else if (key === 'synced') synced.push(row); else ready.push(row);
     }
-    priv.sort((a, b) => dateDesc(a.file, b.file));
-    ready.sort((a, b) => dateDesc(a.file, b.file));
-    synced.sort((a, b) => dateDesc(a.file, b.file));
     return { private: priv, ready, synced };
   }, [files, syncMap, contentMap]);
 
-  const CARD_H = 560;
-  const CARD_W = CARD_H / 1.5;
+  /* ── Stack state ── */
+  const [stacks, setStacks] = useState({});
+  const nextNumRef = useRef(1);
+  const [hoverStackId, setHoverStackId] = useState(null);
+  const [editingStackId, setEditingStackId] = useState(null);
+  const layoutDoneRef = useRef(false);
 
-  // ─── World-space bounds of rendered content, used by fitTo() ─────────
-  const contentBounds = useMemo(() => {
-    const PAD = 96;
-    const pileBox = (itemCount, anchor) => {
-      if (itemCount === 0) return null;
-      const fanCards = Math.min(itemCount, 8);
-      const w = CARD_W * (1 + (fanCards - 1) * 0.14);
-      return {
-        minX: anchor.x - CARD_W / 2 - 24,
-        maxX: anchor.x - CARD_W / 2 + w + 24,
-        minY: anchor.y - CARD_H / 2 - 48,
-        maxY: anchor.y + CARD_H / 2 + 24,
-      };
-    };
-    const regions = [
-      pileBox(buckets.private.length, STACK_ANCHORS.private),
-      pileBox(buckets.ready.length,   STACK_ANCHORS.ready),
-      pileBox(buckets.synced.length,  STACK_ANCHORS.synced),
-    ].filter(Boolean);
-    if (regions.length === 0) return null;
-    return {
-      minX: Math.min(...regions.map((r) => r.minX)) - PAD,
-      maxX: Math.max(...regions.map((r) => r.maxX)) + PAD,
-      minY: Math.min(...regions.map((r) => r.minY)) - PAD,
-      maxY: Math.max(...regions.map((r) => r.maxY)) + PAD,
-    };
-  }, [buckets, CARD_W, CARD_H]);
-
-  // ─── Focus Ready pile on mount ──────────────────────────────────────
   useEffect(() => {
-    const id = window.requestAnimationFrame(() => {
-      focusOn(STACK_ANCHORS.ready.x, STACK_ANCHORS.ready.y, 1);
+    if (memoryFiles.length === 0 || layoutDoneRef.current) return;
+    layoutDoneRef.current = true;
+    const init = buildInitialStacks(memoryFiles, syncMap);
+    setStacks(init.stacks);
+    nextNumRef.current = init.nextStackNum;
+    requestAnimationFrame(() => {
+      const b = stackBounds(init.stacks);
+      if (b) fitTo(b, { padding: 80 });
     });
-    return () => window.cancelAnimationFrame(id);
-  }, [focusOn]);
+  }, [memoryFiles, syncMap, fitTo]);
 
-  // ─── In-flight cards: any file with syncState === 'syncing' is rendered
-  //     as a flying card from Ready → Synced (shown on top of piles) ────
-  const flyingPaths = useMemo(() => {
-    const s = new Set();
-    for (const [rel, st] of Object.entries(cardSyncState || {})) {
-      if (st === 'syncing') s.add(rel);
+  /* ── Select mode + marquee ── */
+  const [selectMode, setSelectMode] = useState(false);
+  const [selection, setSelection] = useState(() => new Set());
+  const [marquee, setMarquee] = useState(null); // { sx0, sy0, sx1, sy1 }
+
+  /* ── Drag state ── */
+  const [drag, setDrag] = useState(null);
+  const [sDrag, setSDrag] = useState(null);
+  const draggedSet = useMemo(() => new Set(drag?.ids || []), [drag]);
+  const stacksRef = useRef(stacks);
+  useEffect(() => { stacksRef.current = stacks; });
+
+  const screenToWorld = useCallback((cx, cy) => {
+    const rect = stageRef.current?.getBoundingClientRect();
+    if (!rect) return { wx: 0, wy: 0 };
+    return {
+      wx: (cx - rect.left - cameraX.get()) / cameraScale.get(),
+      wy: (cy - rect.top  - cameraY.get()) / cameraScale.get(),
+    };
+  }, [cameraX, cameraY, cameraScale]);
+
+  /* Card drag start */
+  const onCardDown = useCallback((e, cardId, wx, wy) => {
+    e.stopPropagation(); e.preventDefault();
+    const cursor = screenToWorld(e.clientX, e.clientY);
+    setDrag({
+      ids: [cardId], anchorId: cardId,
+      grab: { dx: cursor.wx - wx, dy: cursor.wy - wy },
+      worldX: wx, worldY: wy, absorbId: null, moved: false,
+    });
+  }, [screenToWorld]);
+
+  /* Stack header drag start */
+  const onHeaderDown = useCallback((e, stackId) => {
+    e.stopPropagation(); e.preventDefault();
+    setSDrag({ stackId, lx: e.clientX, ly: e.clientY });
+  }, []);
+
+  /* Global move / up */
+  useEffect(() => {
+    if (!drag && !sDrag) return;
+    const onMove = (e) => {
+      if (sDrag) {
+        const s = cameraScale.get();
+        const dx = (e.clientX - sDrag.lx) / s;
+        const dy = (e.clientY - sDrag.ly) / s;
+        setStacks(prev => {
+          const st = prev[sDrag.stackId];
+          return st ? { ...prev, [sDrag.stackId]: { ...st, x: st.x + dx, y: st.y + dy } } : prev;
+        });
+        setSDrag(d => ({ ...d, lx: e.clientX, ly: e.clientY }));
+        return;
+      }
+      if (drag) {
+        const { wx, wy } = screenToWorld(e.clientX, e.clientY);
+        const newX = wx - drag.grab.dx;
+        const newY = wy - drag.grab.dy;
+        let absorbId = null;
+        for (const st of Object.values(stacksRef.current)) {
+          if (drag.ids.every(id => st.cardIds.includes(id))) continue;
+          if (wx >= st.x - 20 && wx <= st.x + ABSORB_W && wy >= st.y + HEADER_H - 10 && wy <= st.y + HEADER_H + ABSORB_H) {
+            absorbId = st.id; break;
+          }
+        }
+        setDrag(d => d ? { ...d, worldX: newX, worldY: newY, absorbId, moved: true } : d);
+      }
+    };
+    const onUp = () => {
+      if (sDrag) { setSDrag(null); return; }
+      if (!drag) return;
+      if (!drag.moved) { onOpenCard?.(drag.ids[0]); setDrag(null); return; }
+      const { ids, worldX, worldY, absorbId } = drag;
+      setStacks(prev => {
+        const next = { ...prev };
+        for (const sid of Object.keys(next)) {
+          const filtered = next[sid].cardIds.filter(id => !ids.includes(id));
+          if (filtered.length === next[sid].cardIds.length) continue;
+          if (filtered.length === 0) delete next[sid]; else next[sid] = { ...next[sid], cardIds: filtered };
+        }
+        if (absorbId && next[absorbId]) {
+          next[absorbId] = { ...next[absorbId], cardIds: [...ids, ...next[absorbId].cardIds] };
+        } else {
+          const newId = `s${nextNumRef.current++}`;
+          next[newId] = { id: newId, name: null, x: worldX, y: worldY, cardIds: ids };
+        }
+        return next;
+      });
+      setDrag(null);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    return () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); };
+  }, [drag, sDrag, screenToWorld, cameraScale, onOpenCard]);
+
+  /* ── Marquee selection (active in select mode) ── */
+  const onMarqueeDown = useCallback((e) => {
+    if (!selectMode) return;
+    const rect = stageRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const sx = e.clientX - rect.left;
+    const sy = e.clientY - rect.top;
+    setMarquee({ sx0: sx, sy0: sy, sx1: sx, sy1: sy });
+    e.preventDefault();
+  }, [selectMode]);
+
+  useEffect(() => {
+    if (!marquee) return;
+    const onMove = (e) => {
+      const rect = stageRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const sx = e.clientX - rect.left;
+      const sy = e.clientY - rect.top;
+      setMarquee(m => m ? { ...m, sx1: sx, sy1: sy } : m);
+
+      // Hit-test: if a stack's area intersects the marquee, select ALL its cards
+      const cx = cameraX.get(), cy = cameraY.get(), s = cameraScale.get();
+      const wx0 = (Math.min(marquee.sx0, sx) - cx) / s;
+      const wy0 = (Math.min(marquee.sy0, sy) - cy) / s;
+      const wx1 = (Math.max(marquee.sx0, sx) - cx) / s;
+      const wy1 = (Math.max(marquee.sy0, sy) - cy) / s;
+      const hits = new Set();
+      for (const st of Object.values(stacksRef.current)) {
+        if (st.cardIds.length === 0) continue;
+        const off = fanOffset(0);
+        const px = st.x + off.x;
+        const py = st.y + HEADER_H + off.y;
+        if (px + CARD_W > wx0 && px < wx1 && py + CARD_H > wy0 && py < wy1) {
+          for (const id of st.cardIds) hits.add(id);
+        }
+      }
+      setSelection(hits);
+    };
+    const onUp = () => { setMarquee(null); };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    return () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); };
+  }, [marquee, cameraX, cameraY, cameraScale]);
+
+  // Escape exits select mode and clears selection
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') { setSelectMode(false); setSelection(new Set()); setMarquee(null); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  const renameStack = useCallback((id, name) => {
+    setStacks(prev => ({ ...prev, [id]: { ...prev[id], name } }));
+  }, []);
+
+  const fitAll = useCallback(() => {
+    const b = stackBounds(stacks);
+    if (b) fitTo(b, { padding: 80 });
+  }, [stacks, fitTo]);
+
+  /* ── Locate-and-open: TreePanel click → fly to card → highlight → open ── */
+  const [highlightCard, setHighlightCard] = useState(null);
+  const highlightTimer = useRef(null);
+
+  // Track how many cards have been staged so they don't overlap
+  const stagedCountRef = useRef(0);
+
+  const locateAndOpen = useCallback((relPath) => {
+    // Check if this card is already a solo stack (already staged) — just open it
+    for (const s of Object.values(stacksRef.current)) {
+      if (s.cardIds.length === 1 && s.cardIds[0] === relPath) {
+        // Already isolated — just fly to it and open
+        const off = fanOffset(0);
+        const cx = s.x + off.x + CARD_W / 2;
+        const cy = s.y + HEADER_H + off.y + CARD_H / 2;
+        const rect = stageRef.current?.getBoundingClientRect();
+        if (rect) {
+          const ts = Math.max(0.8, Math.min(1.2, cameraScale.get()));
+          const ease = [0.22, 1, 0.36, 1];
+          animate(cameraX, rect.width / 2 - cx * ts, { duration: 0.5, ease });
+          animate(cameraY, rect.height / 2 - cy * ts, { duration: 0.5, ease });
+          animate(cameraScale, ts, { duration: 0.5, ease });
+        }
+        clearTimeout(highlightTimer.current);
+        setHighlightCard(relPath);
+        highlightTimer.current = setTimeout(() => { onOpenCard?.(relPath); setHighlightCard(null); }, 700);
+        return;
+      }
     }
-    return s;
-  }, [cardSyncState]);
 
-  const flyingItems = useMemo(() => {
-    const items = [];
-    for (const rel of flyingPaths) {
-      const file = (files || []).find((f) => f.relativePath === rel);
-      if (file) items.push({ file, content: contentFor(contentMap, rel) });
+    // Find the stack containing this card and pull it out
+    let found = false;
+    for (const s of Object.values(stacksRef.current)) {
+      const idx = s.cardIds.indexOf(relPath);
+      if (idx === -1) continue;
+      found = true;
+
+      // Compute a staging position: center-right of the current viewport,
+      // staggered vertically so multiple staged cards don't overlap.
+      const rect = stageRef.current?.getBoundingClientRect();
+      const scale = cameraScale.get();
+      const stageN = stagedCountRef.current++;
+      // Convert viewport center-right to world coords
+      const viewCX = rect ? (rect.width * 0.6 - cameraX.get()) / scale : s.x + 400;
+      const viewCY = rect ? (rect.height * 0.4 - cameraY.get()) / scale + stageN * (CARD_H * 0.35) : s.y;
+
+      // Pull card out of source stack, create new solo stack at staging pos
+      setStacks(prev => {
+        const next = { ...prev };
+        const src = next[s.id];
+        const filtered = src.cardIds.filter(id => id !== relPath);
+        if (filtered.length === 0) delete next[s.id]; else next[s.id] = { ...src, cardIds: filtered };
+        const newId = `s${nextNumRef.current++}`;
+        next[newId] = { id: newId, name: null, x: viewCX, y: viewCY, cardIds: [relPath] };
+        return next;
+      });
+
+      // Fly camera to the new position and highlight
+      requestAnimationFrame(() => {
+        const ts = Math.max(0.8, Math.min(1.2, scale));
+        const cx = viewCX + CARD_W / 2;
+        const cy = viewCY + CARD_H / 2;
+        if (rect) {
+          const ease = [0.22, 1, 0.36, 1];
+          animate(cameraX, rect.width / 2 - cx * ts, { duration: 0.5, ease });
+          animate(cameraY, rect.height / 2 - cy * ts, { duration: 0.5, ease });
+          animate(cameraScale, ts, { duration: 0.5, ease });
+        }
+      });
+
+      clearTimeout(highlightTimer.current);
+      setHighlightCard(relPath);
+      highlightTimer.current = setTimeout(() => { setHighlightCard(null); }, 800);
+      break;
     }
-    return items;
-  }, [flyingPaths, files, contentMap]);
 
-  const isEmpty = buckets.private.length === 0
-    && buckets.ready.length === 0
-    && buckets.synced.length === 0;
+    if (!found) onOpenCard?.(relPath);
+  }, [cameraX, cameraY, cameraScale, onOpenCard]);
 
-  const zoomTo = useCallback((pileKey, scale) => {
-    focusOn(STACK_ANCHORS[pileKey].x, STACK_ANCHORS[pileKey].y, scale ?? 1);
-  }, [focusOn]);
-
+  /* ── Render ── */
   return (
     <div className="desktop">
-      {/* ─── Canvas stage (pan + zoom, via useCamera native pointer events) ─── */}
       <div className="desktop__stage" ref={stageRef}>
-        {/* The pannable world */}
-        <motion.div
-          className="desktop__world"
-          style={{
-            x: cameraX,
-            y: cameraY,
-            scale: cameraScale,
-            transformOrigin: '0 0',
-          }}
-        >
-          {buckets.private.length > 0 && (
-            <Pile
-              anchor={STACK_ANCHORS.private}
-              label="Kept Private"
-              sublabel="Never leaves your machine."
-              accent="private"
-              items={buckets.private}
-              syncStateByPath={cardSyncState}
-              onCardClick={(file) => onOpenCard?.(file.relativePath)}
-              hiddenPaths={flyingPaths}
-            />
-          )}
-          <Pile
-            anchor={STACK_ANCHORS.ready}
-            label="Ready to Sync"
-            sublabel="Reviewed and safe to upload."
-            accent="ready"
-            items={buckets.ready}
-            syncStateByPath={cardSyncState}
-            onCardClick={(file) => onOpenCard?.(file.relativePath)}
-            hiddenPaths={flyingPaths}
-          />
-          {buckets.synced.length > 0 && (
-            <Pile
-              anchor={STACK_ANCHORS.synced}
-              label="Already Synced"
-              sublabel="Living in Echo Cloud."
-              accent="synced"
-              items={buckets.synced}
-              syncStateByPath={cardSyncState}
-              onCardClick={(file) => onOpenCard?.(file.relativePath)}
-              hiddenPaths={flyingPaths}
-            />
-          )}
+        <motion.div className="desktop__world" style={{ x: cameraX, y: cameraY, scale: cameraScale, transformOrigin: '0 0' }}>
 
-          {/* Flight layer — cards in motion during an active sync */}
-          <AnimatePresence>
-            {flyingItems.map(({ file, content }) => {
-              const from = STACK_ANCHORS.ready;
-              const to = STACK_ANCHORS.synced;
-              return (
-                <motion.div
-                  key={`flight-${file.relativePath}`}
-                  className="desktop__flight"
-                  style={{
-                    position: 'absolute',
-                    left: from.x,
-                    top: from.y,
-                    transform: 'translate(-50%, -50%)',
-                    zIndex: 1000,
-                  }}
-                  initial={{ x: 0, y: 0, scale: 1, opacity: 1 }}
-                  animate={{
-                    x: [0, (to.x - from.x) * 0.5, to.x - from.x],
-                    y: [0, -140, 0],
-                    scale: [1, 1.06, 1],
-                  }}
-                  exit={{ opacity: 0, scale: 0.94 }}
-                  transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
-                >
-                  <FileCard
-                    file={file}
-                    content={content}
-                    variant="ready"
-                    syncState="syncing"
-                    zIndex={1000}
-                  />
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
+          {/* Hero text — world-space anchor at the center of the layout */}
+          {(() => {
+            const b = stackBounds(stacks);
+            const cx = b ? (b.minX + b.maxX) / 2 : 0;
+            const cy = b ? (b.minY + b.maxY) / 2 : 0;
+            return (
+              <div className="desktop__hero" style={{ position: 'absolute', left: cx, top: cy, transform: 'translate(-50%, -50%)', zIndex: 0, pointerEvents: 'none' }}>
+                <h1 className="desktop__hero-title">Select markdown.<br/>Save to Echo.</h1>
+              </div>
+            );
+          })()}
+
+          {Object.values(stacks).map(s => {
+            const visible = s.cardIds.filter(id => !draggedSet.has(id)).slice(0, VISIBLE_LAYERS);
+            if (visible.length === 0 && !s.cardIds.some(id => draggedSet.has(id))) return null;
+            const isHov = hoverStackId === s.id && !drag && !sDrag;
+            const isAbsorb = drag?.absorbId === s.id;
+            const total = s.cardIds.length;
+            const extra = Math.min(Math.max(0, total - VISIBLE_LAYERS), 16);
+            const showHead = total > 1 || s.name;
+            const mul = isHov ? 1.8 : 1;
+            const lift = isHov ? -4 : 0;
+            const firstFile = fileMap[s.cardIds[0]];
+            const stackRisk = firstFile ? classify(firstFile, syncMap?.[s.cardIds[0]]) : 'ready';
+
+            return (
+              <div key={s.id} data-no-pan
+                onMouseEnter={() => setHoverStackId(s.id)} onMouseLeave={() => setHoverStackId(null)}
+                style={{ position: 'absolute', left: s.x, top: s.y, transition: drag || sDrag ? 'none' : 'transform 200ms ease', transform: `translateY(${lift}px)`, zIndex: isHov ? 20 : 10 }}>
+
+                {showHead && (
+                  <div data-no-pan onPointerDown={e => onHeaderDown(e, s.id)}
+                    onDoubleClick={e => { e.stopPropagation(); setEditingStackId(s.id); }}
+                    style={{ marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8, cursor: 'grab', padding: '2px 0', fontFamily: 'var(--fu)' }}>
+                    {editingStackId === s.id ? (
+                      <input autoFocus defaultValue={s.name || ''} data-no-pan
+                        onPointerDown={e => e.stopPropagation()}
+                        onBlur={e => { renameStack(s.id, e.target.value || null); setEditingStackId(null); }}
+                        onKeyDown={e => { if (e.key === 'Enter') { renameStack(s.id, e.target.value || null); setEditingStackId(null); } if (e.key === 'Escape') setEditingStackId(null); }}
+                        style={{ fontFamily: 'var(--fu)', fontWeight: 600, fontSize: 13, border: '1px solid #ccc', borderRadius: 4, padding: '2px 6px', outline: 'none', minWidth: 100, background: '#fff' }} />
+                    ) : (
+                      <span style={{ fontWeight: 600, fontSize: 13, color: s.name ? 'var(--ink)' : 'var(--ink-faint)', fontStyle: s.name ? 'normal' : 'italic' }}>
+                        {s.name || 'Untitled pile'}
+                      </span>
+                    )}
+                    <span style={{ fontSize: 11, padding: '1px 7px', borderRadius: 9, background: 'rgba(40,24,8,0.06)', color: 'var(--ink-muted)' }}>{total}</span>
+                  </div>
+                )}
+
+                {isAbsorb && (
+                  <div style={{ position: 'absolute', left: -20, top: HEADER_H - 8, width: ABSORB_W, height: ABSORB_H, border: `2px dashed ${TONE[stackRisk].accent}`, borderRadius: 14, background: `${TONE[stackRisk].accent}14`, pointerEvents: 'none' }} />
+                )}
+
+                <div style={{ position: 'relative', width: CARD_W, height: CARD_H }}>
+                  {extra > 0 && Array.from({ length: extra }).map((_, i) => {
+                    const d = i + 1;
+                    const last = fanOffset(VISIBLE_LAYERS - 1);
+                    const j = ((i * 2654435761) >>> 0) / 0xffffffff;
+                    return (<div key={`e${i}`} style={{ position: 'absolute', left: last.x * mul + d * 1.2, top: last.y * mul + d * 0.5, width: CARD_W, height: CARD_H, background: TONE[stackRisk].bg, borderRadius: 4, border: '1px solid rgba(40,24,8,0.06)', boxShadow: '0 1px 1px rgba(0,0,0,0.04)', transform: `rotate(${last.rot + (j - 0.5) * 1.2}deg)`, zIndex: 90 - d }} />);
+                  })}
+
+                  {visible.slice().reverse().map((cardId, ri) => {
+                    const li = visible.length - 1 - ri;
+                    const off = fanOffset(li);
+                    const isTop = li === 0;
+                    const file = fileMap[cardId];
+                    if (!file) return null;
+                    const risk = classify(file, syncMap?.[cardId]);
+                    const tone = TONE[risk];
+                    const name = file.fileName || cardId.split('/').pop();
+                    const parsed = parseCardName(name);
+                    const content = isTop ? contentFor(contentMap, cardId) : '';
+                    const isHL = highlightCard === cardId;
+                    const isSel = selection.has(cardId);
+
+                    return (
+                      <div key={cardId} data-card={cardId} data-no-pan
+                        onPointerDown={isTop ? (e) => {
+                          const topX = s.x + off.x * mul;
+                          const topY = s.y + (showHead ? HEADER_H : 0) + off.y * mul;
+                          onCardDown(e, cardId, topX, topY);
+                        } : undefined}
+                        style={{
+                          position: 'absolute', left: 0, top: 0, width: CARD_W, height: CARD_H,
+                          background: tone.bg, borderRadius: 4, overflow: 'hidden',
+                          boxShadow: isHL
+                            ? '0 0 0 3px #3b82f6, 0 12px 32px rgba(59,130,246,0.25)'
+                            : isTop ? '0 8px 20px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04)' : '0 2px 6px rgba(0,0,0,0.05)',
+                          outline: isSel ? '2.5px solid #3b82f6' : 'none',
+                          outlineOffset: isSel ? 2 : 0,
+                          transform: `translate(${off.x * mul}px, ${off.y * mul}px) rotate(${isHL ? 0 : off.rot}deg)${isHL ? ' scale(1.04)' : ''}`,
+                          transition: drag ? 'none' : 'transform 220ms cubic-bezier(.2,.8,.2,1), box-shadow 300ms ease, outline 150ms ease',
+                          zIndex: isHL ? 200 : isSel ? 150 : 100 - li, cursor: isTop ? 'grab' : 'default',
+                          padding: '20px 22px', fontFamily: 'var(--fm)', color: tone.ink,
+                        }}>
+                        <div style={{ position: 'absolute', top: 0, right: 0, width: 0, height: 0, borderTop: '16px solid rgba(0,0,0,0.05)', borderLeft: '16px solid transparent' }} />
+                        {isTop && (<>
+                          <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.3, marginBottom: 8, paddingBottom: 8, borderBottom: `1px solid ${tone.ink}18`, wordBreak: 'break-word' }}>
+                            {parsed.topic || parsed.date || name}
+                          </div>
+                          {parsed.date && parsed.topic && (
+                            <div style={{ fontSize: 10, opacity: 0.5, marginBottom: 6 }}>{parsed.date}</div>
+                          )}
+                          {content && (
+                            <div style={{ fontSize: 11, lineHeight: 1.55, opacity: 0.75, maxHeight: 170, overflow: 'hidden', whiteSpace: 'pre-wrap' }}>
+                              {content.slice(0, 300)}
+                            </div>
+                          )}
+                          {tone.stamp && (
+                            <div style={{ position: 'absolute', right: 16, bottom: 14, padding: '3px 8px', border: `1.5px solid ${tone.accent}`, color: tone.accent, fontSize: 9, fontWeight: 700, letterSpacing: 1.5, borderRadius: 3 }}>
+                              {tone.stamp === 'SYNCED' ? '\u2713 SYNCED' : tone.stamp}
+                            </div>
+                          )}
+                        </>)}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Drag ghost — full card content, not just title */}
+          {drag?.moved && drag.ids.map(id => {
+            const file = fileMap[id];
+            if (!file) return null;
+            const risk = classify(file, syncMap?.[id]);
+            const tone = TONE[risk];
+            const name = file.fileName || id.split('/').pop();
+            const parsed = parseCardName(name);
+            const content = contentFor(contentMap, id);
+            return (
+              <div key={`ghost-${id}`} style={{
+                position: 'absolute', left: drag.worldX, top: drag.worldY,
+                width: CARD_W, height: CARD_H, background: tone.bg, borderRadius: 4,
+                boxShadow: '0 24px 48px rgba(0,0,0,0.18)', transform: 'rotate(-2deg) scale(1.03)',
+                zIndex: 9000, pointerEvents: 'none', overflow: 'hidden',
+                padding: '20px 22px', fontFamily: 'var(--fm)', color: tone.ink, opacity: 0.92,
+              }}>
+                <div style={{ position: 'absolute', top: 0, right: 0, width: 0, height: 0, borderTop: '16px solid rgba(0,0,0,0.05)', borderLeft: '16px solid transparent' }} />
+                <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.3, marginBottom: 8, paddingBottom: 8, borderBottom: `1px solid ${tone.ink}18`, wordBreak: 'break-word' }}>
+                  {parsed.topic || parsed.date || name}
+                </div>
+                {parsed.date && parsed.topic && (
+                  <div style={{ fontSize: 10, opacity: 0.5, marginBottom: 6 }}>{parsed.date}</div>
+                )}
+                {content && (
+                  <div style={{ fontSize: 11, lineHeight: 1.55, opacity: 0.75, maxHeight: 170, overflow: 'hidden', whiteSpace: 'pre-wrap' }}>
+                    {content.slice(0, 300)}
+                  </div>
+                )}
+                {tone.stamp && (
+                  <div style={{ position: 'absolute', right: 16, bottom: 14, padding: '3px 8px', border: `1.5px solid ${tone.accent}`, color: tone.accent, fontSize: 9, fontWeight: 700, letterSpacing: 1.5, borderRadius: 3 }}>
+                    {tone.stamp === 'SYNCED' ? '\u2713 SYNCED' : tone.stamp}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </motion.div>
 
-        {/* ─── Empty state fallback ─── */}
-        {isEmpty && (
-          <div className="desktop__empty">
-            <div>
-              <h2>No memories yet</h2>
-              <p>
-                Drop markdown files into your memory directory and they'll appear here, classified
-                by privacy risk.
-              </p>
-            </div>
-          </div>
+        {memoryFiles.length === 0 && (
+          <div className="desktop__empty"><div><p>Drop markdown files into your memory directory.</p></div></div>
+        )}
+
+        {/* Select-mode overlay: captures pointer for marquee drawing */}
+        {selectMode && (
+          <div
+            data-no-pan
+            onPointerDown={onMarqueeDown}
+            style={{ position: 'absolute', inset: 0, cursor: 'crosshair', zIndex: 30 }}
+          />
+        )}
+
+        {/* Marquee rectangle */}
+        {marquee && (
+          <div style={{
+            position: 'absolute',
+            left: Math.min(marquee.sx0, marquee.sx1),
+            top: Math.min(marquee.sy0, marquee.sy1),
+            width: Math.abs(marquee.sx1 - marquee.sx0),
+            height: Math.abs(marquee.sy1 - marquee.sy0),
+            border: '1.5px solid #3b82f6',
+            background: 'rgba(59,130,246,0.08)',
+            borderRadius: 3,
+            pointerEvents: 'none', zIndex: 31,
+          }} />
         )}
       </div>
 
-      {/* ─── Floating Tree (left 25vw) ─── */}
-      <TreePanel
-        files={files}
-        syncMap={syncMap}
-        onOpenFile={(rel) => onOpenCard?.(rel)}
-        isOpen={treeOpen}
-        onClose={() => setTreeOpen(false)}
-      />
+      <TreePanel files={files} syncMap={syncMap} onOpenFile={locateAndOpen} isOpen={treeOpen} onClose={() => setTreeOpen(false)} />
 
-      {/* ─── Floating Sync Console (right 25vw) ─── */}
-      <SyncConsole
-        readyItems={buckets.ready}
-        privateCount={buckets.private.length}
-        syncedCount={buckets.synced.length}
-        syncing={syncing}
-        syncStateByPath={cardSyncState}
-        lastSyncLabel={lastSyncLabel}
-        canSync={canSync}
-        onSync={onSync}
-        isConnected={isConnected}
-        isOpen={syncOpen}
-        onClose={() => setSyncOpen(false)}
-      />
+      {/* Right panel: selection list when files are selected, otherwise SyncConsole */}
+      {selection.size > 0 ? (
+        <motion.aside
+          className="select-panel"
+          initial={false}
+          animate={{ x: syncOpen ? 0 : 'calc(100% + 24px)', opacity: syncOpen ? 1 : 0 }}
+          transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+          style={{ pointerEvents: syncOpen ? 'auto' : 'none' }}
+        >
+          <div className="select-panel__head">
+            <span className="select-panel__title">{selection.size} Selected</span>
+            <button type="button" className="panel-close" onClick={() => { setSelection(new Set()); setSelectMode(false); }} title="Clear selection">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+            </button>
+          </div>
+          <div className="select-panel__list">
+            {Array.from(selection).map(cardId => {
+              const file = fileMap[cardId];
+              if (!file) return null;
+              const name = file.fileName || cardId.split('/').pop();
+              const parsed = parseCardName(name);
+              const risk = classify(file, syncMap?.[cardId]);
+              return (
+                <div key={cardId} className={`select-panel__item select-panel__item--${risk}`}>
+                  <span className="select-panel__item-name">{parsed.topic || parsed.date || name}</span>
+                  <button type="button" className="select-panel__item-remove" onClick={() => setSelection(prev => { const next = new Set(prev); next.delete(cardId); return next; })} title="Deselect">
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 2l6 6M8 2l-6 6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          <div className="select-panel__actions">
+            <button type="button" className="select-panel__btn select-panel__btn--sync" onClick={() => { /* TODO: batch sync */ }} disabled={syncing}>
+              Sync {selection.size} files
+            </button>
+            <button type="button" className="select-panel__btn select-panel__btn--clear" onClick={() => { setSelection(new Set()); setSelectMode(false); }}>
+              Clear
+            </button>
+          </div>
+        </motion.aside>
+      ) : (
+        <SyncConsole readyItems={buckets.ready} privateCount={buckets.private.length} syncedCount={buckets.synced.length} syncing={syncing} syncStateByPath={cardSyncState} lastSyncLabel={lastSyncLabel} canSync={canSync} onSync={onSync} isConnected={isConnected} isOpen={syncOpen} onClose={() => setSyncOpen(false)} />
+      )}
 
-      {/* ─── Edge tabs (shown when a panel is collapsed) ─── */}
       <AnimatePresence>
-        {!treeOpen && (
-          <motion.button
-            key="tab-left"
-            type="button"
-            className="desktop__edgetab desktop__edgetab--left"
-            onClick={() => setTreeOpen(true)}
-            title="Open memory sidebar ( [ )"
-            aria-label="Open memory sidebar"
-            initial={{ opacity: 0, x: -8 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -8 }}
-            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-              <path d="M2 3.5h3.5l1.2 1.4H12a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-.5.5H2a.5.5 0 0 1-.5-.5V4a.5.5 0 0 1 .5-.5z"
-                stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" fill="none"/>
-            </svg>
-            <span className="desktop__edgetab-lbl">Memory</span>
-            <span className="desktop__edgetab-chev" aria-hidden="true">{'\u203A'}</span>
-          </motion.button>
-        )}
-        {!syncOpen && (
-          <motion.button
-            key="tab-right"
-            type="button"
-            className="desktop__edgetab desktop__edgetab--right"
-            onClick={() => setSyncOpen(true)}
-            title="Open sync sidebar ( ] )"
-            aria-label="Open sync sidebar"
-            initial={{ opacity: 0, x: 8 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 8 }}
-            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <span className="desktop__edgetab-chev" aria-hidden="true">{'\u2039'}</span>
-            <span className="desktop__edgetab-lbl">
-              {syncing ? 'Syncing\u2026' : 'Sync'}
-            </span>
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-              <path d="M3 7H11M8 4L11 7L8 10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </motion.button>
-        )}
+        {!treeOpen && (<motion.button key="tab-left" type="button" className="desktop__edgetab desktop__edgetab--left" onClick={() => setTreeOpen(true)} title="[ to toggle" initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -8 }} transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 3.5h3.5l1.2 1.4H12a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-.5.5H2a.5.5 0 0 1-.5-.5V4a.5.5 0 0 1 .5-.5z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" fill="none"/></svg><span className="desktop__edgetab-lbl">Memory</span><span className="desktop__edgetab-chev">{'\u203A'}</span></motion.button>)}
+        {!syncOpen && (<motion.button key="tab-right" type="button" className="desktop__edgetab desktop__edgetab--right" onClick={() => setSyncOpen(true)} title="] to toggle" initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 8 }} transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}><span className="desktop__edgetab-chev">{'\u2039'}</span><span className="desktop__edgetab-lbl">{syncing ? 'Syncing\u2026' : 'Sync'}</span><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7H11M8 4L11 7L8 10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg></motion.button>)}
       </AnimatePresence>
 
-      {/* ─── Mini-map / zoom controls (bottom-center) ─── */}
       <div className="desktop__zoomctrls">
-        <button
-          type="button"
-          className="desktop__zoombtn"
-          onClick={() => zoomTo('private', 1)}
-          title="Jump to private pile"
-        >
-          {'\uD83D\uDD12'}
+        <button type="button" className={`desktop__zoombtn ${selectMode ? 'desktop__zoombtn--active' : ''}`}
+          onClick={() => { setSelectMode(v => !v); if (selectMode) { setSelection(new Set()); setMarquee(null); } }}
+          title="Select mode (drag to select cards, Esc to exit)">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M1 1h4v4H1zM8 1h4v4H8zM1 8h4v4H1z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" fill="none"/><path d="M8 8h4v4H8z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" fill="rgba(59,130,246,0.15)"/></svg>
+          <span style={{ marginLeft: 4 }}>Select</span>
         </button>
-        <button
-          type="button"
-          className="desktop__zoombtn desktop__zoombtn--primary"
-          onClick={() => zoomTo('ready', 1)}
-          title="Center on Ready"
-        >
-          Ready
-        </button>
-        <button
-          type="button"
-          className="desktop__zoombtn"
-          onClick={() => zoomTo('synced', 1)}
-          title="Jump to synced pile"
-        >
-          {'\u2713'}
-        </button>
+        {selection.size > 0 && (
+          <span className="desktop__zoombtn" style={{ color: '#3b82f6', fontWeight: 600, cursor: 'default' }}>
+            {selection.size} selected
+          </span>
+        )}
         <span className="desktop__zoomsep" aria-hidden="true" />
-        <button
-          type="button"
-          className="desktop__zoombtn"
-          onClick={() => contentBounds && fitTo(contentBounds, { padding: 96 })}
-          title="Fit all piles in view"
-          disabled={!contentBounds}
-        >
-          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
-            <path d="M1 4V1H4M9 1H12V4M12 9V12H9M4 12H1V9"
-              stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          <span style={{ marginLeft: 4 }}>Fit</span>
-        </button>
-        <span className="desktop__zoomhint">scroll to zoom {'\u00B7'} drag to pan</span>
+        <button type="button" className="desktop__zoombtn" onClick={fitAll} title="Fit all"><svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M1 4V1H4M9 1H12V4M12 9V12H9M4 12H1V9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg><span style={{ marginLeft: 4 }}>Fit</span></button>
+        <span className="desktop__zoomhint">{selectMode ? 'drag to select \u00B7 Esc to exit' : 'scroll to zoom \u00B7 drag to pan'}</span>
       </div>
     </div>
   );
