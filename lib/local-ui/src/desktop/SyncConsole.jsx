@@ -46,6 +46,7 @@ export function SyncConsole({
   lastSyncLabel,
   canSync,
   onSync,
+  onStartSelecting,
   onStop,
   isConnected,
   isOpen = true,
@@ -53,6 +54,7 @@ export function SyncConsole({
 }) {
   const readyCount = readyItems?.length || 0;
   const totalSize = useMemo(() => formatBytesSum((readyItems || []).map((r) => r.file)), [readyItems]);
+  const shouldSelectFirst = readyCount > 12;
 
   // Build an ordered queue view from syncStateByPath during active sync.
   const queue = useMemo(() => {
@@ -222,16 +224,24 @@ export function SyncConsole({
             <button
               type="button"
               className="sync-console__cta"
-              onClick={onSync}
-              disabled={!canSync}
+              onClick={shouldSelectFirst ? onStartSelecting : onSync}
+              disabled={shouldSelectFirst ? readyCount === 0 : !canSync}
             >
               <span className="sync-console__cta-ic" aria-hidden="true">
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                   <path d="M3 7H11M8 4L11 7L8 10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </span>
-              {canSync ? `Sync ${readyCount} file${readyCount === 1 ? '' : 's'}` : 'Nothing to sync'}
+              {shouldSelectFirst
+                ? 'Select files first'
+                : canSync ? `Sync ${readyCount} file${readyCount === 1 ? '' : 's'}` : 'Nothing to sync'}
             </button>
+
+            {shouldSelectFirst && (
+              <p className="sync-console__hint">
+                {readyCount} files are ready. Pick a small group first so you can review and sync intentionally.
+              </p>
+            )}
 
             {!isConnected && (
               <p className="sync-console__hint sync-console__hint--warn">

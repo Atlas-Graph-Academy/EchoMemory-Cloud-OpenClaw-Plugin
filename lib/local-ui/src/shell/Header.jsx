@@ -7,9 +7,12 @@ export function Header({
   isConnected,
   authLabel,
   lastSyncLabel,
+  canvasControls,
   onOpenSettings,
   onOpenArchive,
 }) {
+  const actions = canvasControls?.actions || {};
+
   return (
     <header className="hdr">
       <a
@@ -41,6 +44,34 @@ export function Header({
       </div>
 
       <div className="hdr-gap" />
+
+      {canvasControls && (
+        <div className="hdr-canvas" aria-label="Canvas navigation">
+          <button
+            type="button"
+            className={`hdr-canvas__btn hdr-canvas__btn--directory ${canvasControls.treeOpen ? 'is-active' : ''}`}
+            onClick={actions.toggleTree}
+            title="Toggle directory"
+          >
+            <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <path d="M2 2.7h3.1l1 1.1H12a.6.6 0 0 1 .6.6v6.9a.6.6 0 0 1-.6.6H2a.6.6 0 0 1-.6-.6v-8a.6.6 0 0 1 .6-.6Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
+              <path d="M3.2 6h7.6M3.2 8.2h5.5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" opacity=".58" />
+            </svg>
+            <span>Directory</span>
+          </button>
+          <button
+            type="button"
+            className={`hdr-canvas__btn ${canvasControls.syncOpen ? 'is-active' : ''}`}
+            onClick={actions.toggleSync}
+            title="Toggle sync panel"
+          >
+            <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <path d="M3 7h8M8 4l3 3-3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <span>{canvasControls.syncing ? 'Syncing' : 'Sync'}</span>
+          </button>
+        </div>
+      )}
 
       <div className="hdr-r">
         <div className={`conn ${isConnected ? 'conn--ok' : 'conn--off'}`}>

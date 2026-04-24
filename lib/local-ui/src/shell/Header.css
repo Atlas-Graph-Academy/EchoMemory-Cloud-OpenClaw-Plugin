@@ -4,7 +4,7 @@
   left: 50%;
   transform: translateX(-50%);
   z-index: 60;
-  width: min(1120px, calc(100vw - 48px));
+  width: min(1360px, calc(100vw - 48px));
   height: 44px;
   display: flex;
   align-items: center;
@@ -70,7 +70,7 @@
 
 .search-wrap {
   flex: 1;
-  max-width: 240px;
+  max-width: 230px;
   position: relative;
 }
 .search-wrap input {
@@ -102,6 +102,64 @@
 }
 
 .hdr-gap { flex: 1; }
+
+.hdr-canvas {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 999px;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.62), rgba(255,255,255,.24)),
+    rgba(248, 247, 244, 0.42);
+  border: 1px solid rgba(255,255,255,.56);
+  box-shadow:
+    0 10px 24px rgba(22, 20, 16, 0.045),
+    inset 0 1px 0 rgba(255,255,255,.8);
+}
+
+.hdr-canvas__btn {
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(26, 25, 23, 0.58);
+  cursor: pointer;
+  font-family: var(--fu);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+  transition:
+    background var(--motion-fast),
+    border-color var(--motion-fast),
+    color var(--motion-fast),
+    box-shadow var(--motion-fast),
+    transform var(--motion-fast);
+}
+
+.hdr-canvas__btn:hover {
+  background: rgba(255,255,255,.74);
+  color: var(--ink);
+  transform: translateY(-1px);
+}
+
+.hdr-canvas__btn.is-active {
+  background: rgba(255,255,255,.92);
+  border-color: rgba(26, 25, 23, 0.055);
+  color: var(--ink);
+  box-shadow:
+    0 6px 16px rgba(22, 20, 16, 0.055),
+    inset 0 1px 0 rgba(255,255,255,.86);
+}
+
+.hdr-canvas__btn--directory {
+  padding-right: 11px;
+}
 
 .hdr-r {
   display: flex;
@@ -162,9 +220,12 @@
 @media (max-width: 900px) {
   .hdr { width: calc(100vw - 24px); }
   .hdr-r .btn-ghost { display: none; }
+  .hdr-canvas__btn span { display: none; }
+  .hdr-canvas__btn { width: 28px; justify-content: center; padding: 0; }
 }
 @media (max-width: 640px) {
   .search-wrap { max-width: 160px; }
   .conn { display: none; }
   .logo { font-size: 0; gap: 0; }
+  .hdr-canvas { display: none; }
 }

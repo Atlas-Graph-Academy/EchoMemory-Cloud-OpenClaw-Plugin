@@ -143,6 +143,7 @@ export default function App() {
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [archiveInitialFilter, setArchiveInitialFilter] = useState('all');
   const [justSynced, setJustSynced] = useState(false);
+  const [canvasControls, setCanvasControls] = useState(null);
 
   const serverInstanceIdRef = useRef(null);
   const clientIdRef = useRef(buildLocalUiClientId());
@@ -513,6 +514,27 @@ export default function App() {
     }
   }, [loadBackendSources, loadSyncStatus, syncing]);
 
+  const handleSyncSelected = useCallback(async (relativePaths) => {
+    const paths = Array.isArray(relativePaths) ? relativePaths.filter(Boolean) : [];
+    if (paths.length === 0 || syncing) return;
+    setSyncing(true);
+    setSyncResult(null);
+    setSyncProgress(null);
+    setStreamedMemories([]);
+    setTotalStreamedCount(0);
+    try {
+      const result = await triggerSyncSelected(paths);
+      const nextResult = buildSyncResultState(result);
+      setSyncResult(nextResult);
+      loadSyncStatus();
+      loadBackendSources();
+    } catch (error) {
+      setSyncResult({ ok: false, msg: String(error?.message || 'Sync failed') });
+    } finally {
+      setSyncing(false);
+    }
+  }, [loadBackendSources, loadSyncStatus, syncing]);
+
   const handleSetupFieldChange = useCallback((key, value) => {
     setSetupDraft((prev) => ({ ...prev, [key]: value }));
   }, []);
@@ -719,6 +741,7 @@ export default function App() {
         isConnected={isConnected}
         authLabel={authLabel}
         lastSyncLabel={lastSyncLabel}
+        canvasControls={readingPath ? null : canvasControls}
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenArchive={(filter) => {
           setArchiveInitialFilter(filter || 'all');
@@ -741,7 +764,9 @@ export default function App() {
           canSync={canSync}
           isConnected={isConnected}
           lastSyncLabel={lastSyncLabel}
+          onCanvasControlsChange={setCanvasControls}
           onSync={handleSync}
+          onSyncSelected={handleSyncSelected}
           onOpenCard={openReadingFor}
         />
       </div>

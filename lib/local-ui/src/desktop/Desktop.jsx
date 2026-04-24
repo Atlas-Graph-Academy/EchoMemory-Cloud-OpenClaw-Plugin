@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback, memo } from 'react';
-import { motion, AnimatePresence, animate } from 'framer-motion';
+import { motion, animate } from 'framer-motion';
 import { useCamera } from './useCamera';
 import { TreePanel } from './TreePanel';
 import { SyncConsole } from './SyncConsole';
@@ -45,6 +45,21 @@ function parseCardName(name) {
     return { date, topic: topic ? topic.replace(/-/g, ' ') : null };
   }
   return { date: null, topic: noExt.replace(/-/g, ' ') };
+}
+
+function previewMarkdown(md) {
+  const raw = String(md || '').trim();
+  if (!raw) return 'No preview loaded yet.';
+  return raw
+    .replace(/^---[\s\S]*?---\n?/, '')
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/!\[[^\]]*]\([^)]+\)/g, '')
+    .replace(/\[([^\]]+)]\([^)]+\)/g, '$1')
+    .replace(/[*_~`>#-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 420) || 'No readable preview.';
 }
 
 /** Deterministic fan offset for stacked cards. */
@@ -187,7 +202,7 @@ function stackBounds(stacks) {
 export function Desktop({
   files, syncMap, contentMap, cardSyncState,
   syncing, canSync, isConnected, lastSyncLabel,
-  onSync, onOpenCard,
+  onSync, onSyncSelected, onOpenCard, onCanvasControlsChange,
 }) {
   const stageRef = useRef(null);
   const lockYRef = useRef(false);
@@ -500,6 +515,38 @@ export function Desktop({
     if (b) fitTo(b, { padding: 80 });
   }, [stacks, fitTo]);
 
+  const toggleSelectMode = useCallback(() => {
+    setSelectMode((prev) => {
+      if (prev) {
+        setSelection(new Set());
+        setMarquee(null);
+      } else {
+        setSyncOpen(true);
+      }
+      return !prev;
+    });
+  }, []);
+
+  const canvasControls = useMemo(() => ({
+    treeOpen,
+    syncOpen,
+    selectMode,
+    selectionCount: selection.size,
+    syncing,
+    actions: {
+      toggleTree: () => setTreeOpen((value) => !value),
+      toggleSync: () => setSyncOpen((value) => !value),
+      toggleSelect: toggleSelectMode,
+      fitAll,
+    },
+  }), [fitAll, selectMode, selection.size, syncOpen, syncing, toggleSelectMode, treeOpen]);
+
+  useEffect(() => {
+    onCanvasControlsChange?.(canvasControls);
+  }, [canvasControls, onCanvasControlsChange]);
+
+  useEffect(() => () => onCanvasControlsChange?.(null), [onCanvasControlsChange]);
+
   /* ── Locate-and-open: TreePanel click → fly to card → highlight → open ── */
   const [highlightCard, setHighlightCard] = useState(null);
   const highlightTimer = useRef(null);
@@ -582,6 +629,26 @@ export function Desktop({
   /* ── Render ── */
   return (
     <div className="desktop">
+      <div className="desktop__tooldock" data-no-pan aria-label="Canvas tools">
+        <button
+          type="button"
+          className={`desktop__toolbtn ${selectMode ? 'is-active' : ''}`}
+          onClick={toggleSelectMode}
+          title="Select mode (drag to select cards, Esc to exit)"
+        >
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+            <path d="M1 1h4v4H1zM8 1h4v4H8zM1 8h4v4H1zM8 8h4v4H8z" stroke="currentColor" strokeWidth="1.15" strokeLinejoin="round" />
+          </svg>
+          <span>{selection.size > 0 ? `${selection.size} selected` : 'Select'}</span>
+        </button>
+        <button type="button" className="desktop__toolbtn" onClick={fitAll} title="Fit all cards">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+            <path d="M1 4V1h3M9 1h3v3M12 9v3H9M4 12H1V9" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <span>Fit</span>
+        </button>
+      </div>
+
       <div className="desktop__stage" ref={stageRef}>
         <motion.div className="desktop__world" style={{ x: cameraX, y: cameraY, scale: cameraScale, transformOrigin: '0 0' }}>
 
@@ -799,8 +866,8 @@ export function Desktop({
 
       <TreePanel files={files} syncMap={syncMap} onOpenFile={locateAndOpen} isOpen={treeOpen} onClose={() => setTreeOpen(false)} />
 
-      {/* Right panel: selection list when files are selected, otherwise SyncConsole */}
-      {selection.size > 0 ? (
+      {/* Right panel: selection workflow while selecting, otherwise SyncConsole */}
+      {(selectMode || selection.size > 0) ? (
         <motion.aside
           className="select-panel"
           initial={false}
@@ -815,7 +882,9 @@ export function Desktop({
             </button>
           </div>
           <div className="select-panel__hint">
-            Drag a highlighted card to move this group into a pile or onto open space.
+            {selection.size > 0
+              ? 'Drag selected cards into a pile, or sync this small group when it looks right.'
+              : 'Drag on the canvas to select a small group of markdown cards.'}
           </div>
           <div className="select-panel__list">
             {Array.from(selection).map(cardId => {
@@ -824,47 +893,59 @@ export function Desktop({
               const name = file.fileName || cardId.split('/').pop();
               const parsed = parseCardName(name);
               const risk = classify(file, syncMap?.[cardId]);
+              const preview = previewMarkdown(contentFor(contentMap, cardId));
               return (
-                <div key={cardId} className={`select-panel__item select-panel__item--${risk}`}>
+                <div
+                  key={cardId}
+                  className={`select-panel__item select-panel__item--${risk}`}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => onOpenCard?.(cardId)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onOpenCard?.(cardId);
+                    }
+                  }}
+                  title="Open preview"
+                >
                   <span className="select-panel__item-name">{parsed.topic || parsed.date || name}</span>
-                  <button type="button" className="select-panel__item-remove" onClick={() => setSelection(prev => { const next = new Set(prev); next.delete(cardId); return next; })} title="Deselect">
+                  <button type="button" className="select-panel__item-remove" onClick={(e) => { e.stopPropagation(); setSelection(prev => { const next = new Set(prev); next.delete(cardId); return next; }); }} title="Deselect">
                     <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 2l6 6M8 2l-6 6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
                   </button>
+                  <div className={`select-panel__preview select-panel__preview--${risk}`} aria-hidden="true">
+                    <div className="select-panel__preview-title">{parsed.topic || parsed.date || name}</div>
+                    <div className="select-panel__preview-path">{file.relativePath}</div>
+                    <p>{preview}</p>
+                    <span>Click to open reading panel</span>
+                  </div>
                 </div>
               );
             })}
           </div>
           <div className="select-panel__actions">
+            <button
+              type="button"
+              className="select-panel__btn select-panel__btn--sync"
+              onClick={async () => {
+                if (!onSyncSelected || selection.size === 0) return;
+                await onSyncSelected(Array.from(selection));
+                setSelection(new Set());
+                setSelectMode(false);
+              }}
+              disabled={!canSync || syncing || selection.size === 0}
+            >
+              {syncing ? 'Syncing...' : (selection.size > 0 ? `Sync ${selection.size}` : 'Select files')}
+            </button>
             <button type="button" className="select-panel__btn select-panel__btn--clear" onClick={() => { setSelection(new Set()); setSelectMode(false); }}>
-              Clear
+              {selection.size > 0 ? 'Clear' : 'Exit'}
             </button>
           </div>
         </motion.aside>
       ) : (
-        <SyncConsole readyItems={buckets.ready} privateCount={buckets.private.length} syncedCount={buckets.synced.length} syncing={syncing} syncStateByPath={cardSyncState} lastSyncLabel={lastSyncLabel} canSync={canSync} onSync={onSync} isConnected={isConnected} isOpen={syncOpen} onClose={() => setSyncOpen(false)} />
+        <SyncConsole readyItems={buckets.ready} privateCount={buckets.private.length} syncedCount={buckets.synced.length} syncing={syncing} syncStateByPath={cardSyncState} lastSyncLabel={lastSyncLabel} canSync={canSync} onSync={onSync} onStartSelecting={() => { setSelectMode(true); setSyncOpen(true); }} isConnected={isConnected} isOpen={syncOpen} onClose={() => setSyncOpen(false)} />
       )}
 
-      <AnimatePresence>
-        {!treeOpen && (<motion.button key="tab-left" type="button" className="desktop__edgetab desktop__edgetab--left" onClick={() => setTreeOpen(true)} title="[ to toggle" initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -8 }} transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 3.5h3.5l1.2 1.4H12a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-.5.5H2a.5.5 0 0 1-.5-.5V4a.5.5 0 0 1 .5-.5z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" fill="none"/></svg><span className="desktop__edgetab-lbl">Memory</span><span className="desktop__edgetab-chev">{'\u203A'}</span></motion.button>)}
-        {!syncOpen && (<motion.button key="tab-right" type="button" className="desktop__edgetab desktop__edgetab--right" onClick={() => setSyncOpen(true)} title="] to toggle" initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 8 }} transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}><span className="desktop__edgetab-chev">{'\u2039'}</span><span className="desktop__edgetab-lbl">{syncing ? 'Syncing\u2026' : 'Sync'}</span><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7H11M8 4L11 7L8 10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg></motion.button>)}
-      </AnimatePresence>
-
-      <div className="desktop__zoomctrls">
-        <button type="button" className={`desktop__zoombtn ${selectMode ? 'desktop__zoombtn--active' : ''}`}
-          onClick={() => { setSelectMode(v => !v); if (selectMode) { setSelection(new Set()); setMarquee(null); } }}
-          title="Select mode (drag to select cards, Esc to exit)">
-          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M1 1h4v4H1zM8 1h4v4H8zM1 8h4v4H1z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" fill="none"/><path d="M8 8h4v4H8z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" fill="rgba(59,130,246,0.15)"/></svg>
-          <span style={{ marginLeft: 4 }}>Select</span>
-        </button>
-        {selection.size > 0 && (
-          <span className="desktop__zoombtn" style={{ color: '#3b82f6', fontWeight: 600, cursor: 'default' }}>
-            {selection.size} selected
-          </span>
-        )}
-        <span className="desktop__zoomsep" aria-hidden="true" />
-        <button type="button" className="desktop__zoombtn" onClick={fitAll} title="Fit all"><svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M1 4V1H4M9 1H12V4M12 9V12H9M4 12H1V9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg><span style={{ marginLeft: 4 }}>Fit</span></button>
-        <span className="desktop__zoomhint">{selectMode ? 'drag to select \u00B7 Esc to exit' : 'scroll to zoom \u00B7 drag to pan'}</span>
-      </div>
     </div>
   );
 }
