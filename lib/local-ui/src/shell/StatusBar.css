@@ -1,26 +1,68 @@
 .statusbar {
   position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: var(--sb-h);
-  background: rgba(248, 247, 244, 0.96);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border-top: 1px solid var(--border);
+  bottom: 14px;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  width: min(1120px, calc(100vw - 48px));
+  min-height: 38px;
+  background: rgba(255, 255, 255, 0.66);
+  backdrop-filter: blur(24px) saturate(145%);
+  -webkit-backdrop-filter: blur(24px) saturate(145%);
+  border: 1px solid rgba(26, 25, 23, 0.055);
+  border-radius: 999px;
+  box-shadow:
+    0 18px 55px rgba(22, 20, 16, 0.075),
+    0 1px 0 rgba(255, 255, 255, 0.92) inset;
   display: flex;
   align-items: center;
-  padding: 0 48px;
-  gap: 14px;
+  padding: 5px 8px 5px 18px;
+  gap: 10px;
   z-index: 65;
+}
+
+.statusbar-story {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.statusbar-kicker {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.statusbar-line {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11.5px;
+  color: var(--ink-muted);
+}
+
+.statusbar-metrics {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  height: 28px;
+  border-radius: 999px;
+  background: rgba(248, 247, 244, 0.6);
 }
 
 .stat {
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 11.5px;
+  font-size: 11px;
   color: var(--ink-muted);
+  white-space: nowrap;
 }
 .stat strong {
   color: var(--ink-2);
@@ -36,7 +78,6 @@
 }
 
 .stat-right {
-  margin-left: auto;
   font-size: 11px;
   color: var(--ink-faint);
   display: flex;
@@ -62,6 +103,12 @@
 }
 
 @media (max-width: 640px) {
-  .statusbar { padding: 0 16px; gap: 8px; }
+  .statusbar {
+    bottom: 10px;
+    width: calc(100vw - 20px);
+    padding-left: 12px;
+  }
+  .statusbar-line,
+  .statusbar-metrics,
   .stat-right { display: none; }
 }

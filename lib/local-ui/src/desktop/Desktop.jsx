@@ -3,6 +3,7 @@ import { motion, AnimatePresence, animate } from 'framer-motion';
 import { useCamera } from './useCamera';
 import { TreePanel } from './TreePanel';
 import { SyncConsole } from './SyncConsole';
+import { fetchCanvasLayout, saveCanvasLayout } from '../sync/api';
 import './Desktop.css';
 
 /* ── Constants ─────────────────────────────────────────── */
@@ -57,6 +58,14 @@ function fanOffset(i) {
   };
 }
 
+function groupDragOffset(index) {
+  return {
+    x: index * 12,
+    y: index * 5,
+    rot: (index - 1) * 1.4,
+  };
+}
+
 /** Group memory files into initial named stacks by risk + month. */
 function buildInitialStacks(memoryFiles, syncMap) {
   const groups = { private: [], ready: [], synced: [] };
@@ -108,6 +117,59 @@ function buildInitialStacks(memoryFiles, syncMap) {
   makeStacks(groups.ready,   500, 60);
   makeStacks(groups.synced,  1100, 60);
   return { stacks, nextStackNum: num };
+}
+
+function parseStackNum(id) {
+  const match = String(id || '').match(/^s(\d+)$/);
+  return match ? Number.parseInt(match[1], 10) : 0;
+}
+
+function reconcileSavedLayout(layout, memoryFiles, syncMap) {
+  const validPaths = new Set(memoryFiles.map((file) => file.relativePath));
+  const assigned = new Set();
+  const stacks = {};
+  let maxStackNum = 0;
+
+  for (const [rawId, rawStack] of Object.entries(layout?.stacks || {})) {
+    const id = String(rawStack?.id || rawId || '').trim();
+    if (!id) continue;
+    const cardIds = (rawStack?.cardIds || [])
+      .map((cardId) => String(cardId || '').replace(/\\/g, '/'))
+      .filter((cardId) => validPaths.has(cardId) && !assigned.has(cardId));
+    if (cardIds.length === 0) continue;
+
+    const x = Number(rawStack.x);
+    const y = Number(rawStack.y);
+    stacks[id] = {
+      id,
+      name: typeof rawStack.name === 'string' && rawStack.name.trim() ? rawStack.name.trim() : null,
+      x: Number.isFinite(x) ? x : 0,
+      y: Number.isFinite(y) ? y : 0,
+      cardIds,
+    };
+    cardIds.forEach((cardId) => assigned.add(cardId));
+    maxStackNum = Math.max(maxStackNum, parseStackNum(id));
+  }
+
+  const unassignedFiles = memoryFiles.filter((file) => !assigned.has(file.relativePath));
+  const generated = buildInitialStacks(unassignedFiles, syncMap);
+  for (const stack of Object.values(generated.stacks)) {
+    let id = stack.id;
+    while (stacks[id]) {
+      maxStackNum += 1;
+      id = `s${maxStackNum}`;
+    }
+    stacks[id] = { ...stack, id };
+    maxStackNum = Math.max(maxStackNum, parseStackNum(id));
+  }
+
+  const savedNextStackNum = Number.parseInt(String(layout?.nextStackNum ?? ''), 10);
+  const nextStackNum = Math.max(
+    Number.isFinite(savedNextStackNum) ? savedNextStackNum : 1,
+    generated.nextStackNum,
+    maxStackNum + 1,
+  );
+  return { stacks, nextStackNum };
 }
 
 function stackBounds(stacks) {
@@ -184,19 +246,90 @@ export function Desktop({
   const nextNumRef = useRef(1);
   const [hoverStackId, setHoverStackId] = useState(null);
   const [editingStackId, setEditingStackId] = useState(null);
+  const [savedCanvasLayout, setSavedCanvasLayout] = useState(null);
+  const [canvasLayoutLoaded, setCanvasLayoutLoaded] = useState(false);
+  const [heroAnchor, setHeroAnchor] = useState(null);
   const layoutDoneRef = useRef(false);
+  const saveLayoutTimerRef = useRef(null);
 
   useEffect(() => {
-    if (memoryFiles.length === 0 || layoutDoneRef.current) return;
+    let cancelled = false;
+    fetchCanvasLayout()
+      .then((result) => {
+        if (cancelled) return;
+        setSavedCanvasLayout(result?.layout || null);
+      })
+      .catch(() => {
+        if (!cancelled) setSavedCanvasLayout(null);
+      })
+      .finally(() => {
+        if (!cancelled) setCanvasLayoutLoaded(true);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!canvasLayoutLoaded || memoryFiles.length === 0 || layoutDoneRef.current) return;
     layoutDoneRef.current = true;
-    const init = buildInitialStacks(memoryFiles, syncMap);
+    const init = savedCanvasLayout?.stacks
+      ? reconcileSavedLayout(savedCanvasLayout, memoryFiles, syncMap)
+      : buildInitialStacks(memoryFiles, syncMap);
     setStacks(init.stacks);
     nextNumRef.current = init.nextStackNum;
+    const initialBounds = stackBounds(init.stacks);
+    setHeroAnchor(initialBounds
+      ? {
+          x: (initialBounds.minX + initialBounds.maxX) / 2,
+          y: (initialBounds.minY + initialBounds.maxY) / 2,
+        }
+      : null);
     requestAnimationFrame(() => {
-      const b = stackBounds(init.stacks);
-      if (b) fitTo(b, { padding: 80 });
+      if (initialBounds) fitTo(initialBounds, { padding: 80 });
     });
-  }, [memoryFiles, syncMap, fitTo]);
+  }, [canvasLayoutLoaded, memoryFiles, savedCanvasLayout, syncMap, fitTo]);
+
+  useEffect(() => {
+    if (!canvasLayoutLoaded || !layoutDoneRef.current || memoryFiles.length === 0) return;
+    setStacks((prev) => {
+      const assigned = new Set();
+      for (const stack of Object.values(prev)) {
+        for (const cardId of stack.cardIds || []) assigned.add(cardId);
+      }
+      const missingFiles = memoryFiles.filter((file) => !assigned.has(file.relativePath));
+      if (missingFiles.length === 0) return prev;
+      const generated = buildInitialStacks(missingFiles, syncMap);
+      const next = { ...prev };
+      let nextNum = nextNumRef.current;
+      for (const stack of Object.values(generated.stacks)) {
+        const id = `s${nextNum++}`;
+        next[id] = { ...stack, id };
+      }
+      nextNumRef.current = Math.max(nextNumRef.current, nextNum);
+      return next;
+    });
+  }, [canvasLayoutLoaded, memoryFiles, syncMap]);
+
+  useEffect(() => {
+    if (!canvasLayoutLoaded || !layoutDoneRef.current) return undefined;
+    if (saveLayoutTimerRef.current) {
+      window.clearTimeout(saveLayoutTimerRef.current);
+    }
+    saveLayoutTimerRef.current = window.setTimeout(() => {
+      saveCanvasLayout({
+        version: 1,
+        stacks,
+        nextStackNum: nextNumRef.current,
+      }).catch((error) => {
+        console.warn('Failed to save canvas layout', error);
+      });
+    }, 450);
+    return () => {
+      if (saveLayoutTimerRef.current) {
+        window.clearTimeout(saveLayoutTimerRef.current);
+        saveLayoutTimerRef.current = null;
+      }
+    };
+  }, [canvasLayoutLoaded, stacks]);
 
   /* ── Select mode + marquee ── */
   const [selectMode, setSelectMode] = useState(false);
@@ -223,12 +356,18 @@ export function Desktop({
   const onCardDown = useCallback((e, cardId, wx, wy) => {
     e.stopPropagation(); e.preventDefault();
     const cursor = screenToWorld(e.clientX, e.clientY);
+    const selectedIds = selection.has(cardId) ? Array.from(selection) : [];
+    const ids = selectedIds.length > 0
+      ? [cardId, ...selectedIds.filter((id) => id !== cardId)]
+      : [cardId];
     setDrag({
-      ids: [cardId], anchorId: cardId,
+      ids,
+      anchorId: cardId,
+      offsets: Object.fromEntries(ids.map((id, index) => [id, groupDragOffset(index)])),
       grab: { dx: cursor.wx - wx, dy: cursor.wy - wy },
       worldX: wx, worldY: wy, absorbId: null, moved: false,
     });
-  }, [screenToWorld]);
+  }, [screenToWorld, selection]);
 
   /* Stack header drag start */
   const onHeaderDown = useCallback((e, stackId) => {
@@ -285,6 +424,8 @@ export function Desktop({
         }
         return next;
       });
+      setSelection(new Set());
+      setSelectMode(false);
       setDrag(null);
     };
     window.addEventListener('pointermove', onMove);
@@ -441,9 +582,9 @@ export function Desktop({
 
           {/* Hero text — world-space anchor at the center of the layout */}
           {(() => {
-            const b = stackBounds(stacks);
-            const cx = b ? (b.minX + b.maxX) / 2 : 0;
-            const cy = b ? (b.minY + b.maxY) / 2 : 0;
+            const b = heroAnchor ? null : stackBounds(stacks);
+            const cx = heroAnchor?.x ?? (b ? (b.minX + b.maxX) / 2 : 0);
+            const cy = heroAnchor?.y ?? (b ? (b.minY + b.maxY) / 2 : 0);
             return (
               <div className="desktop__hero" style={{ position: 'absolute', left: cx, top: cy, transform: 'translate(-50%, -50%)', zIndex: 0, pointerEvents: 'none' }}>
                 <h1 className="desktop__hero-title">Select markdown.<br/>Save to Echo.</h1>
@@ -565,6 +706,7 @@ export function Desktop({
           {drag?.moved && drag.ids.map(id => {
             const file = fileMap[id];
             if (!file) return null;
+            const dragOffset = drag.offsets?.[id] || groupDragOffset(0);
             const risk = classify(file, syncMap?.[id]);
             const tone = TONE[risk];
             const name = file.fileName || id.split('/').pop();
@@ -572,10 +714,10 @@ export function Desktop({
             const content = contentFor(contentMap, id);
             return (
               <div key={`ghost-${id}`} style={{
-                position: 'absolute', left: drag.worldX, top: drag.worldY,
+                position: 'absolute', left: drag.worldX + dragOffset.x, top: drag.worldY + dragOffset.y,
                 width: CARD_W, height: CARD_H, background: tone.bg, borderRadius: 4,
-                boxShadow: '0 24px 48px rgba(0,0,0,0.18)', transform: 'rotate(-2deg) scale(1.03)',
-                zIndex: 9000, pointerEvents: 'none', overflow: 'hidden',
+                boxShadow: '0 24px 48px rgba(0,0,0,0.18)', transform: `rotate(${dragOffset.rot - 2}deg) scale(1.03)`,
+                zIndex: 9000 + drag.ids.indexOf(id), pointerEvents: 'none', overflow: 'hidden',
                 padding: '20px 22px', fontFamily: 'var(--fm)', color: tone.ink, opacity: 0.92,
               }}>
                 <div style={{ position: 'absolute', top: 0, right: 0, width: 0, height: 0, borderTop: '16px solid rgba(0,0,0,0.05)', borderLeft: '16px solid transparent' }} />
@@ -605,7 +747,7 @@ export function Desktop({
         )}
 
         {/* Select-mode overlay: captures pointer for marquee drawing */}
-        {selectMode && (
+        {selectMode && selection.size === 0 && (
           <div
             data-no-pan
             onPointerDown={onMarqueeDown}
@@ -646,6 +788,9 @@ export function Desktop({
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
             </button>
           </div>
+          <div className="select-panel__hint">
+            Drag a highlighted card to move this group into a pile or onto open space.
+          </div>
           <div className="select-panel__list">
             {Array.from(selection).map(cardId => {
               const file = fileMap[cardId];
@@ -664,9 +809,6 @@ export function Desktop({
             })}
           </div>
           <div className="select-panel__actions">
-            <button type="button" className="select-panel__btn select-panel__btn--sync" onClick={() => { /* TODO: batch sync */ }} disabled={syncing}>
-              Sync {selection.size} files
-            </button>
             <button type="button" className="select-panel__btn select-panel__btn--clear" onClick={() => { setSelection(new Set()); setSelectMode(false); }}>
               Clear
             </button>

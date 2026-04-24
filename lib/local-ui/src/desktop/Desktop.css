@@ -5,15 +5,17 @@
 
 .desktop {
   position: fixed;
-  inset: var(--hdr-h) 0 var(--sb-h) 0;
+  inset: 0;
   overflow: hidden;
-  background: #ffffff;
+  background:
+    radial-gradient(circle at 50% 18%, rgba(255,255,255,1) 0 24%, rgba(250,249,247,.9) 46%, rgba(244,243,240,.86) 100%),
+    #f7f6f3;
 }
 
 /* ─── Stage: receives wheel + pan via native pointer events ─── */
 .desktop__stage {
   position: absolute;
-  inset: 0;
+  inset: 58px 0 52px;
   overflow: hidden;
   cursor: grab;
   touch-action: none;  /* block page scroll / pinch so we can pan cleanly */
@@ -39,40 +41,40 @@
 .desktop__zoomctrls {
   position: fixed;
   left: 50%;
-  bottom: calc(var(--sb-h) + 16px);
+  bottom: 68px;
   transform: translateX(-50%);
   z-index: 42;
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 6px 6px 8px;
-  background: rgba(255, 255, 255, 0.78);
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  padding: 4px 5px 4px 7px;
+  background: rgba(255, 255, 255, 0.58);
+  backdrop-filter: blur(22px) saturate(145%);
+  -webkit-backdrop-filter: blur(22px) saturate(145%);
+  border: 1px solid rgba(26, 25, 23, 0.055);
   border-radius: 100px;
   box-shadow:
-    0 8px 24px rgba(40, 24, 8, 0.12),
-    0 1px 3px rgba(40, 24, 8, 0.06);
+    0 14px 44px rgba(22, 20, 16, 0.08),
+    0 1px 0 rgba(255,255,255,.9) inset;
   font-family: var(--fu);
 }
 
 .desktop__zoombtn {
-  height: 30px;
-  padding: 0 12px;
+  height: 27px;
+  padding: 0 11px;
   background: transparent;
   border: none;
   border-radius: 100px;
   cursor: pointer;
   font-family: var(--fu);
-  font-size: 12.5px;
+  font-size: 11.5px;
   font-weight: 500;
   color: var(--ink-2);
   transition: background var(--motion-fast), color var(--motion-fast);
 }
 .desktop__zoombtn:hover { background: rgba(40, 24, 8, 0.06); color: var(--ink); }
-.desktop__zoombtn--active { background: rgba(59, 130, 246, 0.12); color: #3b82f6; }
-.desktop__zoombtn--active:hover { background: rgba(59, 130, 246, 0.18); color: #2563eb; }
+.desktop__zoombtn--active { background: rgba(255,255,255,.92); color: var(--ink); box-shadow: 0 1px 6px rgba(22,20,16,.08); }
+.desktop__zoombtn--active:hover { background: rgba(255,255,255,.98); color: var(--ink); }
 .desktop__zoombtn--primary {
   background: var(--ink);
   color: #fff;
@@ -101,30 +103,28 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 40px;
-  padding: 0 14px;
-  background: rgba(255, 255, 255, 0.82);
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  height: 34px;
+  padding: 0 12px;
+  background: rgba(255, 255, 255, 0.58);
+  backdrop-filter: blur(22px) saturate(145%);
+  -webkit-backdrop-filter: blur(22px) saturate(145%);
+  border: 1px solid rgba(26, 25, 23, 0.055);
   cursor: pointer;
   font-family: var(--fu);
-  font-size: 12.5px;
+  font-size: 11.5px;
   font-weight: 500;
   color: var(--ink-2);
   box-shadow:
-    0 10px 26px rgba(40, 24, 8, 0.14),
-    0 1px 3px rgba(40, 24, 8, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    0 14px 44px rgba(22, 20, 16, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
   transition: background var(--motion-fast), color var(--motion-fast), transform var(--motion-fast), box-shadow var(--motion-fast);
 }
 .desktop__edgetab:hover {
   background: rgba(255, 255, 255, 0.95);
   color: var(--ink);
   box-shadow:
-    0 14px 30px rgba(40, 24, 8, 0.18),
-    0 1px 3px rgba(40, 24, 8, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    0 16px 46px rgba(22, 20, 16, 0.11),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 .desktop__edgetab--left {
   left: 0;
@@ -175,9 +175,9 @@
 /* ─── Hero text — lives in the world at the center of the layout ─── */
 .desktop__hero-title {
   font-family: 'Avenir', 'Avenir Next', system-ui, -apple-system, sans-serif;
-  font-weight: 800;
-  font-size: 64px;
-  color: #1a1a1a;
+  font-weight: 700;
+  font-size: 58px;
+  color: rgba(26, 25, 23, 0.88);
   text-align: center;
   line-height: 1.15;
   letter-spacing: -0.025em;
@@ -189,20 +189,20 @@
 /* ─── Selection panel (replaces SyncConsole when files are selected) ─── */
 .select-panel {
   position: fixed;
-  right: 16px;
-  top: calc(var(--hdr-h) + 16px);
-  bottom: calc(var(--sb-h) + 16px);
-  width: calc(25vw - 32px);
+  right: 24px;
+  top: 92px;
+  bottom: auto;
+  width: clamp(248px, 18vw, 304px);
+  max-height: calc(100vh - 180px);
   z-index: 40;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(18px) saturate(140%);
-  -webkit-backdrop-filter: blur(18px) saturate(140%);
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.42);
+  backdrop-filter: blur(26px) saturate(145%);
+  -webkit-backdrop-filter: blur(26px) saturate(145%);
+  border: 1px solid rgba(26, 25, 23, 0.055);
+  border-radius: 26px;
   box-shadow:
-    0 14px 36px rgba(40, 24, 8, 0.12),
-    0 2px 6px rgba(40, 24, 8, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    0 18px 48px rgba(22, 20, 16, 0.055),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -221,6 +221,14 @@
   font-weight: 600;
   color: #3b82f6;
   letter-spacing: -0.01em;
+}
+.select-panel__hint {
+  flex-shrink: 0;
+  padding: 0 16px 12px;
+  margin-top: -4px;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--ink-muted);
 }
 .select-panel__list {
   flex: 1;
