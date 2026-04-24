@@ -36,7 +36,8 @@
   ],
   "scripts": {
     "sync-version": "node scripts/sync-version.js",
-    "version": "npm run sync-version && git add openclaw.plugin.json moltbot.plugin.json clawdbot.plugin.json"
+    "version": "npm run sync-version && git add openclaw.plugin.json moltbot.plugin.json clawdbot.plugin.json",
+    "prepublishOnly": "node scripts/prepack-local-ui.js"
   },
   "openclaw": {
     "extensions": [

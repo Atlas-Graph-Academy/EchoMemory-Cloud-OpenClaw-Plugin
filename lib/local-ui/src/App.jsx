@@ -15,6 +15,7 @@ import {
   fetchSyncStatus,
   fetchBackendSources,
   fetchCloudMemories,
+  fetchCloudSources,
   triggerSync,
   triggerSyncSelected,
   connectSSE,
@@ -28,6 +29,7 @@ import {
   verifyAuthOtp,
 } from './sync/api';
 import { CloudMemoryLog } from './memory-log/CloudMemoryLog';
+import { clearCache as clearCloudCache, readCache as readCloudCache, writeCache as writeCloudCache } from './memory-log/cloudCache';
 import '@echomem/memory_log_ui/theme.css';
 import '@echomem/memory_log_ui/styles.css';
 import './styles/global.css';
@@ -151,6 +153,10 @@ export default function App() {
   const [canvasControls, setCanvasControls] = useState(null);
   const [cloudMemoryOpen, setCloudMemoryOpen] = useState(false);
   const [cloudMemoryStats, setCloudMemoryStats] = useState({ totalCount: 0, countWithSource: 0 });
+  const [cloudMemories, setCloudMemories] = useState([]);
+  const [cloudSources, setCloudSources] = useState([]);
+  const [cloudMemoriesLoading, setCloudMemoriesLoading] = useState(false);
+  const [cloudMemoriesError, setCloudMemoriesError] = useState(null);
 
   const serverInstanceIdRef = useRef(null);
   const clientIdRef = useRef(buildLocalUiClientId());
@@ -182,19 +188,57 @@ export default function App() {
     setBackendSources(data?.ok ? data : null);
   }, []);
 
-  const loadCloudMemoryStats = useCallback(async () => {
-    try {
-      const data = await fetchCloudMemories();
-      const totalCount = Number(data?.count);
-      const countWithSource = Number(data?.countWithSource);
-      setCloudMemoryStats({
-        totalCount: Number.isFinite(totalCount) ? totalCount : (Array.isArray(data?.data) ? data.data.length : 0),
-        countWithSource: Number.isFinite(countWithSource) ? countWithSource : 0,
-      });
-    } catch {
-      setCloudMemoryStats({ totalCount: 0, countWithSource: 0 });
+  // Stale-While-Revalidate loader for the cloud memory log.
+  //   force=false: paint from sessionStorage cache first (instant first frame),
+  //                then re-fetch and overwrite.
+  //   force=true:  skip the cache-paint; used after invalidateAndReloadCloud
+  //                clears the cache (sync-complete, refresh button, future
+  //                realtime events).
+  // Cache is scoped per userId so an account switch can't leak data.
+  const loadCloudData = useCallback(async ({ force = false } = {}) => {
+    const userId = authStatus?.userId || null;
+    if (!force) {
+      const cached = readCloudCache(userId);
+      if (cached) {
+        setCloudMemories(cached.memories);
+        setCloudSources(cached.sources);
+        setCloudMemoryStats(cached.stats);
+      }
     }
-  }, []);
+    setCloudMemoriesLoading(true);
+    setCloudMemoriesError(null);
+    try {
+      const [memResult, srcResult] = await Promise.all([
+        fetchCloudMemories(),
+        fetchCloudSources(),
+      ]);
+      const memories = Array.isArray(memResult?.data) ? memResult.data : [];
+      const sources = Array.isArray(srcResult?.data) ? srcResult.data : [];
+      const parsedTotal = Number(memResult?.count);
+      const parsedWithSource = Number(memResult?.countWithSource);
+      const stats = {
+        totalCount: Number.isFinite(parsedTotal) ? parsedTotal : memories.length,
+        countWithSource: Number.isFinite(parsedWithSource) ? parsedWithSource : 0,
+      };
+      setCloudMemories(memories);
+      setCloudSources(sources);
+      setCloudMemoryStats(stats);
+      writeCloudCache(userId, { memories, sources, stats });
+    } catch (err) {
+      setCloudMemoriesError(err?.message || 'Failed to load memories');
+    } finally {
+      setCloudMemoriesLoading(false);
+    }
+  }, [authStatus?.userId]);
+
+  // Invalidation hook — call whenever server state is known to have changed
+  // (sync finished, user pressed refresh, future realtime events). Clears
+  // the cache then forces a fresh fetch. Idempotent.
+  const invalidateAndReloadCloud = useCallback(() => {
+    const userId = authStatus?.userId || null;
+    clearCloudCache(userId);
+    return loadCloudData({ force: true });
+  }, [authStatus?.userId, loadCloudData]);
 
   const loadSetupStatus = useCallback(async () => {
     const data = await fetchSetupStatus();
@@ -448,10 +492,14 @@ export default function App() {
     if (!isConnected) {
       setCloudMemoryOpen(false);
       setCloudMemoryStats({ totalCount: 0, countWithSource: 0 });
+      setCloudMemories([]);
+      setCloudSources([]);
+      setCloudMemoriesError(null);
+      setCloudMemoriesLoading(false);
       return;
     }
-    loadCloudMemoryStats();
-  }, [isConnected, loadCloudMemoryStats]);
+    loadCloudData();
+  }, [isConnected, loadCloudData]);
 
   const pluginVersion = pluginPkg?.version || '';
   const canTriggerPluginUpdate = Boolean(
@@ -520,6 +568,7 @@ export default function App() {
   }, [readingGroup]);
 
   const handleSync = useCallback(async () => {
+    setCloudMemoryOpen(false);
     setSyncing(true);
     setSyncResult(null);
     setSyncProgress(null);
@@ -532,7 +581,7 @@ export default function App() {
       setSyncResult(nextResult);
       loadSyncStatus();
       loadBackendSources();
-      loadCloudMemoryStats();
+      invalidateAndReloadCloud();
       if (nextResult.ok) {
         setJustSynced(true);
         window.setTimeout(() => setJustSynced(false), 1200);
@@ -542,10 +591,11 @@ export default function App() {
     } finally {
       setSyncing(false);
     }
-  }, [loadBackendSources, loadCloudMemoryStats, loadSyncStatus]);
+  }, [loadBackendSources, invalidateAndReloadCloud, loadSyncStatus]);
 
   const handleSyncFile = useCallback(async (relativePath) => {
     if (!relativePath || syncing) return;
+    setCloudMemoryOpen(false);
     setSyncing(true);
     setSyncResult(null);
     setSyncProgress(null);
@@ -557,17 +607,18 @@ export default function App() {
       setSyncResult(nextResult);
       loadSyncStatus();
       loadBackendSources();
-      loadCloudMemoryStats();
+      invalidateAndReloadCloud();
     } catch (error) {
       setSyncResult({ ok: false, msg: String(error?.message || 'Sync failed') });
     } finally {
       setSyncing(false);
     }
-  }, [loadBackendSources, loadCloudMemoryStats, loadSyncStatus, syncing]);
+  }, [loadBackendSources, invalidateAndReloadCloud, loadSyncStatus, syncing]);
 
   const handleSyncSelected = useCallback(async (relativePaths) => {
     const paths = Array.isArray(relativePaths) ? relativePaths.filter(Boolean) : [];
     if (paths.length === 0 || syncing) return;
+    setCloudMemoryOpen(false);
     setSyncing(true);
     setSyncResult(null);
     setSyncProgress(null);
@@ -579,13 +630,13 @@ export default function App() {
       setSyncResult(nextResult);
       loadSyncStatus();
       loadBackendSources();
-      loadCloudMemoryStats();
+      invalidateAndReloadCloud();
     } catch (error) {
       setSyncResult({ ok: false, msg: String(error?.message || 'Sync failed') });
     } finally {
       setSyncing(false);
     }
-  }, [loadBackendSources, loadCloudMemoryStats, loadSyncStatus, syncing]);
+  }, [loadBackendSources, invalidateAndReloadCloud, loadSyncStatus, syncing]);
 
   const handleSetupFieldChange = useCallback((key, value) => {
     setSetupDraft((prev) => ({ ...prev, [key]: value }));
@@ -784,6 +835,23 @@ export default function App() {
   }, []);
 
   const lastSyncLabel = timeAgo(syncStatus?.lastSyncAt);
+  const canvasHeaderControls = useMemo(() => {
+    if (!canvasControls) return null;
+    return {
+      ...canvasControls,
+      actions: {
+        ...canvasControls.actions,
+        toggleSync: () => {
+          setCloudMemoryOpen(false);
+          canvasControls.actions?.toggleSync?.();
+        },
+        toggleSelect: () => {
+          setCloudMemoryOpen(false);
+          canvasControls.actions?.toggleSelect?.();
+        },
+      },
+    };
+  }, [canvasControls]);
 
   return (
     <div className={`app-shell${isConnected && cloudMemoryOpen ? ' is-cloud-open' : ''}`}>
@@ -796,14 +864,18 @@ export default function App() {
         cloudMemoryOpen={cloudMemoryOpen}
         cloudMemoryCount={cloudMemoryStats.totalCount}
         newMemoryCount={totalStreamedCount}
-        canvasControls={readingPath ? null : canvasControls}
+        canvasControls={readingPath ? null : canvasHeaderControls}
         onCloudMemoryClick={() => {
           if (!isConnected) {
             setSettingsOpen(true);
             return;
           }
-          setCloudMemoryOpen((open) => !open);
-          loadCloudMemoryStats();
+          setCloudMemoryOpen((open) => {
+            // Opening the panel = user acknowledged the pending new-memory
+            // badge; clear it. (Closing the panel leaves it at zero, same.)
+            if (!open) setTotalStreamedCount(0);
+            return !open;
+          });
         }}
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenArchive={(filter) => {
@@ -837,8 +909,15 @@ export default function App() {
         {isConnected && cloudMemoryOpen && (
           <aside className="app-memory-log" aria-label="Cloud memory log">
             <CloudMemoryLog
-              isConnected={isConnected}
-              onStatsChange={setCloudMemoryStats}
+              isAuthenticated={isConnected}
+              memories={cloudMemories}
+              sources={cloudSources}
+              loading={cloudMemoriesLoading}
+              error={cloudMemoriesError}
+              totalCount={cloudMemoryStats.totalCount}
+              countWithSource={cloudMemoryStats.countWithSource}
+              onRefresh={invalidateAndReloadCloud}
+              onClose={() => setCloudMemoryOpen(false)}
             />
           </aside>
         )}
@@ -941,9 +1020,11 @@ export default function App() {
         streamedMemories={streamedMemories}
         totalStreamedCount={totalStreamedCount}
         onDismiss={() => {
+          // Theater dismiss only tears down the theater itself — the
+          // "+N new memories" badge on the header stays lit until the
+          // user opens the cloud memory panel (see onCloudMemoryClick).
           setSyncProgress(null);
           setStreamedMemories([]);
-          setTotalStreamedCount(0);
         }}
         onOpenTimeline={() => {
           window.open('https://iditor.com/memories/timeline?mode=photo-first', '_blank', 'noopener,noreferrer');
