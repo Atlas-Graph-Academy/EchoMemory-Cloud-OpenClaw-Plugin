@@ -15,6 +15,7 @@ import {
   fetchSyncStatus,
   fetchBackendSources,
   triggerSync,
+  triggerSyncSelected,
   connectSSE,
   fetchSetupStatus,
   fetchPluginUpdateStatus,
@@ -492,6 +493,26 @@ export default function App() {
     }
   }, [loadBackendSources, loadSyncStatus]);
 
+  const handleSyncFile = useCallback(async (relativePath) => {
+    if (!relativePath || syncing) return;
+    setSyncing(true);
+    setSyncResult(null);
+    setSyncProgress(null);
+    setStreamedMemories([]);
+    setTotalStreamedCount(0);
+    try {
+      const result = await triggerSyncSelected([relativePath]);
+      const nextResult = buildSyncResultState(result);
+      setSyncResult(nextResult);
+      loadSyncStatus();
+      loadBackendSources();
+    } catch (error) {
+      setSyncResult({ ok: false, msg: String(error?.message || 'Sync failed') });
+    } finally {
+      setSyncing(false);
+    }
+  }, [loadBackendSources, loadSyncStatus, syncing]);
+
   const handleSetupFieldChange = useCallback((key, value) => {
     setSetupDraft((prev) => ({ ...prev, [key]: value }));
   }, []);
@@ -730,6 +751,10 @@ export default function App() {
             path={readingPath}
             content={readingContent ?? contentMap?.get?.(readingPath) ?? null}
             file={readingFile}
+            syncStatus={syncMap?.[readingPath]}
+            isConnected={isConnected}
+            syncing={syncing}
+            onSyncFile={handleSyncFile}
             onSave={handleReadingSave}
             onClose={() => {
               setReadingPath(null);

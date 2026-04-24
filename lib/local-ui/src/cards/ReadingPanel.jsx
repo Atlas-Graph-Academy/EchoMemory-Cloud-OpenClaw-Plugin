@@ -151,7 +151,18 @@ function WarningNotice({ file }) {
   );
 }
 
-export function ReadingPanel({ path, content, file, onClose, onSave, onboardingActive = false }) {
+export function ReadingPanel({
+  path,
+  content,
+  file,
+  syncStatus,
+  isConnected,
+  syncing,
+  onSyncFile,
+  onClose,
+  onSave,
+  onboardingActive = false,
+}) {
   const [isEditing, setIsEditing] = useState(false);
   const [draftContent, setDraftContent] = useState('');
   const [saveBusy, setSaveBusy] = useState(false);
@@ -217,6 +228,24 @@ export function ReadingPanel({ path, content, file, onClose, onSave, onboardingA
             {'<-'}
           </button>
           <div className="rp-title">{displayName}</div>
+          {syncStatus === 'synced' ? (
+            <span className="rp-sync-pill rp-sync-pill--synced" aria-label="File is synced to Echo">
+              <svg width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                <path d="M2.5 6.2l2.3 2.3 4.7-4.8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Synced
+            </span>
+          ) : syncStatus !== 'sealed' && typeof onSyncFile === 'function' ? (
+            <button
+              type="button"
+              className="rp-sync-pill rp-sync-pill--pending"
+              onClick={() => onSyncFile(path)}
+              disabled={!isConnected || syncing}
+              title={!isConnected ? 'Connect to Echo to sync' : 'Sync this file to Echo'}
+            >
+              {syncing ? 'Syncing…' : 'Sync'}
+            </button>
+          ) : null}
           {typeof onSave === 'function' && isContentReady && !isEditing && (
             <button type="button" className="rp-action-btn" data-tour={onboardingActive ? 'reading-edit' : undefined} onClick={() => setIsEditing(true)}>
               Edit
