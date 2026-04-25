@@ -21,6 +21,9 @@ export function Header({
   const memoryLabel = isConnected
     ? `${memoryCount.toLocaleString()} ${memoryCount === 1 ? 'memory' : 'memories'}`
     : null;
+  const connectionLabel = isConnected
+    ? (authLabel || 'Connected')
+    : 'Local mode';
 
   return (
     <header className="hdr">
@@ -91,7 +94,8 @@ export function Header({
           aria-label={isConnected ? `Echo Cloud connected, ${memoryLabel}` : 'Connect to Echo Cloud'}
         >
           <div className="conn-dot" />
-          <span>{authLabel || (isConnected ? 'Connected' : 'Local-only')}</span>
+          <span>{connectionLabel}</span>
+          {!isConnected && <span className="conn-cta">Connect Echo</span>}
           {memoryLabel && <span className="conn-meta">{memoryLabel}</span>}
           {freshCount > 0 && <span className="conn-badge">+{freshCount}</span>}
         </button>

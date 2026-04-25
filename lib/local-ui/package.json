@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@echomem/memory_log_ui": "file:../../../EchoMemory_log/packages/memory_log_ui",
+    "@rive-app/react-canvas": "^4.28.2",
     "framer-motion": "^12.38.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

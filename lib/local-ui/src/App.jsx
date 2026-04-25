@@ -37,6 +37,7 @@ import pluginPkg from '../../../package.json';
 
 const UI_HEARTBEAT_INTERVAL_MS = 15000;
 const OTP_LENGTH = 6;
+const OTP_RESEND_SECONDS = 120;
 
 function normalizeEmailValue(value) {
   return String(value || '').trim().toLowerCase();
@@ -710,7 +711,7 @@ export default function App() {
       await sendAuthOtp(email);
       setConnectEmail(email);
       clearOtpDigits();
-      setResendCountdown(30);
+      setResendCountdown(OTP_RESEND_SECONDS);
       setEmailConnectState('otp_sent');
       window.requestAnimationFrame(() => focusOtpInput(0));
     } catch (error) {
@@ -904,6 +905,7 @@ export default function App() {
             onSync={handleSync}
             onSyncSelected={handleSyncSelected}
             onOpenCard={openReadingFor}
+            onOpenSettings={() => setSettingsOpen(true)}
           />
         </div>
         {isConnected && cloudMemoryOpen && (

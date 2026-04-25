@@ -1,6 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
 import './SettingsModal.css';
 
+const ECHO_PLATFORM_ICONS = [
+  { label: 'OpenClaw', src: '/assets/platform_icons/OpenClaw-Logo.png' },
+  { label: 'ChatGPT', src: '/assets/platform_icons/ChatGPT-Logo.png' },
+  { label: 'Claude', src: '/assets/platform_icons/Claude-Logo.png' },
+  { label: 'Gemini', src: '/assets/platform_icons/Gemini-Logo.png' },
+  { label: 'Perplexity', src: '/assets/platform_icons/Perplexity-Logo.png' },
+  { label: 'DeepSeek', src: '/assets/platform_icons/DeepSeek-Logo.png' },
+];
+
 /**
  * SettingsModal — a single, discoverable home for all backend config
  * that the old permanent left sidebar used to host.
@@ -64,7 +73,7 @@ export function SettingsModal({
   timeAgo,
 }) {
   const [expanded, setExpanded] = useState({
-    config: true,
+    config: false,
     updates: false,
   });
 
@@ -86,6 +95,11 @@ export function SettingsModal({
   if (!open) return null;
 
   const showConnect = !isConnected;
+  const isOtpStep = emailConnectState === 'otp_sent' || emailConnectState === 'verifying';
+  const title = showConnect ? 'Connect Echo Memory' : 'Echo Settings';
+  const subtitle = showConnect
+    ? 'Yours by default. Private by design.'
+    : 'Echo Cloud is connected. Local controls are available below.';
   const toggle = (key) => setExpanded((p) => ({ ...p, [key]: !p[key] }));
 
   return (
@@ -101,27 +115,24 @@ export function SettingsModal({
       >
         <header className="settings-head">
           <div className="settings-head__main">
-            <h2 className="settings-title">Settings</h2>
-            <div className="settings-status">
-              <span className={`settings-pill ${isConnected ? 'settings-pill--ok' : ''}`}>
-                {authLabel || (isConnected ? 'Connected' : 'Local-only')}
-              </span>
-              {hasApiKey && (
-                <>
-                  <button
-                    type="button"
-                    className="settings-disconnect"
-                    disabled={setupSaving || disconnecting}
-                    onClick={onDisconnect}
-                  >
-                    {disconnecting ? 'Disconnecting…' : 'Disconnect'}
-                  </button>
-                  <span className="settings-status__hint">
-                    You can reconnect any time with the same email — your memories stay local.
-                  </span>
-                </>
-              )}
-            </div>
+            {showConnect ? (
+              <>
+                <p className="settings-eyebrow-title">{title}</p>
+                <h2 className="settings-title settings-title--hero">{subtitle}</h2>
+              </>
+            ) : (
+              <>
+                <h2 className="settings-title">{title}</h2>
+                <p className="settings-subtitle">{subtitle}</p>
+              </>
+            )}
+            {!showConnect && (
+              <div className="settings-status">
+                <span className="settings-pill settings-pill--ok">
+                  {authLabel || 'Connected'}
+                </span>
+              </div>
+            )}
           </div>
           <button type="button" className="settings-close" onClick={onClose} aria-label="Close settings">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
@@ -130,43 +141,73 @@ export function SettingsModal({
           </button>
         </header>
 
-        <div className="settings-body">
+        <div className={`settings-body ${isOtpStep ? 'settings-body--otp' : ''}`}>
           {/* ─── Connect (OTP) ─── */}
           {showConnect && (
-            <section className="settings-card">
-              <h3 className="settings-card__title">Connect to Echo Cloud</h3>
-              <p className="settings-card__blurb">
-                One memory layer across all your AI tools. Enter your email — we send a code, you're in.
-              </p>
+            <section className={`settings-auth ${isOtpStep ? 'settings-auth--otp' : ''}`} data-tour="email-connect">
+              <div className="settings-auth__copy">
+                <ul className="settings-auth__bullets">
+                  <li>
+                    <strong>100% private</strong>
+                    <span>when end-to-end encryption is enabled.</span>
+                  </li>
+                  <li>
+                    <strong>All in one</strong>
+                    <span className="settings-platform-icons" aria-label="Supported AI tools">
+                      {ECHO_PLATFORM_ICONS.map((platform) => (
+                        <span key={platform.label} className="settings-platform-icon" title={platform.label}>
+                          <img src={platform.src} alt="" aria-hidden="true" />
+                        </span>
+                      ))}
+                    </span>
+                  </li>
+                  <li>
+                    <strong>Publish to communities</strong>
+                    <span>Make friends with your real moments.</span>
+                  </li>
+                </ul>
+              </div>
 
               {(emailConnectState === 'idle' || emailConnectState === 'sending') && (
-                <div className="settings-row">
-                  <input
-                    type="email"
-                    className="settings-input"
-                    value={connectEmail || ''}
-                    placeholder="you@example.com"
-                    autoComplete="email"
-                    disabled={emailConnectState === 'sending'}
-                    onChange={(e) => onConnectEmailChange?.(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter' && connectEmail) onSendOtp?.(); }}
-                  />
-                  <button
-                    type="button"
-                    className="sync-cta settings-send"
-                    disabled={emailConnectState === 'sending' || !connectEmail}
-                    onClick={onSendOtp}
-                  >
-                    {emailConnectState === 'sending' ? 'Sending…' : 'Get code →'}
-                  </button>
+                <div className="settings-email-field">
+                  <p className="settings-terms">
+                    By continuing, you agree to Echo's{' '}
+                    <a href="https://www.iditor.com/terms-of-use" target="_blank" rel="noopener noreferrer">
+                      Terms of Use
+                    </a>.
+                  </p>
+                  <div className="settings-email-row">
+                    <input
+                      type="email"
+                      className="settings-input"
+                      value={connectEmail || ''}
+                      placeholder="Your email"
+                      autoComplete="email"
+                      aria-label="Your email"
+                      disabled={emailConnectState === 'sending'}
+                      onChange={(e) => onConnectEmailChange?.(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' && connectEmail) onSendOtp?.(); }}
+                    />
+                    <button
+                      type="button"
+                      className="settings-primary settings-send"
+                      disabled={emailConnectState === 'sending' || !connectEmail}
+                      onClick={onSendOtp}
+                    >
+                      {emailConnectState === 'sending' ? 'Sending…' : 'Continue'}
+                    </button>
+                  </div>
                 </div>
               )}
 
-              {(emailConnectState === 'otp_sent' || emailConnectState === 'verifying') && (
+              {isOtpStep && (
                 <div className="settings-otp">
-                  <p className="settings-otp__label">
-                    Enter the 6-digit code sent to <strong>{connectEmail}</strong>
-                  </p>
+                  <div className="settings-otp__head">
+                    <span className="settings-otp__title">Code</span>
+                    <p className="settings-otp__label">
+                      Sent to <strong>{connectEmail}</strong>
+                    </p>
+                  </div>
                   <div className="settings-otp__row">
                     <div className="settings-otp__grid" onPaste={onOtpPaste}>
                       {otpDigits?.map((digit, index) => (
@@ -186,15 +227,15 @@ export function SettingsModal({
                         />
                       ))}
                     </div>
-                    <button
-                      type="button"
-                      className="sync-cta"
-                      disabled={emailConnectState === 'verifying' || (otpValue?.length ?? 0) < (otpLength ?? 6)}
-                      onClick={onVerifyOtp}
-                    >
-                      {emailConnectState === 'verifying' ? 'Verifying…' : 'Verify →'}
-                    </button>
                   </div>
+                  <button
+                    type="button"
+                    className="settings-primary settings-otp__verify"
+                    disabled={emailConnectState === 'verifying' || (otpValue?.length ?? 0) < (otpLength ?? 6)}
+                    onClick={onVerifyOtp}
+                  >
+                    {emailConnectState === 'verifying' ? 'Verifying…' : 'Verify'}
+                  </button>
                   <div className="settings-otp__actions">
                     {resendCountdown > 0 ? (
                       <span className="settings-hint">Resend in {resendCountdown}s</span>
@@ -209,6 +250,53 @@ export function SettingsModal({
               )}
 
               {connectError && <p className="settings-msg settings-msg--error">{connectError}</p>}
+
+              {hasApiKey && (
+                <div className="settings-connected-actions">
+                  <span>There is already a saved Echo key on this machine.</span>
+                  <button
+                    type="button"
+                    className="settings-disconnect"
+                    disabled={setupSaving || disconnecting}
+                    onClick={onDisconnect}
+                  >
+                    {disconnecting ? 'Clearing…' : 'Clear saved key'}
+                  </button>
+                </div>
+              )}
+            </section>
+          )}
+
+          {!showConnect && (
+            <section className="settings-hero settings-hero--connected">
+              <div className="settings-hero__intro">
+                <span className="settings-eyebrow">Connected</span>
+                <h3>Your OpenClaw memories can sync to Echo Cloud.</h3>
+                <p>
+                  Echo keeps them in one end-to-end encrypted memory network across OpenClaw,
+                  ChatGPT, Claude, Gemini, Perplexity, DeepSeek and more.
+                </p>
+              </div>
+              <div className="settings-platforms" aria-label="Echo memory network">
+                {ECHO_PLATFORM_ICONS.map((platform) => (
+                  <span key={platform.label} className="settings-platform-icon" title={platform.label}>
+                    <img src={platform.src} alt="" aria-hidden="true" />
+                  </span>
+                ))}
+              </div>
+              {hasApiKey && (
+                <div className="settings-connected-actions">
+                  <span>Your memories stay local if you disconnect. You can reconnect any time with the same email.</span>
+                  <button
+                    type="button"
+                    className="settings-disconnect"
+                    disabled={setupSaving || disconnecting}
+                    onClick={onDisconnect}
+                  >
+                    {disconnecting ? 'Disconnecting…' : 'Disconnect'}
+                  </button>
+                </div>
+              )}
             </section>
           )}
 
@@ -216,14 +304,20 @@ export function SettingsModal({
           <section className="settings-card settings-card--collapsible">
             <button
               type="button"
-              className="settings-card__toggle"
-              aria-expanded={expanded.config}
-              onClick={() => toggle('config')}
+              className={`settings-card__toggle ${showConnect ? 'settings-card__toggle--disabled' : ''}`}
+              aria-expanded={!showConnect && expanded.config}
+              disabled={showConnect}
+              onClick={() => {
+                if (!showConnect) toggle('config');
+              }}
             >
-              <span>Configuration</span>
+              <span className="settings-card__toggle-copy">
+                <span>Advanced local settings</span>
+                <small>API key, memory folder, autosync, timeouts.</small>
+              </span>
               <span className={`settings-chevron ${expanded.config ? 'settings-chevron--open' : ''}`}>▸</span>
             </button>
-            {expanded.config && (
+            {!showConnect && expanded.config && (
               <div className="settings-card__body">
                 <label className="settings-field">
                   <span>Echo API key</span>
@@ -235,9 +329,7 @@ export function SettingsModal({
                     onChange={(e) => onSetupFieldChange?.('apiKey', e.target.value)}
                   />
                   <small>
-                    Auto-saved to <code>~/.openclaw/.env</code> when you connect with email.
-                    To rotate: disconnect above, then reconnect — a fresh key is issued each time.
-                    Or paste one from{' '}
+                    Usually handled by Echo login. Paste a key only if you need a manual override from{' '}
                     <a href="https://iditor.com/account/api-keys" target="_blank" rel="noopener noreferrer">
                       iditor.com/account/api-keys ↗
                     </a>.
@@ -257,7 +349,6 @@ export function SettingsModal({
                   />
                   <small>
                     Folder Echo scans for markdown memories. Defaults to <code>~/.openclaw/workspace/memory</code>.
-                    Drop new <code>.md</code> files here and they'll show up in the dashboard automatically.
                   </small>
                   <small className="settings-field__source">
                     Source: {formatSourceLabel?.(setupState?.fields?.memoryDir, setupState) || '—'}
@@ -272,7 +363,7 @@ export function SettingsModal({
                   />
                   <div>
                     <span>Autosync</span>
-                    <small>Scan the memory directory and sync changed files on a schedule.</small>
+                    <small>Scan and sync changed files on a schedule.</small>
                   </div>
                 </label>
 
@@ -323,7 +414,7 @@ export function SettingsModal({
                   <div>
                     <span>Echo-only memory retrieval</span>
                     <small>
-                      Steer retrieval to <code>echo_memory_search</code> when cloud mode is available. Requires connected state.
+                      Use <code>echo_memory_search</code> when cloud mode is available.
                     </small>
                   </div>
                 </label>
@@ -347,14 +438,17 @@ export function SettingsModal({
           <section className="settings-card settings-card--collapsible">
             <button
               type="button"
-              className="settings-card__toggle"
-              aria-expanded={expanded.updates}
-              onClick={() => toggle('updates')}
+              className={`settings-card__toggle ${showConnect ? 'settings-card__toggle--disabled' : ''}`}
+              aria-expanded={!showConnect && expanded.updates}
+              disabled={showConnect}
+              onClick={() => {
+                if (!showConnect) toggle('updates');
+              }}
             >
               <span>Plugin updates</span>
               <span className={`settings-chevron ${expanded.updates ? 'settings-chevron--open' : ''}`}>▸</span>
             </button>
-            {expanded.updates && (
+            {!showConnect && expanded.updates && (
               <div className="settings-card__body">
                 <div className="settings-version">
                   <div className="settings-version__row">

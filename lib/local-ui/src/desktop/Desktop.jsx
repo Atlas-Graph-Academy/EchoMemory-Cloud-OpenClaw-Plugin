@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback, memo } from 'react';
-import { motion, animate } from 'framer-motion';
+import { motion, animate, useTransform } from 'framer-motion';
 import { useCamera } from './useCamera';
 import { TreePanel } from './TreePanel';
 import { SyncConsole } from './SyncConsole';
+import { EchoMemoryGuide } from './EchoMemoryGuide';
+import { EchoStatusTrio } from './EchoStatusTrio';
 import { fetchCanvasLayout, saveCanvasLayout } from '../sync/api';
 import './Desktop.css';
 
@@ -462,7 +464,7 @@ const StackView = memo(function StackView({
 export function Desktop({
   files, syncMap, contentMap, cardSyncState,
   syncing, canSync, isConnected, lastSyncLabel,
-  onSync, onSyncSelected, onOpenCard, onCanvasControlsChange,
+  onSync, onSyncSelected, onOpenCard, onCanvasControlsChange, onOpenSettings,
 }) {
   const stageRef = useRef(null);
   const lockYRef = useRef(false);
@@ -618,6 +620,15 @@ export function Desktop({
     drag?.ids?.length ? new Set(drag.ids) : EMPTY_ID_SET
   ), [drag?.ids]);
   const stackList = useMemo(() => Object.values(stacks), [stacks]);
+  const heroWorldAnchor = useMemo(() => {
+    const b = heroAnchor ? null : stackBounds(stacks);
+    return {
+      x: heroAnchor?.x ?? (b ? (b.minX + b.maxX) / 2 : 0),
+      y: heroAnchor?.y ?? (b ? (b.minY + b.maxY) / 2 : 0),
+    };
+  }, [heroAnchor, stacks]);
+  const heroScreenX = useTransform([cameraX, cameraScale], ([x, scale]) => x + heroWorldAnchor.x * scale);
+  const heroScreenY = useTransform([cameraY, cameraScale], ([y, scale]) => y + heroWorldAnchor.y * scale);
   const selectionRef = useRef(selection);
   const dragRef = useRef(drag);
   const sDragRef = useRef(sDrag);
@@ -995,20 +1006,21 @@ export function Desktop({
       </div>
 
       <div className="desktop__stage" ref={stageRef}>
+        <motion.div
+          className={`desktop__hero-overlay ${isConnected ? 'is-connected' : 'is-local'}`}
+          style={{ x: heroScreenX, y: heroScreenY, scale: cameraScale }}
+          data-no-pan
+        >
+          <div className="desktop__hero-overlay-inner">
+            {isConnected ? (
+              <EchoStatusTrio />
+            ) : (
+              <EchoMemoryGuide onConnect={onOpenSettings} />
+            )}
+          </div>
+        </motion.div>
+
         <motion.div className="desktop__world" style={{ x: cameraX, y: cameraY, scale: cameraScale, transformOrigin: '0 0' }}>
-
-          {/* Hero text — world-space anchor at the center of the layout */}
-          {(() => {
-            const b = heroAnchor ? null : stackBounds(stacks);
-            const cx = heroAnchor?.x ?? (b ? (b.minX + b.maxX) / 2 : 0);
-            const cy = heroAnchor?.y ?? (b ? (b.minY + b.maxY) / 2 : 0);
-            return (
-              <div className="desktop__hero" style={{ position: 'absolute', left: cx, top: cy, transform: 'translate(-50%, -50%)', zIndex: 0, pointerEvents: 'none' }}>
-                <h1 className="desktop__hero-title">Select markdown.<br/>Save to Echo.</h1>
-              </div>
-            );
-          })()}
-
           {stackList.map((stack) => (
             <StackView
               key={stack.id}
