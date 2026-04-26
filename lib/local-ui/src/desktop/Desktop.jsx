@@ -18,10 +18,12 @@ const ABSORB_W = 320;
 const ABSORB_H = 400;
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
+/* Sticky-note tones — bound to Echo Design System --echo-note-* values.
+ * Keep literal hex here (inline styles can't resolve var()). */
 const TONE = {
-  private: { bg: '#fbeeee', ink: '#7a3b3b', accent: '#c45a5a', stamp: 'PRIVATE' },
-  ready:   { bg: '#f8f4ea', ink: '#3d3a33', accent: '#7a7060', stamp: null },
-  synced:  { bg: '#e8f3eb', ink: '#2f5a40', accent: '#3e8f5e', stamp: 'SYNCED' },
+  private: { bg: '#F5D5D5', ink: '#1a1a1a', accent: '#C7372F', stamp: 'PRIVATE' },
+  ready:   { bg: '#DCEFD9', ink: '#1a1a1a', accent: '#6b6b6b', stamp: null },
+  synced:  { bg: '#DDE6F5', ink: '#1a1a1a', accent: '#1a3a8f', stamp: 'SYNCED' },
 };
 
 /* ── Helpers ────────────────────────────────────────────── */

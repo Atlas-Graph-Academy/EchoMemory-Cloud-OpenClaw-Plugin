@@ -1,37 +1,39 @@
+/* =========================================================
+ * Echo Memory · Header (Memory Atelier · floating pill chrome)
+ * Mirrors V1 landing-hud.png — single floating pill with
+ * wordmark · search · canvas chips · connection · archive · ⚙️.
+ * ========================================================= */
+
 .hdr {
   position: fixed;
-  top: 14px;
+  top: 16px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 60;
+  z-index: var(--echo-z-overlay);
   width: min(1360px, calc(100vw - 48px));
-  height: 44px;
+  height: 48px;
   display: flex;
   align-items: center;
-  padding: 0 8px 0 14px;
-  gap: 12px;
-  /* The bounding rect of .hdr must not intercept clicks over empty
-     pill area — only interactive children should. */
+  padding: 0 var(--echo-sp-2) 0 var(--echo-sp-4);
+  gap: var(--echo-sp-3);
+  /* Empty pill area must not block clicks under the floating chrome. */
   pointer-events: none;
   background: transparent;
   border: none;
   box-shadow: none;
 }
 
-/* Pill surface rendered as a pseudo-element so it's purely visual and
-   can't swallow pointer events over the empty space between buttons. */
+/* The pill surface — visual only. */
 .hdr::before {
   content: '';
   position: absolute;
   inset: 0;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.74);
-  backdrop-filter: blur(24px) saturate(150%);
-  -webkit-backdrop-filter: blur(24px) saturate(150%);
-  border: 1px solid rgba(26, 25, 23, 0.055);
-  box-shadow:
-    0 18px 55px rgba(22, 20, 16, 0.075),
-    0 1px 0 rgba(255, 255, 255, 0.92) inset;
+  border-radius: var(--r-pill);
+  background: var(--echo-glass-bg);
+  backdrop-filter: blur(var(--echo-glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--echo-glass-blur)) saturate(150%);
+  border: 1px solid var(--echo-glass-border);
+  box-shadow: var(--sh-glass);
   pointer-events: none;
   z-index: -1;
 }
@@ -41,14 +43,15 @@
   position: relative;
 }
 
+/* ---------------- Wordmark ---------------- */
 .logo {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--echo-sp-2);
   font-family: var(--fd);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
-  letter-spacing: -0.015em;
+  letter-spacing: var(--echo-ls-snug);
   color: var(--ink);
   text-decoration: none;
   white-space: nowrap;
@@ -58,247 +61,262 @@
 .logo-mark {
   width: 22px;
   height: 22px;
-  background:
-    radial-gradient(circle at 50% 50%, rgba(255,255,255,.95) 0 18%, transparent 19%),
-    conic-gradient(from 0deg, #111, #8f8b84, #111);
-  border-radius: 999px;
+  background: var(--navy);
+  border-radius: var(--echo-r-circle);
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  box-shadow: 0 1px 6px rgba(0,0,0,.12);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 2px 6px rgba(26, 58, 143, 0.32);
 }
 
+/* ---------------- Search ---------------- */
 .search-wrap {
   flex: 1;
-  max-width: 230px;
+  max-width: 260px;
   position: relative;
 }
 .search-wrap input {
   width: 100%;
-  height: 30px;
-  background: rgba(248, 247, 244, 0.64);
-  border: 1px solid rgba(26, 25, 23, 0.055);
-  border-radius: 100px;
-  padding: 0 12px 0 31px;
+  height: 32px;
+  background: var(--echo-glass-bg);
+  border: 1px solid var(--echo-glass-border);
+  border-radius: var(--r-pill);
+  padding: 0 var(--echo-sp-3) 0 var(--echo-sp-7);
   font-family: var(--fu);
-  font-size: 11.5px;
+  font-size: 12.5px;
+  letter-spacing: var(--echo-ls-snug);
   color: var(--ink);
   outline: none;
-  transition: border-color var(--motion-fast), box-shadow var(--motion-fast), background var(--motion-fast);
+  transition:
+    border-color var(--motion-fast) var(--ease-out),
+    box-shadow var(--motion-fast) var(--ease-out),
+    background var(--motion-fast) var(--ease-out);
 }
 .search-wrap input:focus {
-  background: rgba(255, 255, 255, 0.92);
-  border-color: rgba(26, 25, 23, 0.16);
-  box-shadow: 0 8px 22px rgba(22, 20, 16, 0.07);
+  background: var(--echo-glass-bg-hover);
+  border-color: var(--echo-glass-border-strong);
+  box-shadow: var(--echo-shadow-focus);
 }
 .search-wrap input::placeholder { color: var(--ink-faint); }
 .search-ico {
   position: absolute;
-  left: 10px;
+  left: 14px;
   top: 50%;
   transform: translateY(-50%);
   pointer-events: none;
-  opacity: .72;
+  color: var(--ink-faint);
 }
 
 .hdr-gap { flex: 1; }
 
+/* ---------------- Canvas chip group (Directory / Sync) ---------------- */
 .hdr-canvas {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--echo-sp-1);
   padding: 3px;
-  border-radius: 999px;
-  background:
-    linear-gradient(135deg, rgba(255,255,255,.62), rgba(255,255,255,.24)),
-    rgba(248, 247, 244, 0.42);
-  border: 1px solid rgba(255,255,255,.56);
-  box-shadow:
-    0 10px 24px rgba(22, 20, 16, 0.045),
-    inset 0 1px 0 rgba(255,255,255,.8);
+  border-radius: var(--r-pill);
+  background: var(--echo-glass-bg);
+  border: 1px solid var(--echo-glass-border);
+  box-shadow: var(--sh-glass);
 }
 
 .hdr-canvas__btn {
-  height: 28px;
+  height: 30px;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 0 9px;
+  gap: var(--echo-sp-1);
+  padding: 0 var(--echo-sp-3);
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: transparent;
-  color: rgba(26, 25, 23, 0.58);
+  color: var(--ink-muted);
   cursor: pointer;
   font-family: var(--fu);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: -0.005em;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: var(--echo-ls-snug);
   white-space: nowrap;
   transition:
-    background var(--motion-fast),
-    border-color var(--motion-fast),
-    color var(--motion-fast),
-    box-shadow var(--motion-fast),
-    transform var(--motion-fast);
+    background var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out),
+    box-shadow var(--motion-fast) var(--ease-out),
+    transform var(--motion-fast) var(--ease-out);
 }
 
 .hdr-canvas__btn:hover {
-  background: rgba(255,255,255,.74);
+  background: var(--echo-glass-bg-hover);
   color: var(--ink);
-  transform: translateY(-1px);
 }
 
 .hdr-canvas__btn.is-active {
-  background: rgba(255,255,255,.92);
-  border-color: rgba(26, 25, 23, 0.055);
+  background: var(--echo-paper-white);
+  border-color: var(--echo-line-ink);
   color: var(--ink);
   box-shadow:
-    0 6px 16px rgba(22, 20, 16, 0.055),
-    inset 0 1px 0 rgba(255,255,255,.86);
+    0 4px 12px rgba(22, 20, 16, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.86);
 }
 
-.hdr-canvas__btn--directory {
-  padding-right: 11px;
-}
-
+/* ---------------- Right side ---------------- */
 .hdr-r {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--echo-sp-1);
 }
 
 .conn {
   display: flex;
   align-items: center;
-  gap: 6px;
-  height: 30px;
+  gap: var(--echo-sp-2);
+  height: 32px;
   border: 1px solid transparent;
-  font-size: 11px;
+  font-family: var(--fu);
+  font-size: 12px;
   font-weight: 500;
+  letter-spacing: var(--echo-ls-snug);
   color: var(--ink-muted);
-  padding: 0 9px;
-  border-radius: 999px;
-  background: rgba(248, 247, 244, 0.54);
+  padding: 0 var(--echo-sp-3);
+  border-radius: var(--r-pill);
+  background: transparent;
   cursor: pointer;
   transition:
-    background var(--motion-fast),
-    border-color var(--motion-fast),
-    color var(--motion-fast),
-    box-shadow var(--motion-fast),
-    transform var(--motion-fast);
+    background var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out),
+    box-shadow var(--motion-fast) var(--ease-out);
 }
 .conn:hover,
 .conn.is-active {
-  background: rgba(255, 255, 255, 0.86);
-  border-color: rgba(26, 25, 23, 0.06);
+  background: var(--echo-paper-white);
+  border-color: var(--echo-line-ink);
   color: var(--ink);
   box-shadow:
-    0 8px 20px rgba(22, 20, 16, 0.055),
-    inset 0 1px 0 rgba(255,255,255,.86);
+    0 4px 12px rgba(22, 20, 16, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.86);
 }
-.conn:hover {
-  transform: translateY(-1px);
-}
+
+/* Disconnected state — soft brand-tint pill so the CTA reads. */
 .conn--off {
-  background: rgba(26, 86, 219, 0.08);
-  border-color: rgba(26, 86, 219, 0.12);
-  color: var(--blue-hover);
-  font-weight: 700;
+  background: rgba(26, 58, 143, 0.08);
+  border-color: rgba(26, 58, 143, 0.16);
+  color: var(--navy);
+  font-weight: 600;
 }
 .conn--off:hover,
 .conn--off.is-active {
-  background: rgba(255, 255, 255, 0.96);
-  border-color: rgba(26, 86, 219, 0.18);
-  color: var(--blue-hover);
+  background: var(--echo-paper-white);
+  border-color: rgba(26, 58, 143, 0.24);
+  color: var(--navy);
   box-shadow:
-    0 10px 24px rgba(26, 86, 219, 0.12),
-    inset 0 1px 0 rgba(255,255,255,.86);
+    0 6px 16px rgba(26, 58, 143, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.86);
 }
+
 .conn-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
+  width: 7px;
+  height: 7px;
+  border-radius: var(--echo-r-circle);
   background: var(--sync-fg);
-  box-shadow: 0 0 0 2px rgba(26, 122, 69, .18);
+  box-shadow: 0 0 0 2px rgba(46, 139, 87, 0.18);
 }
 .conn--off .conn-dot {
-  background: var(--blue);
-  box-shadow: 0 0 0 2px rgba(26, 86, 219, .16);
+  background: var(--navy);
+  box-shadow: 0 0 0 2px rgba(26, 58, 143, 0.18);
 }
+
 .conn-cta {
-  height: 20px;
+  height: 22px;
   display: inline-flex;
   align-items: center;
-  padding: 0 8px;
-  border-radius: 999px;
-  background: #111;
+  padding: 0 var(--echo-sp-3);
+  border-radius: var(--r-pill);
+  background: var(--navy);
   color: #fff;
-  font-size: 10.5px;
-  font-weight: 800;
+  font-family: var(--fu);
+  font-size: 11px;
+  font-weight: 600;
   letter-spacing: 0;
   white-space: nowrap;
-  box-shadow: 0 7px 14px rgba(0,0,0,.12);
+  box-shadow: 0 4px 10px rgba(26, 58, 143, 0.28);
 }
+
 .conn-meta {
-  color: rgba(26, 25, 23, 0.44);
-  font-weight: 600;
+  color: var(--ink-mute, var(--ink-muted));
+  font-weight: 500;
 }
 .conn-meta::before {
   content: '·';
-  margin-right: 6px;
-  color: rgba(26, 25, 23, 0.26);
+  margin-right: var(--echo-sp-2);
+  color: var(--ink-faint);
 }
+
 .conn-badge {
   min-width: 20px;
-  height: 18px;
+  height: 20px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0 6px;
-  border-radius: 999px;
-  background: #111;
+  padding: 0 var(--echo-sp-2);
+  border-radius: var(--r-pill);
+  background: var(--seal);
   color: #fff;
+  font-family: var(--fu);
   font-size: 10px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  box-shadow: 0 6px 14px rgba(0,0,0,.14);
+  font-weight: 700;
+  letter-spacing: 0;
+  box-shadow: 0 4px 10px rgba(199, 55, 47, 0.26);
 }
 
+/* Header overrides for shared button primitives */
 .hdr .btn,
 .hdr .btn-icon {
-  height: 30px;
-  border-radius: 999px;
-  font-size: 11.5px;
+  height: 32px;
+  border-radius: var(--r-pill);
+  font-size: 12px;
 }
 
-.hdr .btn-ghost,
+.hdr .btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--ink-muted);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
 .hdr .btn-icon {
   background: transparent;
   border-color: transparent;
   color: var(--ink-muted);
+  border-radius: var(--echo-r-circle);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .hdr .btn-ghost:hover:not(:disabled),
 .hdr .btn-icon:hover:not(:disabled) {
-  background: rgba(248, 247, 244, 0.76);
+  background: var(--echo-glass-bg-hover);
   color: var(--ink);
 }
 
 .hdr .btn-dark {
-  background: #111;
-  box-shadow: 0 9px 18px rgba(0,0,0,.16);
+  background: var(--navy);
+  border-color: var(--navy);
+  box-shadow: 0 6px 16px rgba(26, 58, 143, 0.24);
 }
 
-/* Responsive: hide some chrome when cramped */
+/* Responsive: hide chrome when cramped */
 @media (max-width: 900px) {
   .hdr { width: calc(100vw - 24px); }
   .hdr-r .btn-ghost { display: none; }
   .hdr-canvas__btn span { display: none; }
-  .hdr-canvas__btn { width: 28px; justify-content: center; padding: 0; }
+  .hdr-canvas__btn { width: 30px; justify-content: center; padding: 0; }
 }
 @media (max-width: 640px) {
-  .search-wrap { max-width: 160px; }
-  .conn { display: none; }
+  .search-wrap { max-width: 180px; }
+  .conn-meta { display: none; }
   .logo { font-size: 0; gap: 0; }
   .hdr-canvas { display: none; }
 }

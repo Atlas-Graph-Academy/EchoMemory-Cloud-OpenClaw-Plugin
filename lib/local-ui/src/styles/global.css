@@ -1,8 +1,13 @@
 /* =========================================================
- * Echo Memory — Visual System
- * Warm paper, single-column, three-section risk flow.
+ * Echo Memory — Local UI Visual System
+ * Bound to the Echo Design System (Memory Atelier · v1.2.1).
+ * Read tokens from echo-tokens.css; never hardcode hex/font/radius.
  * ========================================================= */
 
+@import './echo-tokens.css';
+
+/* -------- Avenir Next (provisioned locally — Caveat & IBM Plex Mono
+ *          are pulled from Google Fonts in index.html) -------- */
 @font-face {
   font-family: 'Avenir Next';
   font-weight: 200;
@@ -46,46 +51,75 @@
   src: url('/fonts/AvenirNext-Heavy.otf') format('opentype');
 }
 
+/* =========================================================
+ * Local-scoped aliases — every component reads these. They
+ * resolve to Echo Design System tokens. Do not add new local
+ * tokens here unless the design system genuinely lacks one.
+ * ========================================================= */
 :root {
   /* Surfaces */
-  --bg:         #F8F7F4;
-  --white:      #FFFFFF;
-  --ink:        #1A1917;
-  --ink-2:      #3D3A36;
-  --ink-muted:  #7A756F;
-  --ink-faint:  #B5B0A8;
-  --border:     #E8E5E0;
-  --border-lt:  #F0EDE8;
+  --bg:         var(--echo-paper-canvas);
+  --white:      var(--echo-paper-white);
+  --paper-soft: var(--echo-paper-soft);
+  --paper-mist: var(--echo-paper-mist);
 
-  /* Risk — private */
-  --priv-surf:  #FEF4F1;
-  --priv-bdr:   #F5C4B3;
-  --priv-fg:    #B83424;
+  /* Ink */
+  --ink:        var(--echo-ink-text);
+  --ink-2:      var(--echo-ink-text);
+  --ink-muted:  var(--echo-ink-mute);
+  --ink-faint:  var(--echo-ink-faint);
 
-  /* Action — sync */
-  --blue:       #1A56DB;
-  --blue-glow:  rgba(26,86,219,.12);
-  --blue-hover: #1447C0;
+  /* Lines */
+  --border:     var(--echo-line);
+  --border-lt:  var(--echo-line-soft);
+  --border-strong: var(--echo-line-strong);
+
+  /* Brand */
+  --navy:       var(--echo-ink-primary);
+  --teal:       var(--echo-ink-accent);
+  --seal:       var(--echo-ink-seal);
+
+  /* Action — sync uses Navy now */
+  --blue:       var(--echo-ink-primary);
+  --blue-glow:  rgba(26, 58, 143, 0.18);
+  --blue-hover: #14306f;
+
+  /* Risk — private (wax-seal) */
+  --priv-surf:  rgba(199, 55, 47, 0.06);
+  --priv-bdr:   rgba(199, 55, 47, 0.32);
+  --priv-fg:    var(--echo-ink-seal);
 
   /* Risk — synced */
-  --sync-surf:  #F0FAF4;
-  --sync-bdr:   #A8E6BC;
-  --sync-fg:    #1A7A45;
+  --sync-surf:  rgba(46, 139, 87, 0.10);
+  --sync-bdr:   rgba(46, 139, 87, 0.32);
+  --sync-fg:    var(--echo-status-ok);
+
+  /* Sticky-note variants */
+  --note-mint:  var(--echo-note-mint);
+  --note-cream: var(--echo-note-cream);
+  --note-pink:  var(--echo-note-pink);
+  --note-blue:  var(--echo-note-blue);
 
   /* Shadows */
-  --sh-card:  0 2px 8px rgba(40,24,8,.07), 0 1px 2px rgba(40,24,8,.04);
-  --sh-raise: 0 10px 28px rgba(40,24,8,.12), 0 2px 6px rgba(40,24,8,.06);
-  --sh-panel: -6px 0 32px rgba(40,24,8,.10);
+  --sh-card:    var(--echo-shadow-soft);
+  --sh-paper:   var(--echo-shadow-paper);
+  --sh-raise:   var(--echo-shadow-pop);
+  --sh-panel:   -8px 0 32px rgba(40, 24, 8, 0.10);
+  --sh-glass:   var(--echo-shadow-glass);
+  --sh-glass-hover: var(--echo-shadow-glass-hover);
 
-  /* Radii */
-  --r:    14px;
-  --r-sm: 10px;
-  --r-xs: 6px;
+  /* Radii — pills dominate */
+  --r-pill:     var(--echo-r-pill);
+  --r-card:     var(--echo-r-card);
+  --r:          var(--echo-r-card);
+  --r-sm:       var(--echo-r-tight);
+  --r-xs:       var(--echo-r-sharp);
 
-  /* Typography — Avenir Next everywhere */
-  --fd: 'Avenir Next', system-ui, -apple-system, sans-serif;
-  --fu: 'Avenir Next', system-ui, -apple-system, sans-serif;
-  --fm: 'Avenir Next', system-ui, -apple-system, sans-serif;
+  /* Typography */
+  --fd:         var(--echo-font-body);    /* display + body */
+  --fu:         var(--echo-font-body);    /* UI */
+  --fm:         var(--echo-font-mono);    /* technical metadata */
+  --fs:         var(--echo-font-script);  /* script greetings */
 
   /* Layout */
   --hdr-h:   54px;
@@ -93,14 +127,14 @@
   --panel-w: 420px;
 
   /* Motion */
-  --motion-fast: 160ms;
-  --motion-base: 240ms;
-  --motion-slow: 380ms;
-  --ease-out:    cubic-bezier(.4, 0, .2, 1);
-  --ease-spring: cubic-bezier(.34, 1.26, .64, 1);
+  --motion-fast: var(--echo-dur-short);
+  --motion-base: var(--echo-dur-medium);
+  --motion-slow: var(--echo-dur-long);
+  --ease-out:    var(--echo-ease-out);
+  --ease-spring: var(--echo-ease-out);
 
-  /* ---------- Legacy aliases (kept while Card/ReadingPanel/ArchiveView
-   *  are still on the old token names — removed in Phases 4–5) ---------- */
+  /* ---------- Legacy aliases (kept while the broader codebase still
+   *  reads these names; resolve to the new echo tokens above) ---------- */
   --font-ui:           var(--fu);
   --font-serif:        var(--fd);
   --font-mono:         var(--fm);
@@ -112,23 +146,23 @@
   --panel-bg-strong:   var(--white);
   --panel-bg-soft:     var(--bg);
   --panel-border:      var(--border);
-  --panel-border-strong: var(--border);
+  --panel-border-strong: var(--border-strong);
   --panel-shadow:      var(--sh-raise);
   --panel-shadow-soft: var(--sh-card);
   --shell-bg:          var(--bg);
   --shell-bg-strong:   var(--white);
   --shell-border:      var(--border);
   --shell-stroke:      var(--border-lt);
-  --accent:            var(--blue);
+  --accent:            var(--navy);
   --accent-strong:     var(--blue-hover);
-  --accent-warm:       var(--priv-fg);
+  --accent-warm:       var(--seal);
   --success:           var(--sync-fg);
-  --danger:            var(--priv-fg);
-  --warning:           #B45309;
+  --danger:            var(--seal);
+  --warning:           #C46A2C;
   --radius-shell:      var(--r);
   --radius-panel:      var(--r);
-  --radius-pill:       100px;
-  --blur-shell:        16px;
+  --radius-pill:       var(--r-pill);
+  --blur-shell:        var(--echo-glass-blur);
   --blur-panel:        12px;
   --ftr-h:             var(--sb-h);
   --setup-width:       0px;
@@ -151,18 +185,23 @@ html { scroll-behavior: smooth; }
 
 body {
   font-family: var(--fu);
-  font-size: 13.5px;
-  line-height: 1.5;
+  font-size: 14px;
+  line-height: var(--echo-lh-normal);
+  letter-spacing: var(--echo-ls-snug);
   color: var(--ink);
   background:
-    radial-gradient(circle at 50% 0%, rgba(255,255,255,1) 0 26%, rgba(248,247,244,.94) 58%, rgba(241,240,237,.9) 100%),
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.75) 0 24%, rgba(250, 247, 240, 0.95) 60%, rgba(245, 241, 232, 0.95) 100%),
     var(--bg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
 }
 
-button, input, select, textarea { font: inherit; color: inherit; }
+button, input, select, textarea {
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+}
 button { cursor: pointer; background: none; border: none; }
 a { color: inherit; text-decoration: none; }
 
@@ -177,113 +216,159 @@ a { color: inherit; text-decoration: none; }
 *::-webkit-scrollbar-track { background: transparent; }
 
 /* =============== Typography utilities =============== */
-.mono  { font-family: var(--fm); }
-.serif { font-family: var(--fd); }
+.mono   { font-family: var(--fm); letter-spacing: var(--echo-ls-normal); }
+.serif  { font-family: var(--fd); }
+.script { font-family: var(--fs); letter-spacing: 0; }
 
-/* =============== Button primitives =============== */
+.eyebrow {
+  font-family: var(--fm);
+  font-size: var(--echo-t-mono-xs);
+  font-weight: 500;
+  letter-spacing: var(--echo-ls-wider);
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+/* =============== Button primitives — pill-dominant =============== */
 .btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  height: 33px;
-  padding: 0 14px;
-  border-radius: 8px;
-  border: none;
+  gap: var(--echo-sp-2);
+  height: 34px;
+  padding: 0 var(--echo-sp-4);
+  border-radius: var(--r-pill);
+  border: 1px solid transparent;
   cursor: pointer;
   font-family: var(--fu);
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 500;
+  letter-spacing: var(--echo-ls-snug);
   color: var(--ink);
-  transition: background var(--motion-fast), color var(--motion-fast),
-              transform var(--motion-fast), box-shadow var(--motion-fast),
-              border-color var(--motion-fast);
   white-space: nowrap;
+  transition:
+    background var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out),
+    transform var(--motion-fast) var(--ease-out),
+    box-shadow var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out);
 }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .btn-ghost {
-  background: transparent;
-  color: var(--ink-muted);
-  border: 1px solid var(--border);
+  background: var(--echo-glass-bg);
+  color: var(--ink);
+  border-color: var(--echo-glass-border);
+  backdrop-filter: blur(var(--echo-glass-blur));
+  -webkit-backdrop-filter: blur(var(--echo-glass-blur));
 }
-.btn-ghost:hover:not(:disabled) { background: var(--white); color: var(--ink); }
+.btn-ghost:hover:not(:disabled) {
+  background: var(--echo-glass-bg-hover);
+  border-color: var(--echo-glass-border-strong);
+}
 
 .btn-dark {
-  background: var(--ink);
+  background: #1a1a1a;
   color: #fff;
+  border-color: #1a1a1a;
 }
-.btn-dark:hover:not(:disabled) { background: #2D2824; transform: translateY(-1px); }
+.btn-dark:hover:not(:disabled) {
+  background: #000;
+  transform: translateY(-1px);
+  box-shadow: var(--sh-card);
+}
+
+.btn-brand {
+  background: var(--navy);
+  color: #fff;
+  border-color: var(--navy);
+}
+.btn-brand:hover:not(:disabled) {
+  background: var(--blue-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px var(--blue-glow);
+}
 
 .btn-icon {
-  width: 33px;
-  height: 33px;
+  width: 34px;
+  height: 34px;
   padding: 0;
   justify-content: center;
-  background: transparent;
+  background: var(--echo-glass-bg);
   color: var(--ink-muted);
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  border: 1px solid var(--echo-glass-border);
+  border-radius: var(--echo-r-circle);
+  backdrop-filter: blur(var(--echo-glass-blur));
+  -webkit-backdrop-filter: blur(var(--echo-glass-blur));
 }
-.btn-icon:hover:not(:disabled) { background: var(--white); color: var(--ink); }
+.btn-icon:hover:not(:disabled) {
+  background: var(--echo-glass-bg-hover);
+  color: var(--ink);
+}
 
 .sync-cta {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--echo-sp-2);
   height: 40px;
-  padding: 0 20px;
-  background: var(--blue);
+  padding: 0 var(--echo-sp-5);
+  background: var(--navy);
   color: #fff;
   border: none;
-  border-radius: 10px;
+  border-radius: var(--r-pill);
   cursor: pointer;
   font-family: var(--fu);
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 600;
+  letter-spacing: var(--echo-ls-snug);
   white-space: nowrap;
   flex-shrink: 0;
-  transition: background var(--motion-fast), transform var(--motion-fast),
-              box-shadow var(--motion-fast);
+  transition:
+    background var(--motion-fast) var(--ease-out),
+    transform var(--motion-fast) var(--ease-out),
+    box-shadow var(--motion-fast) var(--ease-out);
 }
 .sync-cta:hover:not(:disabled) {
   background: var(--blue-hover);
   transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(26,86,219,.28);
+  box-shadow: 0 8px 22px var(--blue-glow);
 }
-.sync-cta:disabled { opacity: .55; cursor: not-allowed; }
+.sync-cta:disabled { opacity: 0.55; cursor: not-allowed; }
 
-/* =============== Tag primitives =============== */
+/* =============== Tag / chip primitives =============== */
 .tag {
   display: inline-flex;
   align-items: center;
-  height: 17px;
-  padding: 0 6px;
-  border-radius: 100px;
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: .05em;
+  height: 18px;
+  padding: 0 var(--echo-sp-2);
+  border-radius: var(--r-pill);
+  font-family: var(--fm);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: var(--echo-ls-wider);
   text-transform: uppercase;
 }
-.t-sys   { background: #F0EFED; color: #6B6760; }
-.t-tl    { background: #FFF3DC; color: #8A6A00; }
-.t-tech  { background: #EEF2FF; color: #3730A3; }
-.t-loc   { background: #F3F4F6; color: #6B7280; }
-.t-priv  { background: #FCE8E4; color: #A63325; }
-.t-sens  { background: #FEE2E2; color: #9B1C1C; }
-.t-sync  { background: #DCFCE7; color: #1A6B35; }
-.t-ppl   { background: #FDF4FF; color: #7E22CE; }
+.t-sys   { background: var(--echo-line-soft);            color: var(--ink-muted); }
+.t-tl    { background: rgba(196, 106, 44, 0.12);         color: #8A4F1B; }
+.t-tech  { background: rgba(26, 58, 143, 0.10);          color: var(--navy); }
+.t-loc   { background: var(--echo-line-soft);            color: var(--ink-muted); }
+.t-priv  { background: rgba(199, 55, 47, 0.10);          color: var(--seal); }
+.t-sens  { background: rgba(199, 55, 47, 0.18);          color: var(--seal); }
+.t-sync  { background: rgba(46, 139, 87, 0.14);          color: var(--sync-fg); }
+.t-ppl   { background: rgba(78, 205, 196, 0.18);         color: #1f8d85; }
 
 /* =============== Count pill =============== */
 .count-pill {
   display: inline-flex;
   align-items: center;
-  height: 20px;
-  padding: 0 8px;
-  background: var(--border-lt);
-  border: 1px solid var(--border);
-  border-radius: 100px;
+  height: 22px;
+  padding: 0 var(--echo-sp-3);
+  background: var(--echo-glass-bg);
+  border: 1px solid var(--echo-glass-border);
+  border-radius: var(--r-pill);
+  backdrop-filter: blur(var(--echo-glass-blur));
+  -webkit-backdrop-filter: blur(var(--echo-glass-blur));
   font-family: var(--fm);
-  font-size: 10.5px;
+  font-size: 11px;
   color: var(--ink-muted);
 }
 
@@ -325,16 +410,12 @@ a { color: inherit; text-decoration: none; }
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  border-left: 1px solid var(--line, rgba(0, 0, 0, 0.08));
-  padding: 16px 18px;
+  border-left: 1px solid var(--border);
+  padding: var(--echo-sp-4) var(--echo-sp-5);
   box-sizing: border-box;
-  background: var(--bone, #fbf8f1);
+  background: var(--paper-soft);
 }
 
-/* When the cloud memory-log panel is open, shrink the floating header so
-   its right edge stops at the canvas/panel boundary instead of overlapping
-   the panel. The `--log-panel-width` variable keeps the header math and
-   the panel width in sync. */
 .app-shell {
   --log-panel-width: 0px;
 }
@@ -364,8 +445,8 @@ a { color: inherit; text-decoration: none; }
   justify-content: center;
   padding: 56px 24px 48px;
   background: rgba(24, 18, 10, 0.32);
-  backdrop-filter: blur(6px) saturate(120%);
-  -webkit-backdrop-filter: blur(6px) saturate(120%);
+  backdrop-filter: blur(8px) saturate(120%);
+  -webkit-backdrop-filter: blur(8px) saturate(120%);
 }
 
 /* =============== Sync toast =============== */
@@ -375,7 +456,7 @@ a { color: inherit; text-decoration: none; }
   left: 50%;
   transform: translateX(-50%);
   padding: 12px 20px;
-  border-radius: 10px;
+  border-radius: var(--r-pill);
   font-family: var(--fu);
   font-size: 13px;
   font-weight: 500;
@@ -391,10 +472,57 @@ a { color: inherit; text-decoration: none; }
 
 /* =============== Focus ring =============== */
 :focus-visible {
-  outline: 2px solid var(--blue);
-  outline-offset: 2px;
-  border-radius: 6px;
+  outline: none;
+  box-shadow: var(--echo-shadow-focus);
+  border-radius: var(--r-sm);
 }
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
-  outline-offset: 1px;
+  outline: none;
+  box-shadow: var(--echo-shadow-focus);
+}
+
+/* =========================================================
+ * @echomem/memory_log_ui theme override
+ * The package ships its own theme.css with cobalt/pine/cream
+ * variables. Re-bind them to Echo tokens so the cloud memory
+ * log panel reads as one product with the rest of the UI.
+ * ========================================================= */
+:root {
+  --paper:        var(--echo-paper-white);
+  --sand:         var(--echo-paper-canvas);
+  --bone:         var(--echo-paper-soft);
+  --cream:        var(--echo-paper-cream);
+
+  --ink:          var(--echo-ink-text);
+  --ink2:         var(--echo-ink-text);
+  --mute:         var(--echo-ink-mute);
+
+  --line:         var(--echo-line);
+  --hair:         var(--echo-line-soft);
+
+  --cobalt:       var(--echo-ink-primary);
+  --cobalt-soft:  rgba(26, 58, 143, 0.10);
+  --pine:         var(--echo-ink-primary);
+  --moss:         var(--echo-ink-primary);
+  --leaf:         var(--echo-ink-accent);
+  --mint:         rgba(78, 205, 196, 0.18);
+  --ember:        var(--echo-ink-seal);
+  --ember-soft:   rgba(199, 55, 47, 0.12);
+  --kraft:        var(--echo-paper-soft);
+
+  --font-sans:    var(--echo-font-body);
+  --font-mono:    var(--echo-font-mono);
+  --font-serif:   var(--echo-font-body);
+
+  --primary:        var(--echo-ink-primary);
+  --primary-hover:  #14306f;
+  --bg:             var(--echo-paper-canvas);
+  --bg-card:        var(--echo-paper-white);
+  --bg-input:       var(--echo-paper-white);
+  --text:           var(--echo-ink-text);
+  --text-muted:     var(--echo-ink-mute);
+  --border:         var(--echo-line);
+  --success:        var(--echo-status-ok);
+  --error:          var(--echo-ink-seal);
+  --radius:         12px;
 }

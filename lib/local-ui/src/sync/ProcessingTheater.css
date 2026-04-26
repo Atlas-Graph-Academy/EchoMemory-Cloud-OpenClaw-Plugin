@@ -25,7 +25,8 @@
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   color: #f2f3f5;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--fu);
+  letter-spacing: var(--echo-ls-snug);
   animation: pt-rise 360ms cubic-bezier(0.2, 0.9, 0.3, 1.15) both;
 }
 
