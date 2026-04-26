@@ -1,0 +1,272 @@
+/* ========================================================================
+ * Echo Design System · Tokens
+ * Single source of truth for color, type, spacing, radius, motion, shadow.
+ * Version: 1.2.1
+ * Source:  https://github.com/Atlas-Graph-Academy/WebPageReactVersion/blob/main/design-system/tokens.css
+ * Aesthetic: Memory Atelier (warm paper · Polaroid · mascot · script · pill)
+ *
+ * RULES
+ * - All Echo product surfaces (Website / Chrome ext / OpenClaw plugin)
+ *   read from this file. Do not hardcode color/font/radius in component CSS.
+ * - Token names use --echo-* prefix to avoid collision with framework tokens.
+ * - All values were derived from existing usage in the Website repo (Apr 2026
+ *   audit). Nothing here is invented; only systematized.
+ * - To propose a change: see design-system/CONTRIBUTING.md
+ * ====================================================================== */
+
+:root {
+
+  /* ========================================================================
+   * COLOR · INK   (text, brand marks, decisions)
+   * ====================================================================== */
+  --echo-ink-primary:    #1a3a8f;   /* Echo Navy   — logo, primary brand, Caveat headings */
+  --echo-ink-accent:     #4ECDC4;   /* Echo Teal   — secondary brand, highlights */
+  --echo-ink-text:       #1a1a1a;   /* Primary text on paper surfaces */
+  --echo-ink-mute:       #6b6b6b;   /* Secondary text */
+  --echo-ink-faint:      #9b9b9b;   /* Tertiary text, placeholders, disabled */
+  --echo-ink-seal:       #C7372F;   /* Decision red — wax-seal moments, alert, sparingly */
+
+  /* ========================================================================
+   * COLOR · PAPER (background surfaces)
+   * ====================================================================== */
+  --echo-paper-canvas:   #FAF7F0;   /* Default page canvas — warm atelier paper */
+  --echo-paper-white:    #ffffff;   /* Crisp surface — login, dialogs, forms */
+  --echo-paper-cream:    #FAF7F0;   /* Warm memory/workbench surface — Polaroids float here */
+  --echo-paper-soft:     #F5F1E8;   /* Warm card surface */
+  --echo-paper-mist:     #ECF4FF;   /* Cool tinted bg — read-mode panels */
+
+  /* ========================================================================
+   * COLOR · NOTE  (sticky-note variants for memory cards)
+   * ====================================================================== */
+  --echo-note-mint:      #DCEFD9;   /* Default memory card */
+  --echo-note-cream:     #F5EBD5;   /* Alt memory card */
+  --echo-note-pink:      #F5D5D5;   /* Personal / emotional memory */
+  --echo-note-blue:      #DDE6F5;   /* Tech / build-context memory */
+
+  /* ========================================================================
+   * COLOR · LINE  (borders & dividers)
+   * ====================================================================== */
+  --echo-line:           #e5e5e5;
+  --echo-line-soft:      #f0f0f0;
+  --echo-line-strong:    #c8c8c8;
+  --echo-line-ink:       rgba(26, 26, 26, 0.10);
+  --echo-line-brand:     rgba(26, 58, 143, 0.20);
+
+  /* ========================================================================
+   * COLOR · GLASS (frosted interactive chrome)
+   * ====================================================================== */
+  --echo-glass-bg:              rgba(255, 255, 255, 0.58);
+  --echo-glass-bg-hover:        rgba(255, 255, 255, 0.76);
+  --echo-glass-bg-active:       rgba(255, 255, 255, 0.66);
+  --echo-glass-bg-disabled:     rgba(255, 255, 255, 0.34);
+  --echo-glass-border:          rgba(255, 255, 255, 0.82);
+  --echo-glass-border-strong:   rgba(26, 26, 26, 0.16);
+  --echo-glass-highlight:       rgba(255, 255, 255, 0.92);
+  --echo-glass-blur:            18px;
+
+  --echo-glass-brand-bg:        rgba(26, 58, 143, 0.92);
+  --echo-glass-brand-bg-hover:  rgba(26, 58, 143, 0.98);
+  --echo-glass-brand-bg-active: rgba(26, 58, 143, 0.84);
+  --echo-glass-brand-border:    rgba(255, 255, 255, 0.28);
+
+  --echo-glass-accent-bg:       rgba(78, 205, 196, 0.70);
+  --echo-glass-accent-bg-hover: rgba(78, 205, 196, 0.86);
+  --echo-glass-accent-bg-active: rgba(78, 205, 196, 0.62);
+  --echo-glass-accent-border:   rgba(78, 205, 196, 0.62);
+
+  --echo-glass-seal-bg:         rgba(199, 55, 47, 0.12);
+  --echo-glass-seal-bg-hover:   rgba(199, 55, 47, 0.92);
+  --echo-glass-seal-bg-active:  rgba(199, 55, 47, 0.82);
+  --echo-glass-seal-border:     rgba(199, 55, 47, 0.42);
+
+  /* ========================================================================
+   * COLOR · STATUS (semantic — use sparingly)
+   * ====================================================================== */
+  --echo-status-ok:      #2E8B57;   /* Synced / verified / E2EE active */
+  --echo-status-warn:    #C46A2C;
+  --echo-status-error:   var(--echo-ink-seal);
+  --echo-status-info:    var(--echo-ink-primary);
+
+  /* ========================================================================
+   * TYPOGRAPHY · FAMILIES
+   * Three faces, no fallback chains. Each role resolves to exactly one font.
+   * Consumer surfaces must provision Caveat, Avenir Next, and IBM Plex Mono.
+   * ====================================================================== */
+  --echo-font-script:    'Caveat';
+                         /* greetings · mascot · manga captions · "Hi, IDITOR" */
+  --echo-font-brand:     'Avenir Next';
+                         /* wordmark · top nav · section headings */
+  --echo-font-body:      'Avenir Next';
+                         /* all body text, buttons, forms, UI */
+  --echo-font-mono:      'IBM Plex Mono';
+                         /* timestamps, platform tags, technical metadata */
+
+  /* ========================================================================
+   * TYPOGRAPHY · SCALE  (4px-aligned)
+   * ====================================================================== */
+  --echo-t-mono-xs:      0.6875rem;  /* 11px — caps mono */
+  --echo-t-mono-sm:      0.75rem;    /* 12px */
+  --echo-t-body-sm:      0.875rem;   /* 14px */
+  --echo-t-body:         1rem;       /* 16px */
+  --echo-t-body-lg:      1.125rem;   /* 18px */
+  --echo-t-h4:           1.25rem;    /* 20px */
+  --echo-t-h3:           1.5rem;     /* 24px */
+  --echo-t-h2:           2rem;       /* 32px */
+  --echo-t-h1:           3rem;       /* 48px */
+  --echo-t-display:      4.5rem;     /* 72px — hero greeting */
+  --echo-t-display-xl:   6rem;       /* 96px — landing hero (rare) */
+
+  /* ========================================================================
+   * TYPOGRAPHY · LINE HEIGHT
+   * ====================================================================== */
+  --echo-lh-tight:       1.1;        /* display, hero */
+  --echo-lh-snug:        1.25;       /* headings */
+  --echo-lh-normal:      1.5;        /* body */
+  --echo-lh-relaxed:     1.65;       /* long-form reading, Personal Index */
+
+  /* ========================================================================
+   * TYPOGRAPHY · LETTER SPACING
+   * ====================================================================== */
+  --echo-ls-tight:       -0.022em;   /* display */
+  --echo-ls-snug:        -0.011em;   /* body */
+  --echo-ls-normal:      0;
+  --echo-ls-wide:        0.08em;     /* small caps */
+  --echo-ls-wider:       0.16em;     /* mono caps labels */
+
+  /* ========================================================================
+   * SPACING · 4px base scale
+   * ====================================================================== */
+  --echo-sp-1:           4px;
+  --echo-sp-2:           8px;
+  --echo-sp-3:           12px;
+  --echo-sp-4:           16px;
+  --echo-sp-5:           24px;
+  --echo-sp-6:           32px;
+  --echo-sp-7:           48px;
+  --echo-sp-8:           64px;
+  --echo-sp-9:           96px;
+  --echo-sp-10:          128px;
+  --echo-sp-11:          192px;
+
+  /* ========================================================================
+   * RADIUS  (5 levels — use --echo-r-pill for 90% of interactive shapes)
+   * ====================================================================== */
+  --echo-r-sharp:        2px;        /* technical tags, code chips */
+  --echo-r-tight:        6px;        /* inputs, small alerts */
+  --echo-r-card:         12px;       /* sticky notes, Polaroid frames, cards */
+  --echo-r-pill:         999px;      /* chips, buttons, nav, status — DOMINANT */
+  --echo-r-circle:       50%;        /* avatars, icon buttons, mascot frames */
+
+  /* ========================================================================
+   * SHADOW  (Polaroid feel · paper-on-table)
+   * ====================================================================== */
+  --echo-shadow-soft:    0 1px 3px rgba(0, 0, 0, 0.06);
+  --echo-shadow-lift:    0 2px 8px rgba(0, 0, 0, 0.08);
+  --echo-shadow-paper:   0 4px 14px rgba(0, 0, 0, 0.10), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --echo-shadow-pop:     0 8px 28px rgba(0, 0, 0, 0.14);
+  --echo-shadow-focus:   0 0 0 3px rgba(26, 58, 143, 0.20);
+  --echo-shadow-seal-focus: 0 0 0 3px rgba(199, 55, 47, 0.20);
+  --echo-shadow-glass:   inset 0 1px 0 var(--echo-glass-highlight), inset 0 -1px 0 rgba(26, 26, 26, 0.05), 0 8px 24px rgba(26, 26, 26, 0.08), 0 1px 2px rgba(26, 26, 26, 0.05);
+  --echo-shadow-glass-hover: inset 0 1px 0 var(--echo-glass-highlight), inset 0 -1px 0 rgba(26, 26, 26, 0.06), 0 12px 30px rgba(26, 26, 26, 0.11), 0 2px 4px rgba(26, 26, 26, 0.06);
+  --echo-shadow-glass-active: inset 0 1px 0 rgba(255, 255, 255, 0.62), inset 0 2px 5px rgba(26, 26, 26, 0.08), 0 4px 14px rgba(26, 26, 26, 0.07);
+  --echo-shadow-glass-focus: inset 0 1px 0 var(--echo-glass-highlight), 0 0 0 3px rgba(26, 58, 143, 0.20), 0 10px 28px rgba(26, 26, 26, 0.10);
+  --echo-shadow-glass-seal-focus: inset 0 1px 0 var(--echo-glass-highlight), 0 0 0 3px rgba(199, 55, 47, 0.20), 0 10px 28px rgba(199, 55, 47, 0.10);
+
+  /* ========================================================================
+   * MOTION  (cinematic confident, not bouncy)
+   * ====================================================================== */
+  --echo-ease-out:       cubic-bezier(0.16, 1, 0.3, 1);
+  --echo-ease-in:        cubic-bezier(0.7, 0, 0.84, 0);
+  --echo-ease-in-out:    cubic-bezier(0.65, 0, 0.35, 1);
+  --echo-dur-micro:      80ms;       /* hover state changes */
+  --echo-dur-short:      160ms;      /* button press, small reveals */
+  --echo-dur-medium:     240ms;      /* panels, drawers, theme toggle */
+  --echo-dur-long:       360ms;      /* page transitions, hero reveal */
+
+  /* ========================================================================
+   * Z-INDEX
+   * ====================================================================== */
+  --echo-z-base:         1;
+  --echo-z-raised:       10;
+  --echo-z-overlay:      100;
+  --echo-z-modal:        1000;
+  --echo-z-toast:        2000;
+
+}
+
+/* ========================================================================
+ * DARK MODE  (opt-in via [data-theme="dark"] on <html> or <body>)
+ * Brand colors stay; surfaces flip to warm-dark, not cyber-black.
+ * ====================================================================== */
+[data-theme="dark"] {
+  --echo-paper-canvas:   #14141a;
+  --echo-paper-white:    #14141a;
+  --echo-paper-cream:    #1c1a16;
+  --echo-paper-soft:     #232118;
+  --echo-paper-mist:     #1a1f2a;
+
+  --echo-ink-text:       #f5f1e8;
+  --echo-ink-mute:       #9b958a;
+  --echo-ink-faint:      #6b6660;
+
+  --echo-ink-primary:    #6789DA;   /* lifted for dark contrast */
+  --echo-ink-accent:     #6FE6DC;
+
+  --echo-line:           rgba(245, 241, 232, 0.12);
+  --echo-line-soft:      rgba(245, 241, 232, 0.06);
+  --echo-line-strong:    rgba(245, 241, 232, 0.22);
+  --echo-line-ink:       rgba(245, 241, 232, 0.10);
+  --echo-line-brand:     rgba(103, 137, 218, 0.30);
+
+  --echo-glass-bg:              rgba(245, 241, 232, 0.10);
+  --echo-glass-bg-hover:        rgba(245, 241, 232, 0.16);
+  --echo-glass-bg-active:       rgba(245, 241, 232, 0.12);
+  --echo-glass-bg-disabled:     rgba(245, 241, 232, 0.06);
+  --echo-glass-border:          rgba(245, 241, 232, 0.18);
+  --echo-glass-border-strong:   rgba(245, 241, 232, 0.30);
+  --echo-glass-highlight:       rgba(245, 241, 232, 0.18);
+
+  --echo-glass-brand-bg:        rgba(103, 137, 218, 0.82);
+  --echo-glass-brand-bg-hover:  rgba(103, 137, 218, 0.92);
+  --echo-glass-brand-bg-active: rgba(103, 137, 218, 0.74);
+  --echo-glass-brand-border:    rgba(245, 241, 232, 0.22);
+
+  --echo-glass-accent-bg:       rgba(111, 230, 220, 0.54);
+  --echo-glass-accent-bg-hover: rgba(111, 230, 220, 0.66);
+  --echo-glass-accent-bg-active: rgba(111, 230, 220, 0.46);
+  --echo-glass-accent-border:   rgba(111, 230, 220, 0.38);
+
+  --echo-glass-seal-bg:         rgba(199, 55, 47, 0.18);
+  --echo-glass-seal-bg-hover:   rgba(199, 55, 47, 0.78);
+  --echo-glass-seal-bg-active:  rgba(199, 55, 47, 0.66);
+  --echo-glass-seal-border:     rgba(199, 55, 47, 0.46);
+
+  --echo-note-mint:      #2A3A2D;
+  --echo-note-cream:     #3A3327;
+  --echo-note-pink:      #3A2828;
+  --echo-note-blue:      #28304A;
+
+  --echo-shadow-soft:    0 1px 3px rgba(0, 0, 0, 0.4);
+  --echo-shadow-lift:    0 2px 8px rgba(0, 0, 0, 0.5);
+  --echo-shadow-paper:   0 4px 14px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --echo-shadow-pop:     0 8px 28px rgba(0, 0, 0, 0.6);
+  --echo-shadow-focus:   0 0 0 3px rgba(103, 137, 218, 0.40);
+  --echo-shadow-seal-focus: 0 0 0 3px rgba(199, 55, 47, 0.34);
+  --echo-shadow-glass:   inset 0 1px 0 var(--echo-glass-highlight), inset 0 -1px 0 rgba(0, 0, 0, 0.24), 0 10px 28px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.36);
+  --echo-shadow-glass-hover: inset 0 1px 0 var(--echo-glass-highlight), inset 0 -1px 0 rgba(0, 0, 0, 0.28), 0 14px 34px rgba(0, 0, 0, 0.52), 0 2px 4px rgba(0, 0, 0, 0.40);
+  --echo-shadow-glass-active: inset 0 1px 0 rgba(245, 241, 232, 0.10), inset 0 2px 5px rgba(0, 0, 0, 0.36), 0 6px 18px rgba(0, 0, 0, 0.42);
+  --echo-shadow-glass-focus: inset 0 1px 0 var(--echo-glass-highlight), 0 0 0 3px rgba(103, 137, 218, 0.40), 0 12px 32px rgba(0, 0, 0, 0.48);
+  --echo-shadow-glass-seal-focus: inset 0 1px 0 var(--echo-glass-highlight), 0 0 0 3px rgba(199, 55, 47, 0.34), 0 12px 32px rgba(0, 0, 0, 0.48);
+}
+
+/* ========================================================================
+ * REDUCED MOTION  (accessibility)
+ * ====================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --echo-dur-micro:    0ms;
+    --echo-dur-short:    0ms;
+    --echo-dur-medium:   0ms;
+    --echo-dur-long:     0ms;
+  }
+}

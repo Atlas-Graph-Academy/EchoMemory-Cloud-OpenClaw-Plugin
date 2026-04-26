@@ -13,8 +13,8 @@
   inset: 0;
   overflow: hidden;
   background:
-    radial-gradient(circle at 50% 18%, rgba(255,255,255,1) 0 24%, rgba(250,249,247,.9) 46%, rgba(244,243,240,.86) 100%),
-    #f7f6f3;
+    radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.95) 0 24%, rgba(250, 247, 240, 0.92) 46%, rgba(245, 241, 232, 0.94) 100%),
+    var(--bg);
 }
 
 /* ─── Stage: receives wheel + pan via native pointer events ─── */
@@ -43,11 +43,12 @@
 }
 .desktop__world > * { pointer-events: auto; }
 
-/* Physical depth for the existing canvas cards. Keep the current geometry and
-   data model intact; this only adds paper-like edge, light, and contact shadow. */
+/* Sticky-note treatment for canvas cards (Memory Atelier).
+ * Cards are placed objects: ±2° rotation comes from the JSX layout,
+ * and we provide warm border + paper shadow + 12px card radius here. */
 .desktop [data-card] {
-  border: 1px solid rgba(58, 42, 22, 0.105);
-  border-radius: 7px !important;
+  border: 1px solid rgba(40, 24, 8, 0.06);
+  border-radius: var(--r-card) !important;
   backface-visibility: hidden;
   contain: layout paint style;
   transform-origin: center center;
@@ -139,7 +140,7 @@
 .desktop__toolbtn.is-active {
   background: rgba(255, 255, 255, 0.94);
   border-color: rgba(26, 25, 23, 0.055);
-  color: #2f6fe4;
+  color: var(--navy);
   box-shadow:
     0 8px 18px rgba(22, 20, 16, 0.06),
     inset 0 1px 0 rgba(255,255,255,.9);
@@ -289,8 +290,8 @@
   letter-spacing: 0;
 }
 
-.echo-status--ready .echo-status__copy strong { color: #8a5f05; }
-.echo-status--private .echo-status__copy strong { color: #a73b2d; }
+.echo-status--ready .echo-status__copy strong { color: #8A4F1B; }
+.echo-status--private .echo-status__copy strong { color: var(--seal); }
 .echo-status--synced .echo-status__copy strong { color: var(--sync-fg); }
 
 .desktop-echo-cta {
@@ -382,9 +383,9 @@
   padding: 0 16px;
   border: none;
   border-radius: 999px;
-  background: rgba(26, 86, 219, 0.1);
+  background: rgba(26, 58, 143, 0.1);
   color: var(--blue-hover);
-  box-shadow: 0 10px 22px rgba(26, 86, 219, 0.08);
+  box-shadow: 0 10px 22px rgba(26, 58, 143, 0.08);
   cursor: pointer;
   font-family: var(--fu);
   font-size: 12px;
@@ -395,8 +396,8 @@
 }
 
 .desktop-echo-cta__button:hover {
-  background: rgba(26, 86, 219, 0.16);
-  box-shadow: 0 14px 28px rgba(26, 86, 219, 0.13);
+  background: rgba(26, 58, 143, 0.16);
+  box-shadow: 0 14px 28px rgba(26, 58, 143, 0.13);
   transform: translateY(-1px);
 }
 

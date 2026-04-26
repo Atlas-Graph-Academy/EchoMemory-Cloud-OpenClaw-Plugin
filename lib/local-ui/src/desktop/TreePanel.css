@@ -1,27 +1,24 @@
-/* ─────────────────────────────────────────────────────────
- * TreePanel — floating glass panel with branch-line tree.
- * ───────────────────────────────────────────────────────── */
+/* =========================================================
+ * TreePanel — floating directory panel (glass surface).
+ * Mirrors V1 landing-directory.png — MEMORY caps eyebrow,
+ * workspace path breadcrumb, profile group with seal-red
+ * identity files, then branch-line file tree.
+ * ========================================================= */
 
 .tree-panel {
   position: fixed;
   left: 24px;
-  top: 78px;
+  top: 84px;
   bottom: 76px;
-  width: clamp(250px, 20vw, 320px);
+  width: clamp(250px, 22vw, 320px);
   z-index: 40;
 
-  background:
-    radial-gradient(circle at 22% 0%, rgba(255,255,255,.72), transparent 34%),
-    linear-gradient(145deg, rgba(255,255,255,.54), rgba(255,255,255,.22)),
-    rgba(255, 255, 255, 0.32);
+  background: var(--echo-glass-bg);
   backdrop-filter: blur(34px) saturate(170%);
   -webkit-backdrop-filter: blur(34px) saturate(170%);
-  border: 1px solid rgba(26, 25, 23, 0.048);
-  border-radius: 30px;
-  box-shadow:
-    0 26px 78px rgba(22, 20, 16, 0.095),
-    inset 0 1px 0 rgba(255, 255, 255, 0.92),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.22);
+  border: 1px solid var(--echo-glass-border);
+  border-radius: 24px;
+  box-shadow: var(--sh-glass);
 
   display: flex;
   flex-direction: column;
@@ -29,24 +26,25 @@
   font-family: var(--fu);
 }
 
-/* ─── Head ─── */
+/* ---------------- Head ---------------- */
 .tree-panel__head {
   flex-shrink: 0;
-  padding: 16px 16px 10px;
+  padding: var(--echo-sp-4) var(--echo-sp-4) var(--echo-sp-2);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.36);
+  border-bottom: 1px solid var(--echo-line-soft);
 }
 .tree-panel__title {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 11.5px;
-  font-weight: 700;
-  letter-spacing: .12em;
+  gap: var(--echo-sp-2);
+  font-family: var(--fm);
+  font-size: var(--echo-t-mono-xs);
+  font-weight: 500;
+  letter-spacing: var(--echo-ls-wider);
   text-transform: uppercase;
-  color: rgba(26, 25, 23, 0.76);
+  color: var(--ink-muted);
 }
 .tree-panel__icon {
   color: var(--ink-muted);
@@ -55,23 +53,25 @@
 }
 .tree-panel__total {
   font-family: var(--fm);
-  font-size: 10.5px;
+  font-size: var(--echo-t-mono-xs);
+  letter-spacing: var(--echo-ls-wider);
   color: var(--ink-faint);
 }
 .tree-panel__meta {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--echo-sp-2);
 }
 
-/* ─── Path breadcrumb (shows full path to memory/) ─── */
+/* ---------------- Path breadcrumb ---------------- */
 .tree-panel__path {
   flex-shrink: 0;
-  padding: 3px 16px 10px;
+  padding: var(--echo-sp-1) var(--echo-sp-4) var(--echo-sp-3);
   font-family: var(--fm);
   font-size: 11px;
-  color: rgba(122, 117, 111, 0.62);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.26);
+  letter-spacing: var(--echo-ls-snug);
+  color: var(--ink-faint);
+  border-bottom: 1px solid var(--echo-line-soft);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -81,52 +81,52 @@
   opacity: 0.5;
 }
 .tree-panel__path-seg--active {
-  color: var(--ink-2);
+  color: var(--ink);
   font-weight: 500;
 }
 
-/* ─── Body (scrollable) ─── */
+/* ---------------- Body (scrollable) ---------------- */
 .tree-panel__body {
   flex: 1;
   overflow-y: auto;
-  padding: 10px 12px 16px;
+  padding: var(--echo-sp-3) var(--echo-sp-3) var(--echo-sp-4);
   min-height: 0;
 }
 .tree-panel__body::-webkit-scrollbar { width: 6px; }
-.tree-panel__body::-webkit-scrollbar-thumb { background: rgba(40,24,8,.12); border-radius: 3px; }
+.tree-panel__body::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: var(--r-pill); }
 
-/* ─── Profile section (top-level group for identity files) ─── */
+/* ---------------- Profile section (identity files at top) ---------------- */
 .tree-section {
-  margin-bottom: 14px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.28);
+  margin-bottom: var(--echo-sp-3);
+  padding-bottom: var(--echo-sp-3);
+  border-bottom: 1px solid var(--echo-line-soft);
 }
 .tree-section__head {
   display: block;
   width: 100%;
-  padding: 4px 6px;
-  margin: 0 0 4px;
+  padding: var(--echo-sp-1) var(--echo-sp-2);
+  margin: 0 0 var(--echo-sp-1);
   background: none;
   border: none;
   cursor: pointer;
-  font-family: var(--fu);
-  font-size: 12px;
+  font-family: var(--fd);
+  font-size: 13px;
   font-weight: 600;
   color: var(--ink);
   text-align: left;
-  letter-spacing: -0.01em;
-  line-height: 1.4;
-  border-radius: 12px;
-  transition: background var(--motion-fast);
+  letter-spacing: var(--echo-ls-snug);
+  line-height: var(--echo-lh-snug);
+  border-radius: 10px;
+  transition: background var(--motion-fast) var(--ease-out);
 }
 .tree-section__head:hover {
-  background: rgba(255, 255, 255, 0.42);
+  background: var(--echo-glass-bg-hover);
 }
+
 .tree-section__children {
   padding-left: 18px;
   position: relative;
 }
-/* Connector lines for profile items */
 .tree-section__children > .tree-branch__item::before {
   content: '';
   position: absolute;
@@ -134,7 +134,7 @@
   top: 0;
   bottom: 0;
   width: 1px;
-  background: rgba(40, 24, 8, 0.16);
+  background: var(--echo-line);
 }
 .tree-section__children > .tree-branch__item:last-child::before {
   bottom: auto;
@@ -147,36 +147,22 @@
   top: 11px;
   width: 10px;
   height: 1px;
-  background: rgba(40, 24, 8, 0.16);
-}
-/* Profile leaf — slightly bolder than regular files */
-.tree-branch__leaf--profile {
-  font-weight: 500;
-  color: var(--ink-2);
-}
-.tree-branch__leaf--profile.is-priv {
-  color: var(--priv-fg);
+  background: var(--echo-line);
 }
 
-/* ─── Branch-line tree ─── */
-
+/* ---------------- Branch-line tree ---------------- */
 .tree-branch__children {
   position: relative;
   padding-left: 18px;
 }
-
-/* Root level: no left padding since there's no parent connector */
 .tree-branch--root > .tree-branch__children {
   padding-left: 0;
 }
 
-/* ── Each item wrapper: holds vertical + horizontal connector lines ── */
 .tree-branch__item {
   position: relative;
 }
 
-/* Vertical connector — runs from top of item to bottom,
-   visually linking this sibling to the next one below. */
 .tree-branch__item::before {
   content: '';
   position: absolute;
@@ -184,16 +170,12 @@
   top: 0;
   bottom: 0;
   width: 1px;
-  background: rgba(26, 25, 23, 0.10);
+  background: var(--echo-line);
 }
-
-/* Last child: vertical stops at the branch point (L-bend) */
 .tree-branch__item:last-child::before {
   bottom: auto;
   height: 13px;
 }
-
-/* Horizontal connector — branch from vertical spine to the label */
 .tree-branch__item::after {
   content: '';
   position: absolute;
@@ -201,25 +183,19 @@
   top: 12px;
   width: 10px;
   height: 1px;
-  background: rgba(26, 25, 23, 0.10);
+  background: var(--echo-line);
 }
 
-/* Root level items: no connector lines */
 .tree-branch--root > .tree-branch__children > .tree-branch__item::before,
 .tree-branch--root > .tree-branch__children > .tree-branch__item::after {
   display: none;
 }
 
-/* ── Font hierarchy: section > folder > file ──
-   Three distinct visual weights so you can scan at a glance.
-   Section heads (Profile):  600, largest
-   Folders (private/, etc):  600, depth-scaled
-   Files (.md):              400, lightest + muted color */
 .tree-branch {
-  --font-size: max(10px, calc(14px - var(--depth, 0) * 1px));
+  --font-size: max(11px, calc(13px - var(--depth, 0) * 0.6px));
 }
 
-/* ── Labels (folder names) — bold, prominent ── */
+/* Folder labels — body sans, semibold */
 .tree-branch__label {
   display: block;
   width: 100%;
@@ -227,24 +203,27 @@
   margin: 0;
   background: none;
   border: none;
-  border-radius: 12px;
+  border-radius: 8px;
   cursor: pointer;
-  font-family: var(--fm);
+  font-family: var(--fd);
   font-size: var(--font-size);
   font-weight: 600;
-  color: rgba(26,25,23,.72);
+  color: var(--ink);
   text-align: left;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  line-height: 1.4;
-  transition: background var(--motion-fast), color var(--motion-fast);
+  line-height: var(--echo-lh-snug);
+  letter-spacing: var(--echo-ls-snug);
+  transition:
+    background var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out);
 }
 .tree-branch__label:hover {
-  background: rgba(255, 255, 255, 0.42);
+  background: var(--echo-glass-bg-hover);
 }
 
-/* ── Leaf labels (file names) — light weight, recedes visually ── */
+/* File leaves — mono, lighter */
 .tree-branch__leaf {
   display: block;
   width: 100%;
@@ -252,24 +231,45 @@
   margin: 0;
   background: none;
   border: none;
-  border-radius: 12px;
+  border-radius: 8px;
   cursor: pointer;
   font-family: var(--fm);
-  font-size: max(9px, calc(var(--font-size) - 1px));
+  font-size: max(10px, calc(var(--font-size) - 1px));
   font-weight: 400;
-  color: rgba(61,58,54,.58);
+  color: var(--ink-muted);
   text-align: left;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  line-height: 1.4;
-  transition: background var(--motion-fast), color var(--motion-fast);
+  line-height: var(--echo-lh-snug);
+  letter-spacing: var(--echo-ls-snug);
+  transition:
+    background var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out);
 }
 .tree-branch__leaf:hover {
-  background: rgba(255, 255, 255, 0.42);
+  background: var(--echo-glass-bg-hover);
   color: var(--ink);
 }
-.tree-branch__leaf.is-priv { color: var(--priv-fg); }
-.tree-branch__leaf.is-priv:hover { color: var(--priv-fg); background: rgba(254, 244, 241, 0.62); }
+.tree-branch__leaf.is-priv { color: var(--seal); }
+.tree-branch__leaf.is-priv:hover {
+  color: var(--seal);
+  background: rgba(199, 55, 47, 0.06);
+}
 .tree-branch__leaf.is-sync { color: var(--sync-fg); }
-.tree-branch__leaf.is-sync:hover { color: var(--sync-fg); background: rgba(240, 250, 244, 0.62); }
+.tree-branch__leaf.is-sync:hover {
+  color: var(--sync-fg);
+  background: rgba(46, 139, 87, 0.06);
+}
+
+/* Profile leaf — identity files always in seal red, regardless of is-priv */
+.tree-branch__leaf--profile,
+.tree-branch__leaf--profile.is-priv,
+.tree-branch__leaf--profile.is-sync {
+  font-weight: 500;
+  color: var(--seal);
+}
+.tree-branch__leaf--profile:hover {
+  color: var(--seal);
+  background: rgba(199, 55, 47, 0.06);
+}

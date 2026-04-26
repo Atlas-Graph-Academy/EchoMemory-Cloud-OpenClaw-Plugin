@@ -43,8 +43,8 @@ export function Header({
 
       <div className="search-wrap">
         <svg className="search-ico" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-          <circle cx="5.8" cy="5.8" r="4.2" stroke="#B5B0A8" strokeWidth="1.3"/>
-          <path d="M9 9L12 12" stroke="#B5B0A8" strokeWidth="1.3" strokeLinecap="round"/>
+          <circle cx="5.8" cy="5.8" r="4.2" stroke="currentColor" strokeWidth="1.3"/>
+          <path d="M9 9L12 12" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
         </svg>
         <input
           type="text"

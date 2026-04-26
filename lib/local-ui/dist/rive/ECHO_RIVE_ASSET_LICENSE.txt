@@ -1,0 +1,17 @@
+Echo Rive Animation Asset License Notice
+
+Copyright (c) EchoMem and its licensors. All rights reserved.
+
+The Rive animation files in this directory, including
+echo_general-file-18.riv, are proprietary Echo character and animation
+assets. They are provided only for display inside the Echo Memory local UI
+as distributed by EchoMem.
+
+The open source license for the repository source code does not grant any
+right to extract, copy, modify, redistribute, sublicense, train on, or reuse
+these Rive animation files, character designs, motion designs, names, or
+related brand assets in another product, service, website, model, dataset,
+or artwork.
+
+You may run the Echo Memory local UI with these assets intact. Any other use
+requires prior written permission from EchoMem.
