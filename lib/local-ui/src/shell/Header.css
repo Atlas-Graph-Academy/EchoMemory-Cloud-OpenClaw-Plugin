@@ -153,7 +153,7 @@
 }
 
 .hdr-canvas__btn.is-active {
-  background: var(--echo-paper-white);
+  background: var(--echo-paper-soft);
   border-color: var(--echo-line-ink);
   color: var(--ink);
   box-shadow:
@@ -191,7 +191,7 @@
 }
 .conn:hover,
 .conn.is-active {
-  background: var(--echo-paper-white);
+  background: var(--echo-paper-soft);
   border-color: var(--echo-line-ink);
   color: var(--ink);
   box-shadow:
@@ -208,7 +208,7 @@
 }
 .conn--off:hover,
 .conn--off.is-active {
-  background: var(--echo-paper-white);
+  background: var(--echo-paper-soft);
   border-color: rgba(26, 58, 143, 0.24);
   color: var(--navy);
   box-shadow:

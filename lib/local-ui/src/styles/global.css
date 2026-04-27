@@ -410,10 +410,9 @@ a { color: inherit; text-decoration: none; }
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  border-left: 1px solid var(--border);
-  padding: var(--echo-sp-4) var(--echo-sp-5);
   box-sizing: border-box;
-  background: var(--paper-soft);
+  position: relative;
+  z-index: var(--echo-z-overlay);
 }
 
 .app-shell {
@@ -481,48 +480,3 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   box-shadow: var(--echo-shadow-focus);
 }
 
-/* =========================================================
- * @echomem/memory_log_ui theme override
- * The package ships its own theme.css with cobalt/pine/cream
- * variables. Re-bind them to Echo tokens so the cloud memory
- * log panel reads as one product with the rest of the UI.
- * ========================================================= */
-:root {
-  --paper:        var(--echo-paper-white);
-  --sand:         var(--echo-paper-canvas);
-  --bone:         var(--echo-paper-soft);
-  --cream:        var(--echo-paper-cream);
-
-  --ink:          var(--echo-ink-text);
-  --ink2:         var(--echo-ink-text);
-  --mute:         var(--echo-ink-mute);
-
-  --line:         var(--echo-line);
-  --hair:         var(--echo-line-soft);
-
-  --cobalt:       var(--echo-ink-primary);
-  --cobalt-soft:  rgba(26, 58, 143, 0.10);
-  --pine:         var(--echo-ink-primary);
-  --moss:         var(--echo-ink-primary);
-  --leaf:         var(--echo-ink-accent);
-  --mint:         rgba(78, 205, 196, 0.18);
-  --ember:        var(--echo-ink-seal);
-  --ember-soft:   rgba(199, 55, 47, 0.12);
-  --kraft:        var(--echo-paper-soft);
-
-  --font-sans:    var(--echo-font-body);
-  --font-mono:    var(--echo-font-mono);
-  --font-serif:   var(--echo-font-body);
-
-  --primary:        var(--echo-ink-primary);
-  --primary-hover:  #14306f;
-  --bg:             var(--echo-paper-canvas);
-  --bg-card:        var(--echo-paper-white);
-  --bg-input:       var(--echo-paper-white);
-  --text:           var(--echo-ink-text);
-  --text-muted:     var(--echo-ink-mute);
-  --border:         var(--echo-line);
-  --success:        var(--echo-status-ok);
-  --error:          var(--echo-ink-seal);
-  --radius:         12px;
-}
