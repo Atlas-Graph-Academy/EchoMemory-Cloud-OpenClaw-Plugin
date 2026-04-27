@@ -95,6 +95,15 @@
 .tree-panel__body::-webkit-scrollbar { width: 6px; }
 .tree-panel__body::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: var(--r-pill); }
 
+.tree-panel__empty {
+  padding: var(--echo-sp-3) var(--echo-sp-2);
+  font-family: var(--fm);
+  font-size: var(--echo-t-mono-xs);
+  letter-spacing: var(--echo-ls-snug);
+  color: var(--ink-faint);
+  text-align: center;
+}
+
 /* ---------------- Profile section (identity files at top) ---------------- */
 .tree-section {
   margin-bottom: var(--echo-sp-3);

@@ -18,12 +18,12 @@ const ABSORB_W = 320;
 const ABSORB_H = 400;
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-/* Sticky-note tones — bound to Echo Design System --echo-note-* values.
- * Keep literal hex here (inline styles can't resolve var()). */
+/* Sticky-note tones — every value resolves through the Echo Design System
+ * tokens defined in styles/echo-tokens.css. Inline styles support var(). */
 const TONE = {
-  private: { bg: '#F5D5D5', ink: '#1a1a1a', accent: '#C7372F', stamp: 'PRIVATE' },
-  ready:   { bg: '#DCEFD9', ink: '#1a1a1a', accent: '#6b6b6b', stamp: null },
-  synced:  { bg: '#DDE6F5', ink: '#1a1a1a', accent: '#1a3a8f', stamp: 'SYNCED' },
+  private: { bg: 'var(--note-pink)', ink: 'var(--echo-ink-text)', accent: 'var(--echo-ink-seal)',    stamp: 'PRIVATE' },
+  ready:   { bg: 'var(--note-mint)', ink: 'var(--echo-ink-text)', accent: 'var(--echo-ink-mute)',    stamp: null },
+  synced:  { bg: 'var(--note-blue)', ink: 'var(--echo-ink-text)', accent: 'var(--echo-ink-primary)', stamp: 'SYNCED' },
 };
 
 /* ── Helpers ────────────────────────────────────────────── */
@@ -466,8 +466,11 @@ const StackView = memo(function StackView({
 export function Desktop({
   files, syncMap, contentMap, cardSyncState,
   syncing, canSync, isConnected, lastSyncLabel,
+  searchQuery,
   onSync, onSyncSelected, onOpenCard, onCanvasControlsChange, onOpenSettings,
 }) {
+  const trimmedQuery = (searchQuery || '').trim();
+  const hasQuery = trimmedQuery.length > 0;
   const stageRef = useRef(null);
   const lockYRef = useRef(false);
   const { cameraX, cameraY, cameraScale, focusOn, fitTo } = useCamera({
@@ -484,6 +487,9 @@ export function Desktop({
   });
   useEffect(() => { try { localStorage.setItem('echomem.treeOpen', treeOpen ? '1' : '0'); } catch {} }, [treeOpen]);
   useEffect(() => { try { localStorage.setItem('echomem.syncOpen', syncOpen ? '1' : '0'); } catch {} }, [syncOpen]);
+  // Auto-open the directory panel when the user types into the header search,
+  // so results are visible without a second click.
+  useEffect(() => { if (hasQuery) setTreeOpen(true); }, [hasQuery]);
   useEffect(() => {
     const onKey = (e) => {
       const tag = (e.target?.tagName || '').toLowerCase();
@@ -1114,7 +1120,7 @@ export function Desktop({
         )}
       </div>
 
-      <TreePanel files={files} syncMap={syncMap} onOpenFile={locateAndOpen} isOpen={treeOpen} onClose={closeTreePanel} />
+      <TreePanel files={files} syncMap={syncMap} query={trimmedQuery} onOpenFile={locateAndOpen} isOpen={treeOpen} onClose={closeTreePanel} />
 
       {/* Right panel: selection workflow while selecting, otherwise SyncConsole */}
       {(selectMode || selection.size > 0) ? (

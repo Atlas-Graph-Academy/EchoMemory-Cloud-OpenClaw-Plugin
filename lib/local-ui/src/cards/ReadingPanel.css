@@ -64,11 +64,11 @@
 }
 
 .reading-panel--synced {
-  --rp-fade-mid: rgba(220, 239, 217, 0.86);
-  --rp-fade-end: var(--note-mint);
-  border-color: rgba(46, 139, 87, 0.14);
+  --rp-fade-mid: rgba(221, 230, 245, 0.86);
+  --rp-fade-end: var(--note-blue);
+  border-color: rgba(26, 58, 143, 0.14);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.82) 0%, var(--note-mint) 100%);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.82) 0%, var(--note-blue) 100%);
 }
 
 .reading-panel--private {

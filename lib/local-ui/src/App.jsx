@@ -901,6 +901,7 @@ export default function App() {
             canSync={canSync}
             isConnected={isConnected}
             lastSyncLabel={lastSyncLabel}
+            searchQuery={searchQuery}
             onCanvasControlsChange={setCanvasControls}
             onSync={handleSync}
             onSyncSelected={handleSyncSelected}

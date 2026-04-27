@@ -69,17 +69,49 @@ function countFiles(node) {
   return n;
 }
 
+function matchesQuery(file, relativePath, q) {
+  const name = (file?.fileName || relativePath.split('/').pop() || '').toLowerCase();
+  return name.includes(q) || relativePath.toLowerCase().includes(q);
+}
+
+/** Return a copy of the tree with only files (and their ancestor folders) matching q. */
+function filterTreeByQuery(node, q) {
+  const folders = node.folders
+    .map((child) => filterTreeByQuery(child, q))
+    .filter(Boolean);
+  const files = node.files.filter(({ file, relativePath }) => matchesQuery(file, relativePath, q));
+  if (folders.length === 0 && files.length === 0) return null;
+  return { ...node, folders, files };
+}
+
 export const TreePanel = memo(function TreePanel({
   files,
   syncMap,
   onOpenFile,
+  query,
   isOpen = true,
   onClose,
 }) {
-  const tree = useMemo(() => buildMemoryTree(files), [files]);
-  const profile = useMemo(() => extractProfile(files), [files]);
-  const total = useMemo(() => countFiles(tree) + profile.length, [tree, profile]);
+  const q = (query || '').trim().toLowerCase();
+  const isFiltering = q.length > 0;
+  const fullTree = useMemo(() => buildMemoryTree(files), [files]);
+  const fullProfile = useMemo(() => extractProfile(files), [files]);
+  const tree = useMemo(
+    () => (isFiltering ? filterTreeByQuery(fullTree, q) : fullTree),
+    [fullTree, isFiltering, q],
+  );
+  const profile = useMemo(
+    () => (isFiltering
+      ? fullProfile.filter(({ file, relativePath }) => matchesQuery(file, relativePath, q))
+      : fullProfile),
+    [fullProfile, isFiltering, q],
+  );
+  const total = useMemo(
+    () => (tree ? countFiles(tree) : 0) + profile.length,
+    [tree, profile],
+  );
   const [openSet, setOpenSet] = useState(() => new Set(['workspace/memory', '__profile']));
+  const isEmpty = isFiltering && total === 0;
 
   const toggle = (path) => {
     setOpenSet((prev) => {
@@ -115,7 +147,9 @@ export const TreePanel = memo(function TreePanel({
           <span>Memory</span>
         </div>
         <div className="tree-panel__meta">
-          <span className="tree-panel__total">{total} files</span>
+          <span className="tree-panel__total">
+            {isFiltering ? `${total} match${total === 1 ? '' : 'es'}` : `${total} files`}
+          </span>
           {onClose && (
             <button
               type="button"
@@ -141,8 +175,13 @@ export const TreePanel = memo(function TreePanel({
       </div>
 
       <div className="tree-panel__body">
+        {isEmpty && (
+          <div className="tree-panel__empty">
+            No files match &ldquo;{query}&rdquo;
+          </div>
+        )}
         {/* ─── Profile section ─── */}
-        {profile.length > 0 && (
+        {!isEmpty && profile.length > 0 && (
           <div className="tree-section">
             <button
               type="button"
@@ -151,7 +190,7 @@ export const TreePanel = memo(function TreePanel({
             >
               Profile
             </button>
-            {openSet.has('__profile') && (
+            {(isFiltering || openSet.has('__profile')) && (
               <div className="tree-section__children">
                 {profile.map(({ file, relativePath }) => {
                   const status = syncMap?.[relativePath];
@@ -178,22 +217,25 @@ export const TreePanel = memo(function TreePanel({
         )}
 
         {/* ─── Memory tree ─── */}
-        <TreeBranch
-          node={tree}
-          isRoot
-          depth={0}
-          openSet={openSet}
-          toggle={toggle}
-          onOpenFile={onOpenFile}
-          syncMap={syncMap}
-        />
+        {!isEmpty && tree && (
+          <TreeBranch
+            node={tree}
+            isRoot
+            depth={0}
+            openSet={openSet}
+            toggle={toggle}
+            onOpenFile={onOpenFile}
+            syncMap={syncMap}
+            forceOpen={isFiltering}
+          />
+        )}
       </div>
     </motion.aside>
   );
 });
 
-function TreeBranch({ node, isRoot, depth = 0, openSet, toggle, onOpenFile, syncMap }) {
-  const isOpen = isRoot || openSet.has(node.path);
+function TreeBranch({ node, isRoot, depth = 0, openSet, toggle, onOpenFile, syncMap, forceOpen = false }) {
+  const isOpen = isRoot || forceOpen || openSet.has(node.path);
   const childFolders = node.folders || [];
   const childFiles = node.files || [];
   const hasChildren = childFolders.length > 0 || childFiles.length > 0;
@@ -221,6 +263,7 @@ function TreeBranch({ node, isRoot, depth = 0, openSet, toggle, onOpenFile, sync
                 toggle={toggle}
                 onOpenFile={onOpenFile}
                 syncMap={syncMap}
+                forceOpen={forceOpen}
               />
             </div>
           ))}

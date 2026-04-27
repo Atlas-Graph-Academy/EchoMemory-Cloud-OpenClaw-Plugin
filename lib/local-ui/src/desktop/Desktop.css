@@ -13,8 +13,8 @@
   inset: 0;
   overflow: hidden;
   background:
-    radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.95) 0 24%, rgba(250, 247, 240, 0.92) 46%, rgba(245, 241, 232, 0.94) 100%),
-    var(--bg);
+    radial-gradient(ellipse at 50% 28%, var(--echo-paper-cream) 0%, var(--echo-paper-soft) 78%),
+    var(--echo-paper-canvas);
 }
 
 /* ─── Stage: receives wheel + pan via native pointer events ─── */
