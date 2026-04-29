@@ -3,7 +3,7 @@ import './SettingsModal.css';
 
 const ECHO_PLATFORM_ICONS = [
   { label: 'OpenClaw', src: '/assets/platform_icons/OpenClaw-Logo.png' },
-  { label: 'ChatGPT', src: '/assets/platform_icons/ChatGPT-Logo.svg' },
+  { label: 'ChatGPT', src: '/assets/platform_icons/ChatGPT-Logo.png?v=2' },
   { label: 'Claude', src: '/assets/platform_icons/Claude-Logo.png' },
   { label: 'Gemini', src: '/assets/platform_icons/Gemini-Logo.png' },
   { label: 'Perplexity', src: '/assets/platform_icons/Perplexity-Logo.png' },
