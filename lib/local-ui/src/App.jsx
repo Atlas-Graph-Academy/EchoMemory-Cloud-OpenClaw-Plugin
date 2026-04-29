@@ -24,16 +24,16 @@ import {
   reportUiPresence,
   saveSetupConfig,
   sendAuthOtp,
-  fetchAccountBootstrap,
-  completeAccountBootstrap,
-  fetchEncryptionStatus,
-  saveEncryptionConfig,
   triggerGatewayRestart,
   triggerPluginUpdate,
   verifyAuthOtp,
+  fetchEncryptionState,
+  unlockEncryption,
+  lockEncryption,
+  setupEncryption,
 } from './sync/api';
-import { DEFAULT_ITERATIONS, setupEncryptionFromPin, unlockEncryptionWithPin } from './encryption/crypto';
 import { CloudMemoryLog } from './memory-log/CloudMemoryLog';
+import { PassphraseModal } from './encryption/PassphraseModal';
 import { clearCache as clearCloudCache, readCache as readCloudCache, writeCache as writeCloudCache } from './memory-log/cloudCache';
 import '@echomem/memory_log_ui/theme.css';
 import '@echomem/memory_log_ui/styles.css';
@@ -42,7 +42,6 @@ import pluginPkg from '../../../package.json';
 
 const UI_HEARTBEAT_INTERVAL_MS = 15000;
 const OTP_LENGTH = 6;
-const PIN_LENGTH = 5;
 const OTP_RESEND_SECONDS = 120;
 
 function normalizeEmailValue(value) {
@@ -50,10 +49,6 @@ function normalizeEmailValue(value) {
 }
 
 function sanitizeOtp(value) {
-  return String(value || '').replace(/\D/g, '');
-}
-
-function sanitizePin(value) {
   return String(value || '').replace(/\D/g, '');
 }
 
@@ -123,6 +118,12 @@ export default function App() {
   const [contentMap, setContentMap] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [authStatus, setAuthStatus] = useState(null);
+  const [encryptionState, setEncryptionState] = useState(null); // { connected, enabled, unlocked, salt, iterations }
+  const [passphraseModalMode, setPassphraseModalMode] = useState(null); // null | 'unlock' | 'setup'
+  // User's choice in the connect modal's mode picker. Lifted from SettingsModal
+  // so handleVerifyOtp can branch on it: e2ee → open PassphraseModal in setup
+  // mode immediately after a successful OTP. 'regular' → no follow-up (no E2EE).
+  const [encryptionMode, setEncryptionMode] = useState('e2ee');
   const [syncStatus, setSyncStatus] = useState(null);
   const [syncResult, setSyncResult] = useState(null);
   const [syncing, setSyncing] = useState(false);
@@ -147,16 +148,6 @@ export default function App() {
   const [emailConnectState, setEmailConnectState] = useState('idle');
   const [connectEmail, setConnectEmail] = useState('');
   const [otpDigits, setOtpDigits] = useState(() => Array(OTP_LENGTH).fill(''));
-  const [encryptionMode, setEncryptionMode] = useState('maximum');
-  const [pinDigits, setPinDigits] = useState(() => Array(PIN_LENGTH).fill(''));
-  const [pinConfirmDigits, setPinConfirmDigits] = useState(() => Array(PIN_LENGTH).fill(''));
-  const [pinError, setPinError] = useState(null);
-  const [accountBootstrap, setAccountBootstrap] = useState(null);
-  const [encryptionStatus, setEncryptionStatus] = useState(null);
-  const [encryptionKeyBase64, setEncryptionKeyBase64] = useState(null);
-  const [unlockPassphrase, setUnlockPassphrase] = useState('');
-  const [unlockState, setUnlockState] = useState('idle');
-  const [unlockError, setUnlockError] = useState(null);
   const [connectError, setConnectError] = useState(null);
   const [resendCountdown, setResendCountdown] = useState(0);
   const [pluginUpdateState, setPluginUpdateState] = useState(null);
@@ -182,8 +173,6 @@ export default function App() {
   const serverInstanceIdRef = useRef(null);
   const clientIdRef = useRef(buildLocalUiClientId());
   const otpInputRefs = useRef([]);
-  const pinInputRefs = useRef([]);
-  const pinConfirmInputRefs = useRef([]);
   const syncedExpandedRef = useRef(null);
 
   const loadFiles = useCallback(async () => {
@@ -200,6 +189,10 @@ export default function App() {
 
   const loadAuthStatus = useCallback(async () => {
     setAuthStatus(await fetchAuthStatus());
+  }, []);
+
+  const loadEncryptionState = useCallback(async () => {
+    setEncryptionState(await fetchEncryptionState());
   }, []);
 
   const loadSyncStatus = useCallback(async () => {
@@ -279,26 +272,15 @@ export default function App() {
     }
   }, []);
 
-  const loadAccountBootstrap = useCallback(async () => {
-    const data = await fetchAccountBootstrap();
-    setAccountBootstrap(data);
-  }, []);
-
-  const loadEncryptionStatus = useCallback(async () => {
-    const data = await fetchEncryptionStatus();
-    setEncryptionStatus(data);
-  }, []);
-
   const refreshSetupSurfaces = useCallback(async () => {
     await Promise.all([
       loadAuthStatus(),
       loadSyncStatus(),
       loadBackendSources(),
       loadSetupStatus(),
-      loadAccountBootstrap(),
-      loadEncryptionStatus(),
+      loadEncryptionState(),
     ]);
-  }, [loadAccountBootstrap, loadAuthStatus, loadBackendSources, loadEncryptionStatus, loadSetupStatus, loadSyncStatus]);
+  }, [loadAuthStatus, loadBackendSources, loadEncryptionState, loadSetupStatus, loadSyncStatus]);
 
   const loadPluginUpdateStatus = useCallback(async () => {
     setPluginUpdateLoading(true);
@@ -369,9 +351,8 @@ export default function App() {
     loadSyncStatus();
     loadBackendSources();
     loadSetupStatus();
-    loadAccountBootstrap();
-    loadEncryptionStatus();
     loadPluginUpdateStatus();
+    loadEncryptionState();
     const cleanup = connectSSE({
       onServerConnected: (event) => {
         const nextServerInstanceId = event?.serverInstanceId;
@@ -473,7 +454,15 @@ export default function App() {
       },
     });
     return cleanup;
-  }, [loadAccountBootstrap, loadAuthStatus, loadBackendSources, loadEncryptionStatus, loadFiles, loadPluginUpdateStatus, loadSetupStatus, loadSyncStatus]);
+  }, [loadAuthStatus, loadBackendSources, loadFiles, loadPluginUpdateStatus, loadSetupStatus, loadSyncStatus]);
+
+  // Re-fetch encryption state when the connected userId changes — covers the
+  // initial connect, OTP login, and account switches. Without this the
+  // panel's lock pill would be stuck on the value from before the user
+  // signed in.
+  useEffect(() => {
+    if (authStatus?.userId) loadEncryptionState();
+  }, [authStatus?.userId, loadEncryptionState]);
 
   // Derived state
   const syncMap = useMemo(() => {
@@ -515,11 +504,53 @@ export default function App() {
   const authLabel = buildAuthLabel(authStatus, hasApiKey);
   const normalizedConnectEmail = normalizeEmailValue(connectEmail);
   const otpValue = otpDigits.join('');
-  const pinValue = pinDigits.join('');
-  const pinConfirmValue = pinConfirmDigits.join('');
-  const encryptionEnabled = encryptionStatus?.enabled === true || accountBootstrap?.encryptionEnabled === true;
-  const encryptionUnlocked = Boolean(encryptionKeyBase64);
-  const encryptionRequiresUnlock = isConnected && encryptionEnabled && !encryptionUnlocked;
+
+  // Derive the 3-state encryption indicator the shared MemoryList consumes.
+  // 'off'      — no cloud config (user has never set up E2EE)
+  // 'locked'   — cloud config exists but plugin process has no derived key cached
+  // 'unlocked' — plugin has key cached and can encrypt before upload
+  const derivedEncryptionState = !encryptionState?.connected
+    ? undefined
+    : !encryptionState.enabled
+      ? 'off'
+      : encryptionState.unlocked
+        ? 'unlocked'
+        : 'locked';
+
+  const handleRequestUnlock = useCallback(() => {
+    setPassphraseModalMode('unlock');
+  }, []);
+
+  const handleRequestEncryptionSetup = useCallback(() => {
+    setPassphraseModalMode('setup');
+  }, []);
+
+  const handlePassphraseSubmit = useCallback(async (passphrase) => {
+    if (passphraseModalMode === 'setup') {
+      await setupEncryption(passphrase);
+    } else {
+      await unlockEncryption(passphrase);
+    }
+    // Self-test before declaring the modal a success. If the gateway and
+    // upstream don't agree that we're enabled+unlocked at this moment, the
+    // operation is in a half-broken state — surface that as an error so the
+    // user retries instead of believing E2EE is on when it isn't.
+    const finalState = await fetchEncryptionState();
+    if (!finalState?.connected || !finalState?.enabled || !finalState?.unlocked) {
+      const reason = !finalState?.connected
+        ? 'authentication lost'
+        : !finalState?.enabled
+          ? 'encryption config did not persist on the server'
+          : 'derived key was not cached locally';
+      throw new Error(`Encryption setup did not complete cleanly (${reason}). Please try again.`);
+    }
+    setEncryptionState(finalState);
+    setPassphraseModalMode(null);
+    // Flush the SWR cache and re-fetch — the ciphertext rows fetched while
+    // locked are now stale; the gateway will return decrypted bodies once
+    // it can use the cached key.
+    invalidateAndReloadCloud();
+  }, [invalidateAndReloadCloud, passphraseModalMode]);
 
   // Ready count gates the Sync CTA
   const readyCount = useMemo(() => {
@@ -533,16 +564,10 @@ export default function App() {
     return ready;
   }, [files, syncMap]);
 
-  const canSync = isConnected && readyCount > 0 && !encryptionRequiresUnlock;
+  const canSync = isConnected && readyCount > 0;
 
   useEffect(() => {
     if (!isConnected) {
-      setAccountBootstrap(null);
-      setEncryptionStatus(null);
-      setEncryptionKeyBase64(null);
-      setUnlockPassphrase('');
-      setUnlockError(null);
-      setUnlockState('idle');
       setCloudMemoryOpen(false);
       setCloudMemoryStats({ totalCount: 0, countWithSource: 0 });
       setCloudMemories([]);
@@ -621,11 +646,6 @@ export default function App() {
   }, [readingGroup]);
 
   const handleSync = useCallback(async () => {
-    if (encryptionRequiresUnlock) {
-      setSyncResult({ ok: false, msg: 'Unlock encryption before syncing encrypted memories.' });
-      setSettingsOpen(true);
-      return;
-    }
     setCloudMemoryOpen(false);
     setSyncing(true);
     setSyncResult(null);
@@ -634,9 +654,7 @@ export default function App() {
     setTotalStreamedCount(0);
     setJustSynced(false);
     try {
-      const result = await triggerSync({
-        encryptionKeyBase64: encryptionEnabled ? encryptionKeyBase64 : null,
-      });
+      const result = await triggerSync();
       const nextResult = buildSyncResultState(result);
       setSyncResult(nextResult);
       loadSyncStatus();
@@ -651,15 +669,10 @@ export default function App() {
     } finally {
       setSyncing(false);
     }
-  }, [encryptionEnabled, encryptionKeyBase64, encryptionRequiresUnlock, loadBackendSources, invalidateAndReloadCloud, loadSyncStatus]);
+  }, [loadBackendSources, invalidateAndReloadCloud, loadSyncStatus]);
 
   const handleSyncFile = useCallback(async (relativePath) => {
     if (!relativePath || syncing) return;
-    if (encryptionRequiresUnlock) {
-      setSyncResult({ ok: false, msg: 'Unlock encryption before syncing encrypted memories.' });
-      setSettingsOpen(true);
-      return;
-    }
     setCloudMemoryOpen(false);
     setSyncing(true);
     setSyncResult(null);
@@ -667,9 +680,7 @@ export default function App() {
     setStreamedMemories([]);
     setTotalStreamedCount(0);
     try {
-      const result = await triggerSyncSelected([relativePath], {
-        encryptionKeyBase64: encryptionEnabled ? encryptionKeyBase64 : null,
-      });
+      const result = await triggerSyncSelected([relativePath]);
       const nextResult = buildSyncResultState(result);
       setSyncResult(nextResult);
       loadSyncStatus();
@@ -680,16 +691,11 @@ export default function App() {
     } finally {
       setSyncing(false);
     }
-  }, [encryptionEnabled, encryptionKeyBase64, encryptionRequiresUnlock, loadBackendSources, invalidateAndReloadCloud, loadSyncStatus, syncing]);
+  }, [loadBackendSources, invalidateAndReloadCloud, loadSyncStatus, syncing]);
 
   const handleSyncSelected = useCallback(async (relativePaths) => {
     const paths = Array.isArray(relativePaths) ? relativePaths.filter(Boolean) : [];
     if (paths.length === 0 || syncing) return;
-    if (encryptionRequiresUnlock) {
-      setSyncResult({ ok: false, msg: 'Unlock encryption before syncing encrypted memories.' });
-      setSettingsOpen(true);
-      return;
-    }
     setCloudMemoryOpen(false);
     setSyncing(true);
     setSyncResult(null);
@@ -697,9 +703,7 @@ export default function App() {
     setStreamedMemories([]);
     setTotalStreamedCount(0);
     try {
-      const result = await triggerSyncSelected(paths, {
-        encryptionKeyBase64: encryptionEnabled ? encryptionKeyBase64 : null,
-      });
+      const result = await triggerSyncSelected(paths);
       const nextResult = buildSyncResultState(result);
       setSyncResult(nextResult);
       loadSyncStatus();
@@ -710,7 +714,7 @@ export default function App() {
     } finally {
       setSyncing(false);
     }
-  }, [encryptionEnabled, encryptionKeyBase64, encryptionRequiresUnlock, loadBackendSources, invalidateAndReloadCloud, loadSyncStatus, syncing]);
+  }, [loadBackendSources, invalidateAndReloadCloud, loadSyncStatus, syncing]);
 
   const handleSetupFieldChange = useCallback((key, value) => {
     setSetupDraft((prev) => ({ ...prev, [key]: value }));
@@ -746,17 +750,8 @@ export default function App() {
       setSetupState(result.setup || null);
       setConnectEmail('');
       setEmailConnectState('idle');
-      setEncryptionMode('maximum');
-      setEncryptionKeyBase64(null);
-      setEncryptionStatus(null);
-      setAccountBootstrap(null);
-      setUnlockPassphrase('');
-      setUnlockError(null);
-      setPinError(null);
       setResendCountdown(0);
       setOtpDigits(Array(OTP_LENGTH).fill(''));
-      setPinDigits(Array(PIN_LENGTH).fill(''));
-      setPinConfirmDigits(Array(PIN_LENGTH).fill(''));
       setSetupMessage({
         ok: true,
         text: `Disconnected this device from Echo Cloud and switched back to local-only mode. Saved to ${result.targetPath}.`,
@@ -779,12 +774,6 @@ export default function App() {
 
   const clearOtpDigits = useCallback(() => {
     setOtpDigits(Array(OTP_LENGTH).fill(''));
-  }, []);
-
-  const clearPinDigits = useCallback(() => {
-    setPinDigits(Array(PIN_LENGTH).fill(''));
-    setPinConfirmDigits(Array(PIN_LENGTH).fill(''));
-    setPinError(null);
   }, []);
 
   const handleSendOtp = useCallback(async () => {
@@ -822,33 +811,24 @@ export default function App() {
       setConnectEmail(data?.email || email);
       clearOtpDigits();
       setResendCountdown(0);
-      setAccountBootstrap(data?.bootstrap || null);
-      if (data?.bootstrap?.encryptionEnabled === true) {
-        await loadEncryptionStatus();
-        setEmailConnectState('connected');
-        setSetupMessage({ ok: true, text: `Connected Echo Cloud and saved a new API key to ${data?.setup?.envFile?.targetPath || setupState?.envFile?.targetPath || '~/.openclaw/.env'}.` });
-        refreshSetupSurfaces().catch(console.error);
-        loadFiles().catch(console.error);
-        return;
-      }
-      if (encryptionMode === 'maximum') {
-        clearPinDigits();
-        setEmailConnectState('pin');
-        refreshSetupSurfaces().catch(console.error);
-        window.requestAnimationFrame(() => pinInputRefs.current[0]?.focus());
-        return;
-      }
-      const bootstrap = await completeAccountBootstrap({ echoName: 'Echo', encryptionPreference: 'standard' });
-      setAccountBootstrap(bootstrap);
       setEmailConnectState('connected');
       setSetupMessage({ ok: true, text: `Connected Echo Cloud and saved a new API key to ${data?.setup?.envFile?.targetPath || setupState?.envFile?.targetPath || '~/.openclaw/.env'}.` });
       refreshSetupSurfaces().catch(console.error);
       loadFiles().catch(console.error);
+      // Honor the mode the user picked on the privacy step. E2EE → push them
+      // into PIN setup right away; the connect surface is dismissed so the
+      // PassphraseModal becomes the focused step. Regular → connect ends here
+      // with no encryption config touched (server stays on Echo-managed
+      // encryption; no user_encryption_config row gets created without a PIN).
+      if (encryptionMode === 'e2ee') {
+        setSettingsOpen(false);
+        setPassphraseModalMode('setup');
+      }
     } catch (error) {
       setConnectError(String(error?.message ?? error));
       setEmailConnectState('otp_sent');
     }
-  }, [clearOtpDigits, clearPinDigits, connectEmail, encryptionMode, loadEncryptionStatus, loadFiles, otpDigits, refreshSetupSurfaces, setupState?.envFile?.targetPath]);
+  }, [clearOtpDigits, connectEmail, encryptionMode, loadFiles, otpDigits, refreshSetupSurfaces, setupState?.envFile?.targetPath]);
 
   const handleOtpDigitChange = useCallback((index, rawValue) => {
     const digits = sanitizeOtp(rawValue);
@@ -904,177 +884,12 @@ export default function App() {
     window.requestAnimationFrame(() => focusOtpInput(Math.min(digits.length, OTP_LENGTH) - 1));
   }, [focusOtpInput]);
 
-  const focusPinInput = useCallback((field, index) => {
-    const refs = field === 'confirm' ? pinConfirmInputRefs.current : pinInputRefs.current;
-    const nextInput = refs[index];
-    if (nextInput) {
-      nextInput.focus();
-      nextInput.select();
-    }
-  }, []);
-
-  const handlePinDigitChange = useCallback((field, index, rawValue) => {
-    const digits = sanitizePin(rawValue);
-    setPinError(null);
-    const setter = field === 'confirm' ? setPinConfirmDigits : setPinDigits;
-    setter((prev) => {
-      const next = [...prev];
-      if (!digits) {
-        next[index] = '';
-        return next;
-      }
-      digits.slice(0, PIN_LENGTH - index).split('').forEach((char, offset) => {
-        next[index + offset] = char;
-      });
-      return next;
-    });
-    if (digits) {
-      const nextIndex = Math.min(index + digits.length, PIN_LENGTH - 1);
-      window.requestAnimationFrame(() => focusPinInput(field, nextIndex));
-    }
-  }, [focusPinInput]);
-
-  const handlePinKeyDown = useCallback((field, index, event) => {
-    const values = field === 'confirm' ? pinConfirmDigits : pinDigits;
-    if (event.key === 'Backspace' && !values[index] && index > 0) {
-      event.preventDefault();
-      const setter = field === 'confirm' ? setPinConfirmDigits : setPinDigits;
-      setter((prev) => {
-        const next = [...prev];
-        next[index - 1] = '';
-        return next;
-      });
-      focusPinInput(field, index - 1);
-      return;
-    }
-    if (event.key === 'ArrowLeft' && index > 0) {
-      event.preventDefault();
-      focusPinInput(field, index - 1);
-      return;
-    }
-    if (event.key === 'ArrowRight' && index < PIN_LENGTH - 1) {
-      event.preventDefault();
-      focusPinInput(field, index + 1);
-    }
-  }, [focusPinInput, pinConfirmDigits, pinDigits]);
-
-  const handlePinPaste = useCallback((field, event) => {
-    const digits = sanitizePin(event.clipboardData?.getData('text') || '');
-    if (!digits) return;
-    event.preventDefault();
-    const nextDigits = Array(PIN_LENGTH).fill('');
-    digits.slice(0, PIN_LENGTH).split('').forEach((char, index) => { nextDigits[index] = char; });
-    if (field === 'confirm') {
-      setPinConfirmDigits(nextDigits);
-    } else {
-      setPinDigits(nextDigits);
-    }
-    setPinError(null);
-    window.requestAnimationFrame(() => focusPinInput(field, Math.min(digits.length, PIN_LENGTH) - 1));
-  }, [focusPinInput]);
-
-  const handleEncryptionSetup = useCallback(async () => {
-    const primary = pinDigits.join('');
-    const confirm = pinConfirmDigits.join('');
-    if (primary.length !== PIN_LENGTH || confirm.length !== PIN_LENGTH) {
-      setPinError(`Enter all ${PIN_LENGTH} numbers twice.`);
-      return;
-    }
-    if (primary !== confirm) {
-      setPinError('Enter the same numbers twice.');
-      return;
-    }
-
-    setEmailConnectState('setting_encryption');
-    setPinError(null);
-    try {
-      const { saltBase64, verificationToken, keyBase64 } = await setupEncryptionFromPin(primary, DEFAULT_ITERATIONS);
-      await saveEncryptionConfig({
-        salt: saltBase64,
-        verification: verificationToken,
-        iterations: DEFAULT_ITERATIONS,
-      });
-      const bootstrap = await completeAccountBootstrap({ echoName: 'Echo', encryptionPreference: 'maximum' });
-      setEncryptionKeyBase64(keyBase64);
-      setEncryptionStatus({
-        enabled: true,
-        salt: saltBase64,
-        verification: verificationToken,
-        iterations: DEFAULT_ITERATIONS,
-      });
-      setAccountBootstrap(bootstrap);
-      clearPinDigits();
-      setEmailConnectState('connected');
-      setSetupMessage({ ok: true, text: 'Connected Echo Cloud with end-to-end encryption enabled. The key is only held in this browser session.' });
-      refreshSetupSurfaces().catch(console.error);
-      loadFiles().catch(console.error);
-    } catch (error) {
-      setPinError(String(error?.message ?? error));
-      setEmailConnectState('pin');
-    }
-  }, [clearPinDigits, loadFiles, pinConfirmDigits, pinDigits, refreshSetupSurfaces]);
-
-  const handleUseRegularInstead = useCallback(async () => {
-    setEmailConnectState('verifying');
-    setPinError(null);
-    try {
-      const bootstrap = await completeAccountBootstrap({ echoName: 'Echo', encryptionPreference: 'standard' });
-      setAccountBootstrap(bootstrap);
-      setEncryptionMode('standard');
-      setEncryptionKeyBase64(null);
-      clearPinDigits();
-      setEmailConnectState('connected');
-      setSetupMessage({ ok: true, text: 'Connected Echo Cloud with regular sync. Echo-managed encryption is active.' });
-      refreshSetupSurfaces().catch(console.error);
-      loadFiles().catch(console.error);
-    } catch (error) {
-      setPinError(String(error?.message ?? error));
-      setEmailConnectState('pin');
-    }
-  }, [clearPinDigits, loadFiles, refreshSetupSurfaces]);
-
-  const handleUnlockEncryption = useCallback(async () => {
-    const passphrase = String(unlockPassphrase || '');
-    if (!passphrase) {
-      setUnlockError('Enter your PIN or passphrase.');
-      return;
-    }
-    if (!encryptionStatus?.salt || !encryptionStatus?.verification) {
-      setUnlockError('Encryption setup details are unavailable. Reconnect and try again.');
-      return;
-    }
-    setUnlockState('unlocking');
-    setUnlockError(null);
-    try {
-      const keyBase64 = await unlockEncryptionWithPin({
-        pin: passphrase,
-        saltBase64: encryptionStatus.salt,
-        verificationToken: encryptionStatus.verification,
-        iterations: encryptionStatus.iterations || DEFAULT_ITERATIONS,
-      });
-      if (!keyBase64) {
-        setUnlockError('That PIN or passphrase did not unlock this account.');
-        return;
-      }
-      setEncryptionKeyBase64(keyBase64);
-      setUnlockPassphrase('');
-      setSetupMessage({ ok: true, text: 'Encryption unlocked for this browser session.' });
-    } catch (error) {
-      setUnlockError(String(error?.message ?? error));
-    } finally {
-      setUnlockState('idle');
-    }
-  }, [encryptionStatus, unlockPassphrase]);
-
   const resetQuickConnect = useCallback(() => {
     setEmailConnectState('idle');
     setConnectError(null);
-    setPinError(null);
-    setEncryptionMode('maximum');
     setResendCountdown(0);
     clearOtpDigits();
-    clearPinDigits();
-  }, [clearOtpDigits, clearPinDigits]);
+  }, [clearOtpDigits]);
 
   const handlePluginUpdate = useCallback(async () => {
     setPluginUpdateBusy(true);
@@ -1192,6 +1007,11 @@ export default function App() {
               countWithSource={cloudMemoryStats.countWithSource}
               onRefresh={invalidateAndReloadCloud}
               onClose={() => setCloudMemoryOpen(false)}
+              userLabel={authStatus?.email || null}
+              onOpenSettings={() => setSettingsOpen(true)}
+              encryptionState={derivedEncryptionState}
+              onRequestUnlock={handleRequestUnlock}
+              onOpenEncryptionSetup={handleRequestEncryptionSetup}
             />
           </aside>
         )}
@@ -1266,28 +1086,6 @@ export default function App() {
         connectError={connectError}
         encryptionMode={encryptionMode}
         onEncryptionModeChange={setEncryptionMode}
-        pinDigits={pinDigits}
-        pinConfirmDigits={pinConfirmDigits}
-        pinInputRefs={pinInputRefs}
-        pinConfirmInputRefs={pinConfirmInputRefs}
-        onPinDigitChange={handlePinDigitChange}
-        onPinKeyDown={handlePinKeyDown}
-        onPinPaste={handlePinPaste}
-        onEncryptionSetup={handleEncryptionSetup}
-        onUseRegularInstead={handleUseRegularInstead}
-        pinValue={pinValue}
-        pinConfirmValue={pinConfirmValue}
-        pinLength={PIN_LENGTH}
-        pinError={pinError}
-        encryptionEnabled={encryptionEnabled}
-        encryptionUnlocked={encryptionUnlocked}
-        encryptionStatus={encryptionStatus}
-        encryptionRequiresUnlock={encryptionRequiresUnlock}
-        unlockPassphrase={unlockPassphrase}
-        onUnlockPassphraseChange={(value) => { setUnlockPassphrase(value); setUnlockError(null); }}
-        onUnlockEncryption={handleUnlockEncryption}
-        unlockState={unlockState}
-        unlockError={unlockError}
         onDisconnect={handleDisconnect}
         disconnecting={disconnecting}
         setupState={setupState}
@@ -1332,6 +1130,13 @@ export default function App() {
       {syncResult && !syncResult.ok && (
         <div className="sync-toast sync-toast--error" role="alert">{syncResult.msg}</div>
       )}
+
+      <PassphraseModal
+        open={passphraseModalMode !== null}
+        mode={passphraseModalMode}
+        onSubmit={handlePassphraseSubmit}
+        onCancel={() => setPassphraseModalMode(null)}
+      />
     </div>
   );
 }

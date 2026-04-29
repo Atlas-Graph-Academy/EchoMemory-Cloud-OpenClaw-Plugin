@@ -8,10 +8,23 @@
       "port": 5173
     },
     {
+      "name": "echomem-chrome-api",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:api", "--prefix", "/Users/echoget/EchoMem-Chrome"],
+      "port": 3000,
+      "autoPort": true
+    },
+    {
       "name": "design-preview",
       "runtimeExecutable": "python3",
       "runtimeArgs": ["-m", "http.server", "51397", "--directory", "/Users/echoget/.gstack/projects/Atlas-Graph-Academy-EchoMemory-Cloud-OpenClaw-Plugin/designs/listview-20260423"],
       "port": 51397
+    },
+    {
+      "name": "design-system",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "5180", "--directory", "/Users/echoget/echo-design-system"],
+      "port": 5180
     }
   ]
 }

@@ -10,6 +10,13 @@ const ECHO_PLATFORM_ICONS = [
   { label: 'DeepSeek', src: '/assets/platform_icons/DeepSeek-Logo.png' },
 ];
 
+const COMMUNITY_AVATARS = [
+  { initial: 'A', tone: 'mint' },
+  { initial: 'M', tone: 'cream' },
+  { initial: 'J', tone: 'blue' },
+  { initial: 'K', tone: 'pink' },
+];
+
 /**
  * SettingsModal — a single, discoverable home for all backend config
  * that the old permanent left sidebar used to host.
@@ -45,30 +52,9 @@ export function SettingsModal({
   resendCountdown,
   onResetQuickConnect,
   connectError,
+  // encryption mode (lifted to App.jsx so OTP success can trigger PIN setup)
   encryptionMode,
   onEncryptionModeChange,
-  pinDigits,
-  pinConfirmDigits,
-  pinInputRefs,
-  pinConfirmInputRefs,
-  onPinDigitChange,
-  onPinKeyDown,
-  onPinPaste,
-  onEncryptionSetup,
-  onUseRegularInstead,
-  pinValue,
-  pinConfirmValue,
-  pinLength,
-  pinError,
-  encryptionEnabled,
-  encryptionUnlocked,
-  encryptionStatus,
-  encryptionRequiresUnlock,
-  unlockPassphrase,
-  onUnlockPassphraseChange,
-  onUnlockEncryption,
-  unlockState,
-  unlockError,
   // disconnect
   onDisconnect,
   disconnecting,
@@ -100,6 +86,8 @@ export function SettingsModal({
     config: false,
     updates: false,
   });
+  // encryptionMode is now a controlled prop driven by App.jsx so the post-OTP
+  // flow can read it. Don't shadow it with local state.
 
   const panelRef = useRef(null);
 
@@ -118,19 +106,228 @@ export function SettingsModal({
 
   if (!open) return null;
 
-  const isPinStep = emailConnectState === 'pin' || emailConnectState === 'setting_encryption';
-  const showConnect = !isConnected || isPinStep;
+  const showConnect = !isConnected;
   const isOtpStep = emailConnectState === 'otp_sent' || emailConnectState === 'verifying';
-  const isDoneStep = showConnect && emailConnectState === 'connected';
-  const isPrivacyStep = showConnect && !isOtpStep && !isPinStep && !isDoneStep;
-  const flowStep = isDoneStep ? 4 : isPinStep ? 3 : isOtpStep ? 2 : 1;
   const title = showConnect ? 'Connect Echo Memory' : 'Echo Settings';
   const subtitle = showConnect
-    ? isPinStep ? 'Set your PIN.' : 'Yours by default.'
+    ? 'Yours by default. Private by design.'
     : 'Echo Cloud is connected. Local controls are available below.';
   const toggle = (key) => setExpanded((p) => ({ ...p, [key]: !p[key] }));
-  const pinComplete = (pinValue?.length ?? 0) === (pinLength ?? 5)
-    && (pinConfirmValue?.length ?? 0) === (pinLength ?? 5);
+
+  if (showConnect) {
+    return (
+      <>
+        <div className="settings-overlay" onClick={onClose} aria-hidden="true" />
+        <div
+          className="settings-modal settings-modal--connect"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Connect Echo Memory"
+          ref={panelRef}
+          tabIndex={-1}
+        >
+          <div className="connect-card" data-tour="email-connect">
+            <button
+              type="button"
+              className="connect-close"
+              onClick={onClose}
+              aria-label="Close"
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                <path d="M3 3L11 11M11 3L3 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            </button>
+
+            <p className="connect-kicker">Connect Echo Memory</p>
+            <h2 className="connect-title">Yours by default.</h2>
+            <p className="connect-protected">Your memories, your call.</p>
+
+            <ul className="connect-values">
+              <li className="connect-value">
+                <span className="connect-value__label">100% private</span>
+                <span className="connect-value__copy">AES-256 encryption before sync.</span>
+              </li>
+              <li className="connect-value">
+                <span className="connect-value__label">All memories in one account</span>
+                <span className="connect-source-row" aria-label="Connected AI tools">
+                  {ECHO_PLATFORM_ICONS.map((platform) => (
+                    <span
+                      key={platform.label}
+                      className="connect-source-chip"
+                      title={platform.label}
+                    >
+                      <img src={platform.src} alt="" aria-hidden="true" />
+                    </span>
+                  ))}
+                </span>
+              </li>
+              <li className="connect-value">
+                <span className="connect-value__label">Share and meet friends</span>
+                <span className="connect-avatar-row" aria-label="Echo community members">
+                  {COMMUNITY_AVATARS.map((avatar) => (
+                    <span
+                      key={avatar.initial}
+                      className="connect-avatar"
+                      data-tone={avatar.tone}
+                      aria-hidden="true"
+                    >
+                      {avatar.initial}
+                    </span>
+                  ))}
+                </span>
+              </li>
+            </ul>
+
+            {!isOtpStep ? (
+              <>
+                <fieldset className="connect-mode-picker">
+                  <div className="connect-mode-picker__legend">
+                    <span>Choose a protection mode</span>
+                    <span className="connect-status-pill">Protected</span>
+                  </div>
+
+                  <div className="connect-mode-grid">
+                    <label
+                      className={`connect-mode connect-mode--regular${encryptionMode === 'regular' ? ' is-checked' : ''}`}
+                    >
+                      <input
+                        type="radio"
+                        name="privacy-mode"
+                        value="regular"
+                        checked={encryptionMode === 'regular'}
+                        onChange={() => onEncryptionModeChange?.('regular')}
+                      />
+                      <div className="connect-mode__top">
+                        <span className="connect-mode__name">Regular</span>
+                        <span className="connect-radio-mark" aria-hidden="true" />
+                      </div>
+                      <p className="connect-mode__copy">
+                        Fast sync, full search, and Echo-managed encryption.
+                      </p>
+                      <span className="connect-mode__meta">Quick start</span>
+                    </label>
+
+                    <label
+                      className={`connect-mode connect-mode--e2ee${encryptionMode === 'e2ee' ? ' is-checked' : ''}`}
+                    >
+                      <input
+                        type="radio"
+                        name="privacy-mode"
+                        value="e2ee"
+                        checked={encryptionMode === 'e2ee'}
+                        onChange={() => onEncryptionModeChange?.('e2ee')}
+                      />
+                      <div className="connect-mode__top">
+                        <span className="connect-mode__name">End-to-end</span>
+                        <span className="connect-radio-mark" aria-hidden="true" />
+                      </div>
+                      <p className="connect-mode__copy">
+                        AES-256 encryption before sync. Only this device holds the key.
+                      </p>
+                      <span className="connect-free-tag" aria-label="Free forever for beta users">
+                        <span className="connect-free-tag__free">free</span>
+                        <span className="connect-free-tag__copy">forever for beta users</span>
+                      </span>
+                    </label>
+                  </div>
+                </fieldset>
+
+                <p className="connect-terms">
+                  By continuing, you agree to Echo's{' '}
+                  <a href="https://www.iditor.com/terms-of-use" target="_blank" rel="noopener noreferrer">
+                    Terms of Use
+                  </a>.
+                </p>
+
+                <div className="connect-actions">
+                  <input
+                    type="email"
+                    className="connect-email"
+                    value={connectEmail || ''}
+                    placeholder="Your email"
+                    autoComplete="email"
+                    aria-label="Your email"
+                    disabled={emailConnectState === 'sending'}
+                    onChange={(e) => onConnectEmailChange?.(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && connectEmail) onSendOtp?.(); }}
+                  />
+                  <button
+                    type="button"
+                    className="connect-continue"
+                    disabled={emailConnectState === 'sending' || !connectEmail}
+                    onClick={onSendOtp}
+                  >
+                    {emailConnectState === 'sending' ? 'Sending…' : 'Continue'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="connect-otp-block">
+                <div className="connect-otp__head">
+                  <span className="connect-otp__title">Enter verification code</span>
+                  <p className="connect-otp__label">
+                    Sent to <strong>{connectEmail}</strong>
+                  </p>
+                </div>
+                <div className="connect-otp__grid" onPaste={onOtpPaste}>
+                  {otpDigits?.map((digit, index) => (
+                    <input
+                      key={`otp-${index}`}
+                      ref={(node) => { if (otpInputRefs?.current) otpInputRefs.current[index] = node; }}
+                      className="connect-otp__input"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      autoComplete={index === 0 ? 'one-time-code' : 'off'}
+                      maxLength={1}
+                      value={digit}
+                      disabled={emailConnectState === 'verifying'}
+                      onChange={(e) => onOtpDigitChange?.(index, e.target.value)}
+                      onKeyDown={(e) => onOtpKeyDown?.(index, e)}
+                    />
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  className="connect-continue connect-continue--otp"
+                  disabled={emailConnectState === 'verifying' || (otpValue?.length ?? 0) < (otpLength ?? 6)}
+                  onClick={onVerifyOtp}
+                >
+                  {emailConnectState === 'verifying' ? 'Verifying…' : 'Verify'}
+                </button>
+                <div className="connect-otp__actions">
+                  {resendCountdown > 0 ? (
+                    <span className="connect-hint">Resend in {resendCountdown}s</span>
+                  ) : (
+                    <button type="button" className="connect-link" onClick={onSendOtp}>Resend code</button>
+                  )}
+                  <button type="button" className="connect-link" onClick={onResetQuickConnect}>
+                    Use another email
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {connectError && <p className="connect-error">{connectError}</p>}
+
+            {hasApiKey && (
+              <div className="connect-existing-key">
+                <span>There is already a saved Echo key on this machine.</span>
+                <button
+                  type="button"
+                  className="connect-secondary"
+                  disabled={setupSaving || disconnecting}
+                  onClick={onDisconnect}
+                >
+                  {disconnecting ? 'Clearing…' : 'Clear saved key'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
@@ -145,24 +342,13 @@ export function SettingsModal({
       >
         <header className="settings-head">
           <div className="settings-head__main">
-            {showConnect ? (
-              <>
-                <p className="settings-eyebrow-title">{title}</p>
-                <h2 className="settings-title settings-title--hero">{subtitle}</h2>
-              </>
-            ) : (
-              <>
-                <h2 className="settings-title">{title}</h2>
-                <p className="settings-subtitle">{subtitle}</p>
-              </>
-            )}
-            {!showConnect && (
-              <div className="settings-status">
-                <span className="settings-pill settings-pill--ok">
-                  {authLabel || 'Connected'}
-                </span>
-              </div>
-            )}
+            <h2 className="settings-title">{title}</h2>
+            <p className="settings-subtitle">{subtitle}</p>
+            <div className="settings-status">
+              <span className="settings-pill settings-pill--ok">
+                {authLabel || 'Connected'}
+              </span>
+            </div>
           </div>
           <button type="button" className="settings-close" onClick={onClose} aria-label="Close settings">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
@@ -171,275 +357,7 @@ export function SettingsModal({
           </button>
         </header>
 
-        <div className={`settings-body ${isOtpStep ? 'settings-body--otp' : ''}`}>
-          {/* ─── Connect (OTP) ─── */}
-          {showConnect && (
-            <section className={`settings-auth settings-flow ${isOtpStep ? 'settings-auth--otp' : ''}`} data-tour="email-connect">
-              <div className="settings-flow-progress" aria-label="Onboarding progress">
-                <div className="settings-flow-progress__track" aria-hidden="true">
-                  {[1, 2, 3, 4].map((step) => (
-                    <span key={step} className={`settings-flow-progress__pill ${step <= flowStep ? 'is-done' : ''}`} />
-                  ))}
-                </div>
-                <span className="settings-flow-progress__count">{flowStep} / 4</span>
-              </div>
-
-              {isPrivacyStep && (
-                <>
-                  <p className="settings-flow-kicker">Connect Echo Memory</p>
-                  <h3 className="settings-flow-title">Yours by default.</h3>
-                  <p className="settings-flow-line">Your memories, your call.</p>
-
-                  <ul className="settings-flow-values">
-                    <li>
-                      <span>100% private</span>
-                      <strong>AES-256 encryption before sync.</strong>
-                    </li>
-                    <li>
-                      <span>All memories in one account</span>
-                      <strong className="settings-platform-icons" aria-label="Supported AI tools">
-                        {ECHO_PLATFORM_ICONS.slice(0, 5).map((platform) => (
-                          <span key={platform.label} className="settings-platform-icon" title={platform.label}>
-                            <img src={platform.src} alt="" aria-hidden="true" />
-                          </span>
-                        ))}
-                      </strong>
-                    </li>
-                    <li>
-                      <span>Share and meet friends</span>
-                      <strong>Community-ready when you choose.</strong>
-                    </li>
-                  </ul>
-
-                  <fieldset className="settings-mode-picker">
-                    <div className="settings-mode-picker__legend">
-                      <span>Choose a protection mode</span>
-                      <span className="settings-pill settings-pill--ok">Protected</span>
-                    </div>
-                    <div className="settings-mode-grid">
-                      <label className="settings-mode-card settings-mode-card--regular">
-                        <input
-                          type="radio"
-                          name="privacy-mode"
-                          value="standard"
-                          checked={encryptionMode === 'standard'}
-                          onChange={() => onEncryptionModeChange?.('standard')}
-                        />
-                        <span className="settings-mode-card__top">
-                          <span>Regular</span>
-                          <span className="settings-radio-mark" aria-hidden="true" />
-                        </span>
-                        <small>Fast sync, full search, and Echo-managed encryption.</small>
-                        <em>Quick start</em>
-                      </label>
-                      <label className="settings-mode-card settings-mode-card--e2ee">
-                        <input
-                          type="radio"
-                          name="privacy-mode"
-                          value="maximum"
-                          checked={encryptionMode !== 'standard'}
-                          onChange={() => onEncryptionModeChange?.('maximum')}
-                        />
-                        <span className="settings-mode-card__top">
-                          <span>End-to-end</span>
-                          <span className="settings-radio-mark" aria-hidden="true" />
-                        </span>
-                        <small>AES-256 encryption before sync. Only this device holds the key.</small>
-                        <em>Free forever for beta users</em>
-                      </label>
-                    </div>
-                  </fieldset>
-
-                  <div className="settings-email-field">
-                    <p className="settings-terms">
-                      By continuing, you agree to Echo's{' '}
-                      <a href="https://www.iditor.com/terms-of-use" target="_blank" rel="noopener noreferrer">
-                        Terms of Use
-                      </a>.
-                    </p>
-                    <div className="settings-email-row settings-flow-actions">
-                      <input
-                        type="email"
-                        className="settings-input"
-                        value={connectEmail || ''}
-                        placeholder="Your email"
-                        autoComplete="email"
-                        aria-label="Your email"
-                        disabled={emailConnectState === 'sending'}
-                        onChange={(e) => onConnectEmailChange?.(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter' && connectEmail) onSendOtp?.(); }}
-                      />
-                      <button
-                        type="button"
-                        className="settings-primary settings-send"
-                        disabled={emailConnectState === 'sending' || !connectEmail}
-                        onClick={onSendOtp}
-                      >
-                        {emailConnectState === 'sending' ? 'Sending…' : 'Continue'}
-                      </button>
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {isOtpStep && (
-                <>
-                  <p className="settings-flow-kicker">Verify email</p>
-                  <h3 className="settings-flow-title">Check your email.</h3>
-                  <div className="settings-otp">
-                    <div className="settings-otp__head">
-                      <span className="settings-otp__title">Code</span>
-                      <p className="settings-otp__label">
-                        Sent to <strong>{connectEmail}</strong>
-                      </p>
-                    </div>
-                    <div className="settings-otp__row">
-                      <div className="settings-otp__grid" onPaste={onOtpPaste}>
-                        {otpDigits?.map((digit, index) => (
-                          <input
-                            key={`otp-${index}`}
-                            ref={(node) => { if (otpInputRefs?.current) otpInputRefs.current[index] = node; }}
-                            className="settings-otp__input"
-                            type="text"
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            autoComplete={index === 0 ? 'one-time-code' : 'off'}
-                            maxLength={1}
-                            value={digit}
-                            disabled={emailConnectState === 'verifying'}
-                            onChange={(e) => onOtpDigitChange?.(index, e.target.value)}
-                            onKeyDown={(e) => onOtpKeyDown?.(index, e)}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      className="settings-primary settings-otp__verify"
-                      disabled={emailConnectState === 'verifying' || (otpValue?.length ?? 0) < (otpLength ?? 6)}
-                      onClick={onVerifyOtp}
-                    >
-                      {emailConnectState === 'verifying' ? 'Verifying…' : 'Verify'}
-                    </button>
-                    <div className="settings-otp__actions">
-                      {resendCountdown > 0 ? (
-                        <span className="settings-hint">Resend in {resendCountdown}s</span>
-                      ) : (
-                        <button type="button" className="settings-linkbtn" onClick={onSendOtp}>Resend code</button>
-                      )}
-                      <button type="button" className="settings-linkbtn" onClick={onResetQuickConnect}>
-                        Use another email
-                      </button>
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {isPinStep && (
-                <>
-                  <h3 className="settings-flow-title">Set your PIN.</h3>
-                  <div className="settings-pin-card">
-                    <label className="settings-pin-label">Enter {pinLength || 5} numbers</label>
-                    <div className="settings-pin-row" onPaste={(e) => onPinPaste?.('primary', e)}>
-                      {pinDigits?.map((digit, index) => (
-                        <input
-                          key={`pin-${index}`}
-                          ref={(node) => { if (pinInputRefs?.current) pinInputRefs.current[index] = node; }}
-                          className="settings-pin-input"
-                          type="password"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          autoComplete="new-password"
-                          maxLength={1}
-                          aria-label={`PIN digit ${index + 1}`}
-                          value={digit}
-                          disabled={emailConnectState === 'setting_encryption'}
-                          onChange={(e) => onPinDigitChange?.('primary', index, e.target.value)}
-                          onKeyDown={(e) => onPinKeyDown?.('primary', index, e)}
-                        />
-                      ))}
-                    </div>
-                    <label className="settings-pin-label">Enter them again</label>
-                    <div className="settings-pin-row" onPaste={(e) => onPinPaste?.('confirm', e)}>
-                      {pinConfirmDigits?.map((digit, index) => (
-                        <input
-                          key={`pin-confirm-${index}`}
-                          ref={(node) => { if (pinConfirmInputRefs?.current) pinConfirmInputRefs.current[index] = node; }}
-                          className="settings-pin-input"
-                          type="password"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          autoComplete="new-password"
-                          maxLength={1}
-                          aria-label={`Confirm PIN digit ${index + 1}`}
-                          value={digit}
-                          disabled={emailConnectState === 'setting_encryption'}
-                          onChange={(e) => onPinDigitChange?.('confirm', index, e.target.value)}
-                          onKeyDown={(e) => onPinKeyDown?.('confirm', index, e)}
-                        />
-                      ))}
-                    </div>
-                    <p className="settings-pin-warning">Write the numbers somewhere safe; recovery will be difficult.</p>
-                  </div>
-                  <div className="settings-flow-actions settings-flow-actions--single">
-                    <button
-                      type="button"
-                      className="settings-primary"
-                      disabled={emailConnectState === 'setting_encryption' || !pinComplete}
-                      onClick={onEncryptionSetup}
-                    >
-                      {emailConnectState === 'setting_encryption' ? 'Locking…' : 'Lock it'}
-                    </button>
-                    <button
-                      type="button"
-                      className="settings-linkbtn settings-flow-secondary"
-                      disabled={emailConnectState === 'setting_encryption'}
-                      onClick={onUseRegularInstead}
-                    >
-                      Use regular instead
-                    </button>
-                  </div>
-                </>
-              )}
-
-              {isDoneStep && (
-                <>
-                  <p className="settings-flow-kicker">OpenClaw connected</p>
-                  <h3 className="settings-flow-title">Locked in.</h3>
-                  <p className="settings-flow-line">Your memories, your call.</p>
-                  <div className="settings-success-card">
-                    <span className="settings-pill settings-pill--ok">
-                      {encryptionMode === 'standard' ? 'Connected' : 'Encrypted'}
-                    </span>
-                    <p>
-                      {encryptionMode === 'standard'
-                        ? 'Regular sync is ready. Echo will manage encryption for this account.'
-                        : 'Your OpenClaw memories will sync end-to-end encrypted. The key is only held in this browser session.'}
-                    </p>
-                  </div>
-                </>
-              )}
-
-              {(connectError || pinError) && (
-                <p className="settings-msg settings-msg--error">{connectError || pinError}</p>
-              )}
-
-              {hasApiKey && !isPinStep && (
-                <div className="settings-connected-actions">
-                  <span>There is already a saved Echo key on this machine.</span>
-                  <button
-                    type="button"
-                    className="settings-disconnect"
-                    disabled={setupSaving || disconnecting}
-                    onClick={onDisconnect}
-                  >
-                    {disconnecting ? 'Clearing…' : 'Clear saved key'}
-                  </button>
-                </div>
-              )}
-            </section>
-          )}
-
+        <div className="settings-body">
           {!showConnect && (
             <section className="settings-hero settings-hero--connected">
               <div className="settings-hero__intro">
@@ -457,48 +375,6 @@ export function SettingsModal({
                   </span>
                 ))}
               </div>
-              {encryptionEnabled && (
-                <div className={`settings-encryption-card ${encryptionUnlocked ? 'settings-encryption-card--unlocked' : ''}`}>
-                  <div className="settings-encryption-card__head">
-                    <span className="settings-eyebrow">End-to-end encryption</span>
-                    <span className={`settings-pill ${encryptionUnlocked ? 'settings-pill--ok' : 'settings-pill--lock'}`}>
-                      {encryptionUnlocked ? 'Unlocked' : 'Locked'}
-                    </span>
-                  </div>
-                  <p>
-                    Sync needs a locally derived key for encrypted accounts. The key is kept in this browser session and is not saved to the plugin config.
-                  </p>
-                  {!encryptionUnlocked && (
-                    <div className="settings-unlock-row">
-                      <input
-                        type="password"
-                        className="settings-input"
-                        value={unlockPassphrase || ''}
-                        placeholder="PIN or passphrase"
-                        autoComplete="current-password"
-                        aria-label="Encryption PIN or passphrase"
-                        disabled={unlockState === 'unlocking' || !encryptionStatus?.salt}
-                        onChange={(e) => onUnlockPassphraseChange?.(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') onUnlockEncryption?.(); }}
-                      />
-                      <button
-                        type="button"
-                        className="settings-primary settings-send"
-                        disabled={unlockState === 'unlocking' || encryptionRequiresUnlock === false || !unlockPassphrase}
-                        onClick={onUnlockEncryption}
-                      >
-                        {unlockState === 'unlocking' ? 'Unlocking…' : 'Unlock'}
-                      </button>
-                    </div>
-                  )}
-                  {unlockError && <p className="settings-msg settings-msg--error">{unlockError}</p>}
-                </div>
-              )}
-              {setupMessage && (
-                <p className={`settings-msg ${setupMessage.ok ? 'settings-msg--ok' : 'settings-msg--error'}`}>
-                  {setupMessage.text}
-                </p>
-              )}
               {hasApiKey && (
                 <div className="settings-connected-actions">
                   <span>Your memories stay local if you disconnect. You can reconnect any time with the same email.</span>

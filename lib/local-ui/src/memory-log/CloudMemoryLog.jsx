@@ -46,6 +46,11 @@ export function CloudMemoryLog({
   countWithSource,
   onRefresh,
   onClose,
+  userLabel,
+  onOpenSettings,
+  encryptionState,
+  onRequestUnlock,
+  onOpenEncryptionSetup,
 }) {
   const [newMemoriesDismissedAt, setNewMemoriesDismissedAt] = useState(readDismissedAt);
 
@@ -81,6 +86,11 @@ export function CloudMemoryLog({
       encryptedHomepageHref={TIMELINE_HREF}
       errorMessage={error}
       onClose={onClose}
+      userLabel={userLabel}
+      onOpenSettings={onOpenSettings}
+      encryptionState={encryptionState}
+      onRequestUnlock={onRequestUnlock}
+      onOpenEncryptionSetup={onOpenEncryptionSetup}
     />
   );
 }
