@@ -310,9 +310,9 @@ export function ProcessingTheater({
           </div>
         )}
 
-        {failed && syncProgress?.recentFileResult?.lastError && (
+        {failed && (syncProgress?.error || syncProgress?.recentFileResult?.lastError) && (
           <div className="pt-error">
-            {syncProgress.recentFileResult.lastError}
+            {syncProgress.error || syncProgress.recentFileResult.lastError}
           </div>
         )}
 

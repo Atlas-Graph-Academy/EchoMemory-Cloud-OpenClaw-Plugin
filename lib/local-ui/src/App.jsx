@@ -99,6 +99,18 @@ function normalizePathKey(rawPath) {
 }
 
 function buildSyncResultState(result) {
+  // Run-level error (e.g. ENCRYPTION_LOCKED, missing key, scan failure):
+  // sync.js returns the state with `error` set and `run_results: []`. The
+  // per-file summary is all zeros, so without this branch the UI silently
+  // shows "Sync complete" while nothing actually happened.
+  if (result?.error) {
+    return {
+      ok: false,
+      msg: String(result.error),
+      errorCode: result?.error_code || null,
+      failed: [],
+    };
+  }
   const summary = result?.summary || {};
   const runResults = Array.isArray(result?.run_results) ? result.run_results : [];
   const failed = runResults.filter((item) => item?.status === 'failed');
@@ -114,7 +126,7 @@ function buildSyncResultState(result) {
   } else if (failed.length > 0) {
     msg = `Partial failure | ${msg}`;
   }
-  return { ok: failed.length === 0, msg, failed };
+  return { ok: failed.length === 0, msg, errorCode: null, failed };
 }
 
 export default function App() {
@@ -710,6 +722,13 @@ export default function App() {
       const result = await triggerSync();
       const nextResult = buildSyncResultState(result);
       setSyncResult(nextResult);
+      // Encryption is enabled but locked → guide the user straight into
+      // the unlock modal instead of leaving them with a stale "Sync failed"
+      // theater and no hint about what to do.
+      if (nextResult.errorCode === 'ENCRYPTION_LOCKED') {
+        setSyncProgress(null);
+        setPassphraseModalMode('unlock');
+      }
       loadSyncStatus();
       loadBackendSources();
       invalidateAndReloadCloud();
@@ -742,6 +761,12 @@ export default function App() {
       const nextResult = buildSyncResultState(result);
       setSyncResult(nextResult);
       setPendingPrivateSync(null);
+      // Same encryption-lock guard as handleSync: pop the unlock modal
+      // when the run bails out because the key isn't cached.
+      if (nextResult.errorCode === 'ENCRYPTION_LOCKED') {
+        setSyncProgress(null);
+        setPassphraseModalMode('unlock');
+      }
       loadSyncStatus();
       loadBackendSources();
       invalidateAndReloadCloud();
