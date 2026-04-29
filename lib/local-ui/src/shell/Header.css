@@ -170,6 +170,25 @@
   gap: var(--echo-sp-1);
 }
 
+.hdr-updates {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--echo-r-pill);
+  border: 1px solid color-mix(in srgb, var(--echo-line-brand) 70%, transparent);
+  background: color-mix(in srgb, var(--echo-paper-white) 88%, var(--echo-glass-bg));
+  color: var(--echo-ink-primary);
+  font-family: var(--echo-font-mono);
+  font-size: var(--echo-t-mono-xs);
+  letter-spacing: var(--echo-ls-wider);
+  text-transform: uppercase;
+  font-weight: 600;
+  cursor: default;
+}
+
+.hdr-updates svg { color: currentColor; }
+
 .conn {
   display: flex;
   align-items: center;

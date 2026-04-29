@@ -10,6 +10,7 @@ export function Header({
   cloudMemoryOpen,
   cloudMemoryCount,
   newMemoryCount,
+  pendingUpdateCount = 0,
   canvasControls,
   onCloudMemoryClick,
   onOpenSettings,
@@ -18,6 +19,7 @@ export function Header({
   const actions = canvasControls?.actions || {};
   const memoryCount = Number.isFinite(Number(cloudMemoryCount)) ? Number(cloudMemoryCount) : 0;
   const freshCount = Number.isFinite(Number(newMemoryCount)) ? Number(newMemoryCount) : 0;
+  const updateCount = Number.isFinite(Number(pendingUpdateCount)) ? Number(pendingUpdateCount) : 0;
   const memoryLabel = isConnected
     ? `${memoryCount.toLocaleString()} ${memoryCount === 1 ? 'memory' : 'memories'}`
     : null;
@@ -108,6 +110,21 @@ export function Header({
         >
           {lastSyncLabel}
         </button>
+
+        {updateCount > 0 && (
+          <span
+            className="hdr-updates"
+            role="status"
+            aria-label={`${updateCount} ${updateCount === 1 ? 'file has' : 'files have'} pending updates`}
+            title="Files marked as private or review have updates. Click each in the directory to see what changed and sync."
+          >
+            <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.2"/>
+              <path d="M6 4v2.5l1.6 1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+            </svg>
+            <span>{updateCount} {updateCount === 1 ? 'update' : 'updates'}</span>
+          </span>
+        )}
 
         {typeof onOpenArchive === 'function' && (
           <button

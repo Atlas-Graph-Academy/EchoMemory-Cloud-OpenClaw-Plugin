@@ -35,6 +35,7 @@ import {
 import { CloudMemoryLog } from './memory-log/CloudMemoryLog';
 import { PassphraseModal } from './encryption/PassphraseModal';
 import { PrivateConfirmModal } from './encryption/PrivateConfirmModal';
+import { FileDiffModal } from './diff/FileDiffModal';
 import { clearCache as clearCloudCache, readCache as readCloudCache, writeCache as writeCloudCache } from './memory-log/cloudCache';
 import '@echomem/memory_log_ui/theme.css';
 import '@echomem/memory_log_ui/styles.css';
@@ -125,6 +126,10 @@ export default function App() {
   // requiresConfirmation. Holds the selected paths and the server's
   // confirmable list so the modal can list which files trip the warning.
   const [pendingPrivateSync, setPendingPrivateSync] = useState(null);
+  // Path of the file currently being viewed in the FileDiffModal. Set when
+  // user opens a file flagged as `needsUserNotice: true` so they can see
+  // exactly which sections changed before pushing the sync.
+  const [diffModalPath, setDiffModalPath] = useState(null);
   // User's choice in the connect modal's mode picker. Lifted from SettingsModal
   // so handleVerifyOtp can branch on it: e2ee → open PassphraseModal in setup
   // mode immediately after a successful OTP. 'regular' → no follow-up (no E2EE).
@@ -470,6 +475,21 @@ export default function App() {
   }, [authStatus?.userId, loadEncryptionState]);
 
   // Derived state
+  // Set of relativePaths the backend flagged as `needsUserNotice: true` —
+  // these files have updates that must NOT auto-sync; user has to click into
+  // them to see what changed and trigger the sync explicitly. Used by the
+  // file-click handler to route to the diff modal instead of the reader.
+  const pendingUpdatePaths = useMemo(() => {
+    const set = new Set();
+    if (syncStatus?.fileStatuses) {
+      for (const status of syncStatus.fileStatuses) {
+        if (status.needsUserNotice) set.add(status.relativePath);
+      }
+    }
+    return set;
+  }, [syncStatus]);
+  const pendingUpdateCount = pendingUpdatePaths.size;
+
   const syncMap = useMemo(() => {
     const next = {};
     if (syncStatus?.fileStatuses) {
@@ -594,6 +614,14 @@ export default function App() {
   // Handlers
   const openReadingFor = useCallback((path, context = null) => {
     if (!path) return;
+    // If this file has a pending update flagged by backend (review/private
+    // files that changed since last sync), route the user into the diff
+    // modal instead of the regular reader. The user explicitly asked: don't
+    // auto-replace, surface the changes, let them confirm via sync.
+    if (pendingUpdatePaths.has(path)) {
+      setDiffModalPath(path);
+      return;
+    }
     setReadingPath(path);
     if (context?.paths?.length) {
       const normalizedPaths = Array.from(new Set(context.paths.filter(Boolean)));
@@ -620,7 +648,7 @@ export default function App() {
         return next;
       });
     });
-  }, [contentMap]);
+  }, [contentMap, pendingUpdatePaths]);
 
   const openReadingPathInGroup = useCallback((path) => {
     openReadingFor(path, readingGroup);
@@ -736,6 +764,16 @@ export default function App() {
   const handleSetupEncryptionFromConfirm = useCallback(() => {
     setPendingPrivateSync(null);
     setPassphraseModalMode('setup');
+  }, []);
+
+  const handleSyncFromDiff = useCallback(async (relativePath) => {
+    if (!relativePath) return;
+    setDiffModalPath(null);
+    await runSyncSelected([relativePath]);
+  }, [runSyncSelected]);
+
+  const handleCloseDiffModal = useCallback(() => {
+    setDiffModalPath(null);
   }, []);
 
   const handleSetupFieldChange = useCallback((key, value) => {
@@ -973,6 +1011,7 @@ export default function App() {
         cloudMemoryOpen={cloudMemoryOpen}
         cloudMemoryCount={cloudMemoryStats.totalCount}
         newMemoryCount={totalStreamedCount}
+        pendingUpdateCount={pendingUpdateCount}
         canvasControls={readingPath ? null : canvasHeaderControls}
         onCloudMemoryClick={() => {
           if (!isConnected) {
@@ -1168,6 +1207,14 @@ export default function App() {
         onCancel={handleCancelPrivateSync}
         onSetupEncryption={derivedEncryptionState === 'off' ? handleSetupEncryptionFromConfirm : null}
         busy={syncing}
+      />
+
+      <FileDiffModal
+        open={diffModalPath !== null}
+        relativePath={diffModalPath}
+        onClose={handleCloseDiffModal}
+        onSync={handleSyncFromDiff}
+        syncing={syncing}
       />
     </div>
   );
