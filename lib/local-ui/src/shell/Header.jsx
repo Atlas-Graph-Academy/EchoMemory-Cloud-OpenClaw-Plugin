@@ -11,6 +11,7 @@ export function Header({
   cloudMemoryCount,
   newMemoryCount,
   pendingUpdateCount = 0,
+  onPendingUpdatesClick,
   canvasControls,
   onCloudMemoryClick,
   onOpenSettings,
@@ -112,18 +113,19 @@ export function Header({
         </button>
 
         {updateCount > 0 && (
-          <span
+          <button
+            type="button"
             className="hdr-updates"
-            role="status"
+            onClick={onPendingUpdatesClick}
             aria-label={`${updateCount} ${updateCount === 1 ? 'file has' : 'files have'} pending updates`}
-            title="Files marked as private or review have updates. Click each in the directory to see what changed and sync."
+            title="Click to review files with pending updates"
           >
             <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
               <circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.2"/>
               <path d="M6 4v2.5l1.6 1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
             </svg>
             <span>{updateCount} {updateCount === 1 ? 'update' : 'updates'}</span>
-          </span>
+          </button>
         )}
 
         {typeof onOpenArchive === 'function' && (

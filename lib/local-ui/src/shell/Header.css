@@ -179,12 +179,28 @@
   border: 1px solid color-mix(in srgb, var(--echo-line-brand) 70%, transparent);
   background: color-mix(in srgb, var(--echo-paper-white) 88%, var(--echo-glass-bg));
   color: var(--echo-ink-primary);
+  font: inherit;
   font-family: var(--echo-font-mono);
   font-size: var(--echo-t-mono-xs);
   letter-spacing: var(--echo-ls-wider);
   text-transform: uppercase;
   font-weight: 600;
-  cursor: default;
+  cursor: pointer;
+  transition:
+    background var(--echo-dur-micro) var(--echo-ease-out),
+    border-color var(--echo-dur-micro) var(--echo-ease-out),
+    transform var(--echo-dur-short) var(--echo-ease-out);
+}
+
+.hdr-updates:hover {
+  background: color-mix(in srgb, var(--echo-paper-white) 78%, var(--echo-glass-bg));
+  border-color: var(--echo-line-brand);
+  transform: translateY(-1px);
+}
+
+.hdr-updates:focus-visible {
+  outline: none;
+  box-shadow: var(--echo-shadow-glass-focus);
 }
 
 .hdr-updates svg { color: currentColor; }

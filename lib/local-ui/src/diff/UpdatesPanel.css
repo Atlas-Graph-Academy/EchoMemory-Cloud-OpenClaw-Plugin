@@ -1,0 +1,177 @@
+.updates-panel-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--echo-z-modal, 9000);
+  background: color-mix(in srgb, var(--echo-ink, #1c1c1c) 32%, transparent);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 80px var(--echo-sp-5) var(--echo-sp-5);
+  -webkit-backdrop-filter: blur(var(--echo-glass-blur));
+  backdrop-filter: blur(var(--echo-glass-blur));
+}
+
+.updates-panel {
+  position: relative;
+  width: 100%;
+  max-width: 560px;
+  max-height: calc(100vh - 120px);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--echo-line-ink);
+  border-radius: var(--echo-r-card);
+  background: var(--echo-paper-white);
+  box-shadow: var(--echo-shadow-pop);
+  overflow: hidden;
+}
+
+.updates-panel__head {
+  position: relative;
+  padding: var(--echo-sp-5) var(--echo-sp-6);
+  border-bottom: 1px solid var(--echo-line);
+  display: flex;
+  flex-direction: column;
+  gap: var(--echo-sp-2);
+}
+
+.updates-panel__close {
+  position: absolute;
+  top: var(--echo-sp-3);
+  right: var(--echo-sp-3);
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--echo-glass-border);
+  border-radius: var(--echo-r-circle);
+  background: var(--echo-glass-bg);
+  color: var(--echo-ink-mute);
+  cursor: pointer;
+}
+
+.updates-panel__close:hover {
+  background: var(--echo-glass-bg-hover);
+  color: var(--echo-ink-text);
+}
+
+.updates-panel__kicker {
+  margin: 0;
+  color: var(--echo-ink-mute);
+  font-size: var(--echo-t-body-sm);
+}
+
+.updates-panel__headline {
+  max-width: 18ch;
+  margin: 0;
+  color: var(--echo-ink-primary);
+  font-family: var(--echo-font-script);
+  font-size: var(--echo-t-h2);
+  font-weight: 600;
+  line-height: var(--echo-lh-tight);
+}
+
+.updates-panel__sub {
+  margin: 0;
+  color: var(--echo-ink-text);
+  font-size: var(--echo-t-body-sm);
+  line-height: var(--echo-lh-relaxed);
+}
+
+.updates-panel__list {
+  flex: 1 1 auto;
+  margin: 0;
+  padding: var(--echo-sp-2);
+  list-style: none;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--echo-sp-1);
+}
+
+.updates-panel__list:empty::before {
+  content: 'You\'re caught up.';
+  display: block;
+  text-align: center;
+  padding: var(--echo-sp-6);
+  color: var(--echo-ink-mute);
+  font-size: var(--echo-t-body-sm);
+}
+
+.updates-panel__row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--echo-sp-3) var(--echo-sp-4);
+  border: 1px solid transparent;
+  border-radius: var(--echo-r-card);
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background var(--echo-dur-micro) var(--echo-ease-out),
+    border-color var(--echo-dur-micro) var(--echo-ease-out);
+}
+
+.updates-panel__row:hover {
+  background: var(--echo-paper-soft);
+  border-color: var(--echo-line);
+}
+
+.updates-panel__row:focus-visible {
+  outline: none;
+  background: var(--echo-paper-soft);
+  border-color: var(--echo-line-brand);
+  box-shadow: var(--echo-shadow-glass-focus);
+}
+
+.updates-panel__row-main {
+  display: flex;
+  align-items: center;
+  gap: var(--echo-sp-2);
+  min-width: 0;
+}
+
+.updates-panel__path {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--echo-font-mono);
+  font-size: var(--echo-t-body-sm);
+  color: var(--echo-ink-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.updates-panel__tag {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: var(--echo-r-pill);
+  border: 1px solid var(--echo-line);
+  font-family: var(--echo-font-mono);
+  font-size: var(--echo-t-mono-xs);
+  letter-spacing: var(--echo-ls-wider);
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--echo-ink-mute);
+}
+
+.updates-panel__tag--secret {
+  color: var(--echo-ink-seal);
+  border-color: color-mix(in srgb, var(--echo-ink-seal) 50%, transparent);
+}
+
+.updates-panel__tag--private {
+  color: var(--echo-ink-primary);
+  border-color: color-mix(in srgb, var(--echo-line-brand) 70%, transparent);
+}
+
+.updates-panel__tag--review {
+  color: color-mix(in srgb, var(--echo-ink-text) 80%, transparent);
+}
+
+.updates-panel__row-sub {
+  font-size: var(--echo-t-body-sm);
+  color: var(--echo-ink-mute);
+}

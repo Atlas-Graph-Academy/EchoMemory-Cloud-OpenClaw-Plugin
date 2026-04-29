@@ -36,6 +36,7 @@ import { CloudMemoryLog } from './memory-log/CloudMemoryLog';
 import { PassphraseModal } from './encryption/PassphraseModal';
 import { PrivateConfirmModal } from './encryption/PrivateConfirmModal';
 import { FileDiffModal } from './diff/FileDiffModal';
+import { UpdatesPanel } from './diff/UpdatesPanel';
 import { clearCache as clearCloudCache, readCache as readCloudCache, writeCache as writeCloudCache } from './memory-log/cloudCache';
 import '@echomem/memory_log_ui/theme.css';
 import '@echomem/memory_log_ui/styles.css';
@@ -130,6 +131,9 @@ export default function App() {
   // user opens a file flagged as `needsUserNotice: true` so they can see
   // exactly which sections changed before pushing the sync.
   const [diffModalPath, setDiffModalPath] = useState(null);
+  // Whether the "X updates" panel (triaged list of files needing review)
+  // is open. Triggered from the header badge.
+  const [updatesPanelOpen, setUpdatesPanelOpen] = useState(false);
   // User's choice in the connect modal's mode picker. Lifted from SettingsModal
   // so handleVerifyOtp can branch on it: e2ee → open PassphraseModal in setup
   // mode immediately after a successful OTP. 'regular' → no follow-up (no E2EE).
@@ -776,6 +780,20 @@ export default function App() {
     setDiffModalPath(null);
   }, []);
 
+  const handleOpenUpdatesPanel = useCallback(() => {
+    setUpdatesPanelOpen(true);
+  }, []);
+
+  const handleCloseUpdatesPanel = useCallback(() => {
+    setUpdatesPanelOpen(false);
+  }, []);
+
+  const handlePickUpdateFile = useCallback((relativePath) => {
+    if (!relativePath) return;
+    setUpdatesPanelOpen(false);
+    setDiffModalPath(relativePath);
+  }, []);
+
   const handleSetupFieldChange = useCallback((key, value) => {
     setSetupDraft((prev) => ({ ...prev, [key]: value }));
   }, []);
@@ -1012,6 +1030,7 @@ export default function App() {
         cloudMemoryCount={cloudMemoryStats.totalCount}
         newMemoryCount={totalStreamedCount}
         pendingUpdateCount={pendingUpdateCount}
+        onPendingUpdatesClick={handleOpenUpdatesPanel}
         canvasControls={readingPath ? null : canvasHeaderControls}
         onCloudMemoryClick={() => {
           if (!isConnected) {
@@ -1215,6 +1234,13 @@ export default function App() {
         onClose={handleCloseDiffModal}
         onSync={handleSyncFromDiff}
         syncing={syncing}
+      />
+
+      <UpdatesPanel
+        open={updatesPanelOpen}
+        fileStatuses={syncStatus?.fileStatuses}
+        onClose={handleCloseUpdatesPanel}
+        onPickFile={handlePickUpdateFile}
       />
     </div>
   );
