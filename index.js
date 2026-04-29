@@ -138,6 +138,7 @@ export default {
       api,
       cfg,
       client,
+      workspaceDir,
       fallbackStateDir: legacyPluginStateDir,
       stableStateDir,
     });

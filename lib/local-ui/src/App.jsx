@@ -34,6 +34,7 @@ import {
 } from './sync/api';
 import { CloudMemoryLog } from './memory-log/CloudMemoryLog';
 import { PassphraseModal } from './encryption/PassphraseModal';
+import { PrivateConfirmModal } from './encryption/PrivateConfirmModal';
 import { clearCache as clearCloudCache, readCache as readCloudCache, writeCache as writeCloudCache } from './memory-log/cloudCache';
 import '@echomem/memory_log_ui/theme.css';
 import '@echomem/memory_log_ui/styles.css';
@@ -120,6 +121,10 @@ export default function App() {
   const [authStatus, setAuthStatus] = useState(null);
   const [encryptionState, setEncryptionState] = useState(null); // { connected, enabled, unlocked, salt, iterations }
   const [passphraseModalMode, setPassphraseModalMode] = useState(null); // null | 'unlock' | 'setup'
+  // Pending private/sensitive sync — set when sync-selected returns 409 with
+  // requiresConfirmation. Holds the selected paths and the server's
+  // confirmable list so the modal can list which files trip the warning.
+  const [pendingPrivateSync, setPendingPrivateSync] = useState(null);
   // User's choice in the connect modal's mode picker. Lifted from SettingsModal
   // so handleVerifyOtp can branch on it: e2ee → open PassphraseModal in setup
   // mode immediately after a successful OTP. 'regular' → no follow-up (no E2EE).
@@ -671,8 +676,13 @@ export default function App() {
     }
   }, [loadBackendSources, invalidateAndReloadCloud, loadSyncStatus]);
 
-  const handleSyncFile = useCallback(async (relativePath) => {
-    if (!relativePath || syncing) return;
+  // Shared core for both single-file and multi-file selected sync. Handles
+  // the 409 requiresConfirmation soft-block: paths flagged private/sensitive
+  // get hoisted into pendingPrivateSync so the PrivateConfirmModal can show,
+  // and the actual upload re-runs after the user confirms.
+  const runSyncSelected = useCallback(async (paths, { confirmPrivate = false } = {}) => {
+    if (!Array.isArray(paths) || paths.length === 0) return;
+    if (syncing) return;
     setCloudMemoryOpen(false);
     setSyncing(true);
     setSyncResult(null);
@@ -680,41 +690,53 @@ export default function App() {
     setStreamedMemories([]);
     setTotalStreamedCount(0);
     try {
-      const result = await triggerSyncSelected([relativePath]);
+      const result = await triggerSyncSelected(paths, { confirmPrivate });
       const nextResult = buildSyncResultState(result);
       setSyncResult(nextResult);
+      setPendingPrivateSync(null);
       loadSyncStatus();
       loadBackendSources();
       invalidateAndReloadCloud();
     } catch (error) {
+      // Server says: these paths are private/sensitive, the user has to
+      // confirm before we extract. Park them and pop the confirm modal.
+      if (error?.status === 409 && error?.payload?.requiresConfirmation) {
+        setPendingPrivateSync({
+          paths,
+          confirmablePaths: error.payload.confirmablePaths || [],
+        });
+        return;
+      }
       setSyncResult({ ok: false, msg: String(error?.message || 'Sync failed') });
     } finally {
       setSyncing(false);
     }
   }, [loadBackendSources, invalidateAndReloadCloud, loadSyncStatus, syncing]);
 
-  const handleSyncSelected = useCallback(async (relativePaths) => {
+  const handleSyncFile = useCallback((relativePath) => {
+    if (!relativePath) return;
+    return runSyncSelected([relativePath]);
+  }, [runSyncSelected]);
+
+  const handleSyncSelected = useCallback((relativePaths) => {
     const paths = Array.isArray(relativePaths) ? relativePaths.filter(Boolean) : [];
-    if (paths.length === 0 || syncing) return;
-    setCloudMemoryOpen(false);
-    setSyncing(true);
-    setSyncResult(null);
-    setSyncProgress(null);
-    setStreamedMemories([]);
-    setTotalStreamedCount(0);
-    try {
-      const result = await triggerSyncSelected(paths);
-      const nextResult = buildSyncResultState(result);
-      setSyncResult(nextResult);
-      loadSyncStatus();
-      loadBackendSources();
-      invalidateAndReloadCloud();
-    } catch (error) {
-      setSyncResult({ ok: false, msg: String(error?.message || 'Sync failed') });
-    } finally {
-      setSyncing(false);
-    }
-  }, [loadBackendSources, invalidateAndReloadCloud, loadSyncStatus, syncing]);
+    return runSyncSelected(paths);
+  }, [runSyncSelected]);
+
+  const handleConfirmPrivateSync = useCallback(() => {
+    const pending = pendingPrivateSync;
+    if (!pending) return;
+    return runSyncSelected(pending.paths, { confirmPrivate: true });
+  }, [pendingPrivateSync, runSyncSelected]);
+
+  const handleCancelPrivateSync = useCallback(() => {
+    setPendingPrivateSync(null);
+  }, []);
+
+  const handleSetupEncryptionFromConfirm = useCallback(() => {
+    setPendingPrivateSync(null);
+    setPassphraseModalMode('setup');
+  }, []);
 
   const handleSetupFieldChange = useCallback((key, value) => {
     setSetupDraft((prev) => ({ ...prev, [key]: value }));
@@ -1136,6 +1158,16 @@ export default function App() {
         mode={passphraseModalMode}
         onSubmit={handlePassphraseSubmit}
         onCancel={() => setPassphraseModalMode(null)}
+      />
+
+      <PrivateConfirmModal
+        open={pendingPrivateSync !== null}
+        encryptionState={derivedEncryptionState}
+        confirmablePaths={pendingPrivateSync?.confirmablePaths || []}
+        onConfirm={handleConfirmPrivateSync}
+        onCancel={handleCancelPrivateSync}
+        onSetupEncryption={derivedEncryptionState === 'off' ? handleSetupEncryptionFromConfirm : null}
+        busy={syncing}
       />
     </div>
   );
