@@ -44,7 +44,6 @@ export function CloudMemoryLog({
   error,
   totalCount,
   countWithSource,
-  onRefresh,
   onClose,
   userLabel,
   onOpenSettings,
@@ -78,7 +77,6 @@ export function CloudMemoryLog({
       hasMore={false}
       totalCount={totalCount}
       countWithSource={countWithSource}
-      onRefresh={onRefresh}
       onLoadMore={() => {}}
       timelineHref={TIMELINE_HREF}
       newMemoriesDismissedAt={newMemoriesDismissedAt}

@@ -608,6 +608,21 @@ export default function App() {
     loadCloudData();
   }, [isConnected, loadCloudData]);
 
+  // Lightweight polling for cross-device freshness while the panel is open.
+  // Local sync events already invalidate + refetch (handleSyncProgress,
+  // handleSyncSelected, handlePassphraseSubmit), but memories created on
+  // *other* devices (Chrome extension, web) wouldn't otherwise show up
+  // until the next manual action. 30s is a fair tradeoff between latency
+  // and chatter — the SWR cache writes overwrite silently, so the only
+  // visible effect is new rows appearing.
+  useEffect(() => {
+    if (!isConnected || !cloudMemoryOpen) return undefined;
+    const intervalId = window.setInterval(() => {
+      loadCloudData({ force: true });
+    }, 30_000);
+    return () => window.clearInterval(intervalId);
+  }, [isConnected, cloudMemoryOpen, loadCloudData]);
+
   const pluginVersion = pluginPkg?.version || '';
   const canTriggerPluginUpdate = Boolean(
     pluginUpdateState
@@ -1085,7 +1100,6 @@ export default function App() {
               error={cloudMemoriesError}
               totalCount={cloudMemoryStats.totalCount}
               countWithSource={cloudMemoryStats.countWithSource}
-              onRefresh={invalidateAndReloadCloud}
               onClose={() => setCloudMemoryOpen(false)}
               userLabel={authStatus?.email || null}
               onOpenSettings={() => setSettingsOpen(true)}
