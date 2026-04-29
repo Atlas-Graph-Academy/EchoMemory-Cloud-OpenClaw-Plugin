@@ -189,8 +189,9 @@
   --echo-z-base:         1;
   --echo-z-raised:       10;
   --echo-z-overlay:      100;
-  --echo-z-modal:        1000;
-  --echo-z-toast:        2000;
+  --echo-z-modal:        9000;   /* matches the var(--echo-z-modal, 9000) fallback used at component sites */
+  --echo-z-toast:        9100;   /* must stay above modals so error toasts never get covered */
+  --echo-z-error:        9200;   /* reserved for un-dismissable error overlays */
 
 }
 

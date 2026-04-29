@@ -459,7 +459,9 @@ a { color: inherit; text-decoration: none; }
   font-family: var(--fu);
   font-size: 13px;
   font-weight: 500;
-  z-index: 70;
+  /* Float above any open modal — error/sync notifications must always be
+     visible to the user, never hidden behind a settings panel. */
+  z-index: var(--echo-z-toast, 9100);
   box-shadow: var(--sh-raise);
   max-width: 80vw;
 }
