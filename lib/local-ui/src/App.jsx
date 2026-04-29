@@ -17,6 +17,7 @@ import {
   fetchCloudMemories,
   fetchCloudSources,
   triggerSync,
+  cancelSync,
   triggerSyncSelected,
   connectSSE,
   fetchSetupStatus,
@@ -455,7 +456,7 @@ export default function App() {
           return;
         }
 
-        if (progress.phase === 'finished') {
+        if (progress.phase === 'finished' || progress.phase === 'stopped') {
           setSyncing(false);
           setCardSyncState((prev) => {
             const next = { ...prev };
@@ -1215,6 +1216,9 @@ export default function App() {
           // user opens the cloud memory panel (see onCloudMemoryClick).
           setSyncProgress(null);
           setStreamedMemories([]);
+        }}
+        onStop={async () => {
+          try { await cancelSync(); } catch { /* server already idle / restarted */ }
         }}
         onOpenTimeline={() => {
           window.open('https://iditor.com/memories/timeline?mode=photo-first', '_blank', 'noopener,noreferrer');

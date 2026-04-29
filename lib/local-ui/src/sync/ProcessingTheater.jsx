@@ -105,12 +105,18 @@ export function ProcessingTheater({
   streamedMemories,
   totalStreamedCount,
   onDismiss,
+  onStop,
   onOpenTimeline,
 }) {
   const phase = syncProgress?.phase || null;
   const active = Boolean(syncProgress);
   const finished = phase === 'finished';
   const failed = phase === 'failed';
+  const stopped = phase === 'stopped';
+  const running = active && !finished && !failed && !stopped;
+
+  const [confirmStopOpen, setConfirmStopOpen] = useState(false);
+  const [stopping, setStopping] = useState(false);
 
   useEffect(() => {
     if (active) {
@@ -123,6 +129,14 @@ export function ProcessingTheater({
     };
   }, [active]);
 
+  // Reset transient stop state once the run actually wraps up.
+  useEffect(() => {
+    if (!running) {
+      setStopping(false);
+      setConfirmStopOpen(false);
+    }
+  }, [running]);
+
   useEffect(() => {
     if (!finished) return;
     const t = setTimeout(() => {
@@ -134,11 +148,14 @@ export function ProcessingTheater({
   useEffect(() => {
     if (!active) return;
     const onKey = (e) => {
-      if (e.key === 'Escape') onDismiss?.();
+      if (e.key === 'Escape') {
+        if (confirmStopOpen) setConfirmStopOpen(false);
+        else onDismiss?.();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [active, onDismiss]);
+  }, [active, onDismiss, confirmStopOpen]);
 
   const recentCards = useMemo(() => {
     const list = Array.isArray(streamedMemories) ? streamedMemories : [];
@@ -149,30 +166,69 @@ export function ProcessingTheater({
 
   const totalFiles = syncProgress?.totalFiles || 0;
   const completedFiles = syncProgress?.completedFiles || 0;
+  const successCount = Array.isArray(syncProgress?.completedFilePaths)
+    ? syncProgress.completedFilePaths.length
+    : 0;
+  const failedCount = Array.isArray(syncProgress?.failedFilePaths)
+    ? syncProgress.failedFilePaths.length
+    : 0;
+  const remainingCount = Math.max(0, totalFiles - completedFiles);
   const currentFile = syncProgress?.currentRelativePath
     || syncProgress?.currentFilePath
     || (Array.isArray(syncProgress?.currentRelativePaths) ? syncProgress.currentRelativePaths[0] : null);
 
-  const statusLine = failed
-    ? 'Sync failed'
-    : finished
-      ? `${totalStreamedCount} memories captured from ${totalFiles} file${totalFiles === 1 ? '' : 's'}`
-      : currentFile
-        ? `Reading ${basename(currentFile)}`
-        : 'Warming up…';
+  const statusLine = stopped
+    ? 'Sync stopped'
+    : failed
+      ? 'Sync failed'
+      : finished
+        ? `${totalStreamedCount} memories captured from ${totalFiles} file${totalFiles === 1 ? '' : 's'}`
+        : stopping
+          ? 'Stopping…'
+          : currentFile
+            ? `Reading ${basename(currentFile)}`
+            : 'Warming up…';
+
+  const handleStopClick = () => setConfirmStopOpen(true);
+  const handleConfirmStop = async () => {
+    setStopping(true);
+    setConfirmStopOpen(false);
+    try {
+      await onStop?.();
+    } catch {
+      // best-effort; server may have already finished
+    }
+  };
+
+  const rootMod = stopped ? 'stopped' : finished ? 'finished' : failed ? 'failed' : 'running';
 
   return (
-    <div className={`pt-root pt-root--${finished ? 'finished' : failed ? 'failed' : 'running'}`}>
+    <div className={`pt-root pt-root--${rootMod}`}>
       <div className="pt-panel" role="status" aria-live="polite">
-        <button
-          type="button"
-          className="pt-close"
-          onClick={() => onDismiss?.()}
-          aria-label="Dismiss"
-          title="Dismiss"
-        >
-          ×
-        </button>
+        <div className="pt-actions">
+          {running && (
+            <button
+              type="button"
+              className="pt-stop"
+              onClick={handleStopClick}
+              disabled={stopping}
+              aria-label="Stop sync"
+              title="Stop sync"
+            >
+              <span className="pt-stop__square" aria-hidden="true" />
+              <span className="pt-stop__label">Stop</span>
+            </button>
+          )}
+          <button
+            type="button"
+            className="pt-close"
+            onClick={() => onDismiss?.()}
+            aria-label="Dismiss"
+            title="Dismiss"
+          >
+            ×
+          </button>
+        </div>
 
         <div className="pt-header">
           <div className="pt-counter-wrap">
@@ -189,18 +245,55 @@ export function ProcessingTheater({
 
         <div className="pt-status">{statusLine}</div>
 
-        <div className={`pt-cards ${recentCards.length === 0 ? 'pt-cards--empty' : ''}`}>
-          {recentCards.length === 0 ? (
-            <div className="pt-empty">Waiting for the first memory…</div>
-          ) : (
-            recentCards.map((m, i) => (
-              <MemoryCard
-                key={`${m?.filePath || 'm'}-${m?.serial ?? i}`}
-                memory={m}
-              />
-            ))
-          )}
-        </div>
+        {!stopped && (
+          <div className={`pt-cards ${recentCards.length === 0 ? 'pt-cards--empty' : ''}`}>
+            {recentCards.length === 0 ? (
+              <div className="pt-empty">Waiting for the first memory…</div>
+            ) : (
+              recentCards.map((m, i) => (
+                <MemoryCard
+                  key={`${m?.filePath || 'm'}-${m?.serial ?? i}`}
+                  memory={m}
+                />
+              ))
+            )}
+          </div>
+        )}
+
+        {stopped && (
+          <div className="pt-stopped-summary">
+            <div className="pt-stopped-row">
+              <span className="pt-stopped-num">{totalStreamedCount}</span>
+              <span className="pt-stopped-label">memories saved</span>
+            </div>
+            <div className="pt-stopped-grid">
+              <div className="pt-stopped-cell">
+                <span className="pt-stopped-cell__num">{successCount}</span>
+                <span className="pt-stopped-cell__label">files synced</span>
+              </div>
+              <div className="pt-stopped-cell">
+                <span className="pt-stopped-cell__num">{failedCount}</span>
+                <span className="pt-stopped-cell__label">failed</span>
+              </div>
+              <div className="pt-stopped-cell">
+                <span className="pt-stopped-cell__num">{remainingCount}</span>
+                <span className="pt-stopped-cell__label">not synced</span>
+              </div>
+            </div>
+            <div className="pt-stopped-note">
+              Saved memories are safe in your cloud. Don't worry about the rest — you can sync them anytime.
+            </div>
+            <div className="pt-summary">
+              <button
+                type="button"
+                className="pt-cta pt-cta--neutral"
+                onClick={() => onDismiss?.()}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        )}
 
         {finished && (
           <div className="pt-summary">
@@ -220,6 +313,33 @@ export function ProcessingTheater({
         {failed && syncProgress?.recentFileResult?.lastError && (
           <div className="pt-error">
             {syncProgress.recentFileResult.lastError}
+          </div>
+        )}
+
+        {confirmStopOpen && (
+          <div className="pt-confirm" role="dialog" aria-modal="true" aria-labelledby="pt-confirm-title">
+            <div className="pt-confirm__panel">
+              <div className="pt-confirm__title" id="pt-confirm-title">Stop syncing?</div>
+              <div className="pt-confirm__body">
+                Memories already saved will stay safe in your cloud. Files still in queue won't be uploaded — you can sync them anytime later.
+              </div>
+              <div className="pt-confirm__actions">
+                <button
+                  type="button"
+                  className="pt-confirm__btn pt-confirm__btn--ghost"
+                  onClick={() => setConfirmStopOpen(false)}
+                >
+                  Keep syncing
+                </button>
+                <button
+                  type="button"
+                  className="pt-confirm__btn pt-confirm__btn--danger"
+                  onClick={handleConfirmStop}
+                >
+                  Yes, stop
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
