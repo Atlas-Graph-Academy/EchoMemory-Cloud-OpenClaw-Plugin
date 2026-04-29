@@ -147,6 +147,137 @@
   cursor: not-allowed;
 }
 
+/* Phrase mode — single text field for users who want a longer passphrase */
+.pin-passphrase-input {
+  width: 100%;
+  height: 56px;
+  padding: 0 var(--echo-sp-5);
+  text-align: center;
+  font-family: var(--echo-font-mono);
+  font-size: var(--echo-t-body);
+  letter-spacing: var(--echo-ls-wide);
+  color: var(--echo-ink-text);
+  background: var(--echo-glass-bg);
+  -webkit-backdrop-filter: blur(var(--echo-glass-blur)) saturate(165%);
+  backdrop-filter: blur(var(--echo-glass-blur)) saturate(165%);
+  border: 1px solid var(--echo-line-brand);
+  border-radius: var(--echo-r-pill);
+  outline: none;
+  box-shadow: var(--echo-shadow-glass);
+  transition:
+    background var(--echo-dur-micro) var(--echo-ease-out),
+    box-shadow var(--echo-dur-short) var(--echo-ease-out);
+}
+
+.pin-passphrase-input::placeholder {
+  font-family: var(--echo-font-body);
+  letter-spacing: var(--echo-ls-snug);
+  color: var(--echo-ink-faint);
+}
+
+.pin-passphrase-input:focus {
+  background: var(--echo-glass-bg-hover);
+  box-shadow: var(--echo-shadow-glass-focus);
+}
+
+.pin-passphrase-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Hint — two voices: mono row gives the rule, Caveat row gives the
+   guidance. No "no spaces" scolding. */
+.pin-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-top: var(--echo-sp-4);
+}
+
+.pin-hint__mono {
+  font-family: var(--echo-font-mono);
+  font-size: var(--echo-t-mono-xs);
+  color: var(--echo-ink-mute);
+  letter-spacing: var(--echo-ls-wide);
+  text-transform: uppercase;
+}
+
+.pin-hint__script {
+  font-family: var(--echo-font-script);
+  font-size: var(--echo-t-body-lg);
+  font-weight: 600;
+  color: var(--echo-ink-primary);
+  line-height: var(--echo-lh-tight);
+  transform: rotate(-1deg);
+}
+
+/* Mode toggle — slots ↔ longer phrase. Underlined link, brand color. */
+.pin-mode-switch {
+  display: block;
+  width: fit-content;
+  margin: var(--echo-sp-4) auto 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--echo-ink-primary);
+  font-family: var(--echo-font-body);
+  font-size: var(--echo-t-body-sm);
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-color: var(--echo-line-brand);
+  text-underline-offset: 3px;
+  cursor: pointer;
+  transition: text-decoration-color var(--echo-dur-short) var(--echo-ease-out);
+}
+
+.pin-mode-switch:hover:not(:disabled) {
+  text-decoration-color: var(--echo-ink-primary);
+}
+
+.pin-mode-switch:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Show / Hide eye toggle — confirm + unlock screens only */
+.pin-eye-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  margin: var(--echo-sp-3) auto 0;
+  padding: 4px var(--echo-sp-3);
+  border: 0;
+  border-radius: var(--echo-r-pill);
+  background: transparent;
+  color: var(--echo-ink-mute);
+  font-family: var(--echo-font-mono);
+  font-size: var(--echo-t-mono-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--echo-ls-wider);
+  cursor: pointer;
+  transition:
+    color var(--echo-dur-short) var(--echo-ease-out),
+    background var(--echo-dur-short) var(--echo-ease-out);
+}
+
+.pin-eye-toggle:hover:not(:disabled) {
+  color: var(--echo-ink-text);
+  background: var(--echo-paper-soft);
+}
+
+.pin-eye-toggle:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.pin-eye-toggle svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
 .pin-warning {
   max-width: 440px;
   margin: var(--echo-sp-5) auto 0;
