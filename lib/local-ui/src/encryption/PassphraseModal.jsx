@@ -26,7 +26,7 @@ function pinToString(pin) {
  * `onSubmit(passphrase)` should resolve on success or throw with a user-facing
  * message on failure. The modal owns its own error/loading state.
  */
-export function PassphraseModal({ open, mode, onSubmit, onCancel }) {
+export function PassphraseModal({ open, mode, onSubmit, onCancel, onSkip }) {
   const [pin, setPin] = useState(EMPTY_PIN);
   const [pinConfirm, setPinConfirm] = useState(EMPTY_PIN);
   const [phrase, setPhrase] = useState('');
@@ -403,6 +403,15 @@ export function PassphraseModal({ open, mode, onSubmit, onCancel }) {
               disabled={busy}
             >
               ← Change my passphrase
+            </button>
+          ) : isSetup && onSkip ? (
+            <button
+              type="button"
+              className="pin-modal__back"
+              onClick={onSkip}
+              disabled={busy}
+            >
+              Skip — use Regular Mode
             </button>
           ) : (
             <button

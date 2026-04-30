@@ -567,6 +567,15 @@ export default function App() {
     setPassphraseModalMode('setup');
   }, []);
 
+  // Setup is opt-in, never trapped — Skip closes the modal and drops the
+  // user into Regular mode (no E2EE config touched). Distinct from Cancel
+  // only in labeling: makes the off-ramp obvious so a user who reached
+  // setup via the connect-flow E2EE pick can change their mind.
+  const handleSkipEncryptionSetup = useCallback(() => {
+    setPassphraseModalMode(null);
+    setEncryptionMode('regular');
+  }, []);
+
   const handlePassphraseSubmit = useCallback(async (passphrase) => {
     if (passphraseModalMode === 'setup') {
       await setupEncryption(passphrase);
@@ -896,6 +905,13 @@ export default function App() {
   }, []);
 
   const handleSendOtp = useCallback(async () => {
+    // Defensive guard: state-driven button disable only takes effect after
+    // React commits the next render. Rapid double-clicks (or Enter then
+    // click) can queue two handlers before that lands. Without this bail,
+    // the cloud /api/openclaw/v1/auth/send-otp route accepts both within
+    // its 3-req/min window and Supabase issues two OTPs — the second
+    // invalidates the first.
+    if (emailConnectState === 'sending' || emailConnectState === 'verifying') return;
     const email = normalizeEmailValue(connectEmail);
     if (!email) {
       setConnectError('Enter an email address to continue.');
@@ -914,7 +930,7 @@ export default function App() {
       setConnectError(String(error?.message ?? error));
       setEmailConnectState('idle');
     }
-  }, [clearOtpDigits, connectEmail, focusOtpInput]);
+  }, [clearOtpDigits, connectEmail, emailConnectState, focusOtpInput]);
 
   const handleVerifyOtp = useCallback(async () => {
     const email = normalizeEmailValue(connectEmail);
@@ -939,9 +955,22 @@ export default function App() {
       // PassphraseModal becomes the focused step. Regular → connect ends here
       // with no encryption config touched (server stays on Echo-managed
       // encryption; no user_encryption_config row gets created without a PIN).
+      //
+      // Returning users may already have encryption enabled on this account
+      // (set up from another device or a prior session). Calling
+      // /api/encryption-setup against an already-enabled account 409s and
+      // strands the modal in setup state with no way out. Probe fresh
+      // encryption state and route to 'unlock' instead — they get to decrypt
+      // their existing memories with the passphrase they already have.
       if (encryptionMode === 'e2ee') {
         setSettingsOpen(false);
-        setPassphraseModalMode('setup');
+        const fresh = await fetchEncryptionState().catch(() => null);
+        if (fresh) setEncryptionState(fresh);
+        if (fresh?.enabled) {
+          if (!fresh.unlocked) setPassphraseModalMode('unlock');
+        } else {
+          setPassphraseModalMode('setup');
+        }
       }
     } catch (error) {
       setConnectError(String(error?.message ?? error));
@@ -1259,6 +1288,7 @@ export default function App() {
         mode={passphraseModalMode}
         onSubmit={handlePassphraseSubmit}
         onCancel={() => setPassphraseModalMode(null)}
+        onSkip={handleSkipEncryptionSetup}
       />
 
       <PrivateConfirmModal
