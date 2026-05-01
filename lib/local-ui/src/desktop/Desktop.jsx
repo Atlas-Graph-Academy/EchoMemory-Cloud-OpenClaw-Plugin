@@ -143,8 +143,21 @@ function parseStackNum(id) {
   return match ? Number.parseInt(match[1], 10) : 0;
 }
 
+/** Compute the same monthly label that buildInitialStacks would assign,
+ *  given a file's relative path. Returns null for filenames without a
+ *  YYYY-MM prefix (those would have been bucketed as 'misc'). */
+function monthlyLabelFor(relativePath) {
+  const name = String(relativePath || '').split('/').pop() || '';
+  const m = name.match(/^(\d{4})-(\d{2})/);
+  if (!m) return null;
+  const monthIndex = parseInt(m[2], 10) - 1;
+  if (monthIndex < 0 || monthIndex > 11) return null;
+  return `${MONTHS[monthIndex]} ${m[1]}`;
+}
+
 function reconcileSavedLayout(layout, memoryFiles, syncMap) {
   const validPaths = new Set(memoryFiles.map((file) => file.relativePath));
+  const fileByPath = new Map(memoryFiles.map((file) => [file.relativePath, file]));
   const assigned = new Set();
   const stacks = {};
   let maxStackNum = 0;
@@ -170,8 +183,41 @@ function reconcileSavedLayout(layout, memoryFiles, syncMap) {
     maxStackNum = Math.max(maxStackNum, parseStackNum(id));
   }
 
-  const unassignedFiles = memoryFiles.filter((file) => !assigned.has(file.relativePath));
-  const generated = buildInitialStacks(unassignedFiles, syncMap);
+  // Before generating fresh stacks for unassigned files, try to fold each new
+  // file into an existing saved stack of the same monthly bucket + risk. This
+  // is what stops the canvas from accumulating duplicate "Apr 2026 (1)" piles
+  // every time a daily note lands — without it, reconciliation always builds
+  // a brand-new stack for any file not already tracked, even if a perfect
+  // home for it already exists.
+  const stillUnassigned = [];
+  for (const file of memoryFiles) {
+    if (assigned.has(file.relativePath)) continue;
+    const label = monthlyLabelFor(file.relativePath);
+    if (!label) {
+      stillUnassigned.push(file);
+      continue;
+    }
+    const fileRisk = classify(file, syncMap?.[file.relativePath] || null);
+    let mergedInto = null;
+    for (const stack of Object.values(stacks)) {
+      if (stack.name !== label) continue;
+      const firstCardId = stack.cardIds[0];
+      const firstFile = firstCardId ? fileByPath.get(firstCardId) : null;
+      if (!firstFile) continue;
+      const stackRisk = classify(firstFile, syncMap?.[firstCardId] || null);
+      if (stackRisk !== fileRisk) continue;
+      stack.cardIds.push(file.relativePath);
+      mergedInto = stack;
+      break;
+    }
+    if (mergedInto) {
+      assigned.add(file.relativePath);
+    } else {
+      stillUnassigned.push(file);
+    }
+  }
+
+  const generated = buildInitialStacks(stillUnassigned, syncMap);
   for (const stack of Object.values(generated.stacks)) {
     let id = stack.id;
     while (stacks[id]) {
@@ -265,7 +311,11 @@ const StackView = memo(function StackView({
 
   const total = stack.cardIds.length;
   const extra = Math.min(Math.max(0, total - VISIBLE_LAYERS), 16);
-  const showHead = total > 1 || stack.name;
+  // Hide the pile chrome (head bar with handle, title, count) on solo cards.
+  // We used to show it whenever a `name` was present, but reconcileSavedLayout
+  // gives every monthly bucket an auto label like "Apr 2026" — which then
+  // looks like a pile of one even if only one file lives in that bucket.
+  const showHead = total > 1;
   const isHov = isHovered && !isHoverSuppressed;
   const mul = isHov ? 1.8 : 1;
   const lift = isHov ? -4 : 0;
