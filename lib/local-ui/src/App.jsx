@@ -1289,6 +1289,7 @@ export default function App() {
         onSubmit={handlePassphraseSubmit}
         onCancel={() => setPassphraseModalMode(null)}
         onSkip={handleSkipEncryptionSetup}
+        existingCloudCount={cloudMemoryStats.totalCount || 0}
       />
 
       <PrivateConfirmModal

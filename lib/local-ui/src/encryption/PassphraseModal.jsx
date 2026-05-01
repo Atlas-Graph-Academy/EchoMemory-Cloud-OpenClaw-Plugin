@@ -26,7 +26,7 @@ function pinToString(pin) {
  * `onSubmit(passphrase)` should resolve on success or throw with a user-facing
  * message on failure. The modal owns its own error/loading state.
  */
-export function PassphraseModal({ open, mode, onSubmit, onCancel, onSkip }) {
+export function PassphraseModal({ open, mode, onSubmit, onCancel, onSkip, existingCloudCount = 0 }) {
   const [pin, setPin] = useState(EMPTY_PIN);
   const [pinConfirm, setPinConfirm] = useState(EMPTY_PIN);
   const [phrase, setPhrase] = useState('');
@@ -379,6 +379,18 @@ export function PassphraseModal({ open, mode, onSubmit, onCancel, onSkip }) {
           {isSetup && !showingConfirm && (
             <p className="pin-warning">
               Save this passphrase somewhere safe. If you lose it, no one &mdash; not even Echo &mdash; can recover your encrypted memories.
+            </p>
+          )}
+
+          {/* Scope disclaimer — only meaningful when the account already has
+              memories on Echo Cloud. E2EE setup writes a config row but does
+              not retroactively re-encrypt the user's existing rows; only
+              future syncs go through the encryption path. Without telling the
+              user this, "Set up E2EE" reads as "everything is now encrypted",
+              which would be wrong. */}
+          {isSetup && !showingConfirm && existingCloudCount > 0 && (
+            <p className="pin-warning">
+              This protects memories synced from now on. Your {existingCloudCount.toLocaleString('en-US')} memories already on Echo Cloud were uploaded before encryption and won&rsquo;t be re-encrypted.
             </p>
           )}
 
